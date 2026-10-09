@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    tags: ["v*"]
+    tags: ["v*", "!v0.0.0-dev"]
   # タグを push できない環境からでもリリースできるよう、手動実行ではタグを作成する
   workflow_dispatch:
     inputs:

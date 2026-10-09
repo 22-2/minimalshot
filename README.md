@@ -83,7 +83,18 @@ UI の文言は `src/locales/ja.json` にまとめ、Rust 側（トレイメニ�
 
 ## リリース
 
-`v` で始まるタグを push するか、Release ワークフローを `version` 付きで手動実行すると、Windows 用の単体 exe を GitHub Releases に公開します。CI は main へのマージ時に済んでいる前提で、リリースではビルドと公開だけを行います。
+### 開発版（develop の更新ごと）
+
+`develop` に push すると CI が走り、すべて成功したコミットを Development release ワークフローがビルドして公開します。バージョン番号の更新や手動リリース操作は不要です。
+
+- [開発版をダウンロード](https://github.com/22-2/minimalshot/releases/download/v0.0.0-dev/MinimalShot_dev_x64.exe)
+- [開発版の詳細・ビルド元コミット](https://github.com/22-2/minimalshot/releases/tag/v0.0.0-dev)
+
+固定の `v0.0.0-dev` タグと添付 exe を更新するため、配布 URL は変わりません。公開前に develop が先へ進んでいた場合は古いビルドの公開を省き、次の CI 成功を待ちます。CI が失敗した場合は前回の開発版が残ります。
+
+### バージョン付きリリース
+
+`v` で始まるタグ（開発版専用の `v0.0.0-dev` を除く）を push するか、Release ワークフローを `version` 付きで手動実行すると、Windows 用の単体 exe を GitHub Releases に公開します。CI は main へのマージ時に済んでいる前提で、リリースではビルドと公開だけを行います。通常のリリースとタグは残るため、以前のバージョンへ戻せます。
 
 ## ロードマップ
 

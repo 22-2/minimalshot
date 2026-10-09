@@ -1,0 +1,91 @@
+name: Development release
+
+on:
+  workflow_run:
+    workflows: [CI]
+    branches: [develop]
+    types: [completed]
+
+permissions:
+  contents: read
+
+# 公開途中のキャンセルを避ける。後続の更新があれば、古いコミットの公開は直前に省く。
+concurrency:
+  group: development-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and update development exe
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: v0.0.0-dev
+      BUILD_SHA: ${{ github.event.workflow_run.head_sha }}
+      CI_URL: ${{ github.event.workflow_run.html_url }}
+    steps:
+      # workflow_run の GITHUB_SHA は既定ブランチなので、CI を通った SHA を明示する。
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          shared-key: release
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm tauri build --no-bundle
+      - name: Update development release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          current_sha="$(git ls-remote origin refs/heads/develop | cut -f1)"
+          if [[ "$current_sha" != "$BUILD_SHA" ]]; then
+            echo "develop has advanced; skip publishing this older build."
+            exit 0
+          fi
+
+          asset="MinimalShot_dev_x64.exe"
+          cp src-tauri/target/release/minimalshot.exe "$asset"
+          notes="$RUNNER_TEMP/development-release-notes.md"
+          cat > "$notes" <<EOF
+          develop の更新後、CI がすべて成功した版を自動公開しています。
+          このページと実行ファイルは次回の公開時に更新されます。
+
+          - コミット: [$BUILD_SHA](https://github.com/$GITHUB_REPOSITORY/commit/$BUILD_SHA)
+          - CI: $CI_URL
+          - ビルド: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+          - 更新日時: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+
+          Windows 用の単体 exe です。インストール不要で起動できます（WebView2 ランタイムが必要です）。
+          EOF
+
+          if gh release view "$VERSION" > /dev/null 2>&1; then
+            # 移動するのは開発版専用タグだけ。通常のバージョン付きタグは保持する。
+            git tag -f "$VERSION" "$BUILD_SHA"
+            git push --force origin "refs/tags/$VERSION"
+            gh release upload "$VERSION" "$asset" --clobber
+            gh release edit "$VERSION" \
+              --target "$BUILD_SHA" \
+              --title "MinimalShot 開発版" \
+              --notes-file "$notes" \
+              --prerelease --latest=false
+          else
+            gh release create "$VERSION" "$asset" \
+              --target "$BUILD_SHA" \
+              --title "MinimalShot 開発版" \
+              --notes-file "$notes" \
+              --prerelease --latest=false
+          fi
