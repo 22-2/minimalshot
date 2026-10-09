@@ -52,6 +52,7 @@ export const api = {
   showWindow: (session?: number) => invoke<void>("show_window", { session: session ?? null }),
 
   regionSession: () => invoke<number | null>("region_session"),
+  prepareRegion: () => invoke<{ width: number; height: number; renderWhileHidden: boolean }>("prepare_region"),
   regionPng: (session: number) => invoke<BinaryPayload>("region_png", { session }).then(toBytes),
   finishRegion: (rect: Rect, session: number) => invoke<void>("finish_region", { rect, session }),
   cancelRegion: () => invoke<void>("cancel_region"),

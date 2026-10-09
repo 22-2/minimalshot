@@ -91,6 +91,7 @@ export async function installTauriMock(page: Page, options: MockOptions) {
         });
       },
       region_session: () => regionSession,
+      prepare_region: () => ({ width: window.innerWidth, height: window.innerHeight, renderWhileHidden: true }),
       region_png: () => png(window.innerWidth, window.innerHeight),
       finish_region: () => { regionSession = null; emit("region-reset"); },
       cancel_region: () => { regionSession = null; emit("region-reset"); },

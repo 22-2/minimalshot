@@ -38,9 +38,21 @@ test("prewarmed region stays hidden until a capture is assigned", async ({ page 
   await page.goto("/");
   await expect.poll(() => commandNames(page)).toContain("region_session");
   expect(await presentations(page)).toEqual([]);
+  await expect(page.locator(".region-image")).toHaveJSProperty("naturalWidth", 1280);
   expect(await commandNames(page)).not.toContain("region_png");
   await emit(page, "region-load", 7);
   await expect.poll(() => presentations(page)).toContainEqual({ session: 7, imagesReady: true, settingsReady: false });
+});
+
+test("capture during region preparation keeps the live capture", async ({ page }) => {
+  await installTauriMock(page, { label: "region", regionSession: null, delays: { prepare_region: 300 } });
+  await page.goto("/");
+  await expect.poll(() => commandNames(page)).toContain("prepare_region");
+  await emit(page, "region-load", 8);
+  await expect.poll(() => presentations(page)).toContainEqual({ session: 8, imagesReady: true, settingsReady: false });
+  await expect.poll(() => commandNames(page)).toContain("region_session");
+  expect((await commandNames(page)).filter((cmd) => cmd === "region_png")).toHaveLength(1);
+  await expect(page.locator(".region-image")).toHaveCount(1);
 });
 
 test("viewer assignment during the initial query does not load twice", async ({ page }) => {

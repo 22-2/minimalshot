@@ -8,6 +8,7 @@ mod hotkeys;
 mod i18n;
 mod imaging;
 mod paths;
+mod region_window;
 mod state;
 mod store;
 mod viewer_pool;
@@ -129,7 +130,12 @@ pub fn run() {
                         .lock()
                         .unwrap()
                         .take();
-                    report(window.hide().map_err(Into::into));
+                    if let Some(region) = window
+                        .app_handle()
+                        .get_webview_window(windows::REGION_LABEL)
+                    {
+                        report(region_window::hide(&region));
+                    }
                     report(window.emit("region-reset", ()).map_err(Into::into));
                 }
             }
@@ -169,6 +175,7 @@ pub fn run() {
             commands::open_settings,
             commands::show_window,
             commands::region_session,
+            commands::prepare_region,
             commands::region_png,
             commands::finish_region,
             commands::cancel_region,

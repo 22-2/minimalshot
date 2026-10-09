@@ -41,6 +41,18 @@ unsafe extern "system" {
     fn GetAncestor(window: isize, flags: u32) -> isize;
     fn GetWindowRect(window: isize, rect: *mut Rect) -> i32;
     fn GetClassNameW(window: isize, name: *mut u16, length: i32) -> i32;
+    fn GetForegroundWindow() -> *mut std::ffi::c_void;
+}
+
+#[link(name = "dwmapi")]
+unsafe extern "system" {
+    fn DwmGetWindowAttribute(window: isize, attribute: u32, value: *mut u32, size: u32) -> i32;
+}
+
+fn is_cloaked(window: isize) -> bool {
+    let mut cloaked = 0;
+    let result = unsafe { DwmGetWindowAttribute(window, 14, &mut cloaked, 4) };
+    result >= 0 && cloaked != 0
 }
 
 unsafe extern "system" fn on_show(
@@ -54,6 +66,9 @@ unsafe extern "system" fn on_show(
 ) {
     // 子要素のアクセシビリティイベントや0サイズの内部窓は表示として数えない。
     if object != 0 || child != 0 || unsafe { GetAncestor(window, 2) } != window {
+        return;
+    }
+    if is_cloaked(window) {
         return;
     }
     let mut rect = Rect::default();
@@ -89,6 +104,36 @@ impl Drop for ShowHook {
 struct FrontendState {
     ready: Mutex<HashSet<String>>,
     shown: Mutex<HashSet<String>>,
+    region_shows: Mutex<Vec<u32>>,
+    region_started: Mutex<Option<Instant>>,
+    region_frames: Mutex<Vec<u32>>,
+}
+
+#[tauri::command]
+fn region_frame(app: tauri::AppHandle, session: u32) {
+    let frontend = app.state::<Arc<FrontendState>>();
+    eprintln!(
+        "region {session}: two animation frames at {:?}",
+        frontend.region_started.lock().unwrap().unwrap().elapsed()
+    );
+    frontend.region_frames.lock().unwrap().push(session);
+}
+
+#[tauri::command]
+async fn region_png(
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+    session: u32,
+) -> crate::error::AppResult<tauri::ipc::Response> {
+    let frontend = app.state::<Arc<FrontendState>>();
+    let started = Instant::now();
+    eprintln!(
+        "region {session}: PNG requested at {:?}",
+        frontend.region_started.lock().unwrap().unwrap().elapsed()
+    );
+    let response = commands::region_png(state, session).await;
+    eprintln!("region {session}: PNG encoded in {:?}", started.elapsed());
+    response
 }
 
 #[tauri::command]
@@ -120,7 +165,17 @@ fn show_window(
     session: Option<u32>,
 ) -> crate::error::AppResult<()> {
     commands::show_window(window.clone(), state, session)?;
-    if window.is_visible()? {
+    if window.is_visible()? && !is_cloaked(window.hwnd()?.0 as isize) {
+        if window.label() == windows::REGION_LABEL {
+            let frontend = window.state::<Arc<FrontendState>>();
+            eprintln!(
+                "region {session:?}: shown at {:?}",
+                frontend.region_started.lock().unwrap().unwrap().elapsed()
+            );
+            frontend.region_shows.lock().unwrap().push(session.unwrap());
+            window.eval(format!("requestAnimationFrame(() => requestAnimationFrame(() => window.__TAURI_INTERNALS__.invoke('region_frame', {{session: {}}})))", session.unwrap()))?;
+            return Ok(());
+        }
         window
             .state::<Arc<FrontendState>>()
             .shown
@@ -140,7 +195,7 @@ fn wait_for(description: &str, condition: impl Fn() -> bool) {
 }
 
 #[test]
-#[ignore = "needs Windows desktop and pnpm dev on localhost:1420; opens synthetic image windows"]
+#[ignore = "needs Windows desktop and pnpm dev on localhost:1420; opens region overlays and synthetic image windows"]
 fn prewarmed_windows_display_captures_before_auto_save() {
     STARTUP_SHOWS.lock().unwrap().clear();
     // 自プロセスの EVENT_OBJECT_SHOW を起動前から監視し、一瞬だけ出る窓も検出する。
@@ -173,9 +228,11 @@ fn prewarmed_windows_display_captures_before_auto_save() {
             region_session,
             show_window,
             commands::get_config,
+            commands::prepare_region,
             commands::shot_info,
             commands::shot_png,
-            commands::region_png,
+            region_png,
+            region_frame,
         ])
         .build(context)
         .unwrap();
@@ -183,6 +240,7 @@ fn prewarmed_windows_display_captures_before_auto_save() {
     let worker = std::thread::spawn(move || {
         // 途中の assert 失敗でもテスト用イベントループを終了する。
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let foreground = unsafe { GetForegroundWindow() };
             windows::prepare_region(&handle).unwrap();
             windows::prepare_viewer(&handle).unwrap();
             wait_for("prewarmed frontends", || {
@@ -191,7 +249,13 @@ fn prewarmed_windows_display_captures_before_auto_save() {
             assert!(handle
                 .webview_windows()
                 .values()
-                .all(|window| !window.is_visible().unwrap()));
+                .all(|window| !window.is_visible().unwrap()
+                    || is_cloaked(window.hwnd().unwrap().0 as isize)));
+            assert_eq!(
+                unsafe { GetForegroundWindow() },
+                foreground,
+                "preparation stole focus"
+            );
             assert!(frontend.shown.lock().unwrap().is_empty());
             let startup = STARTUP_SHOWS.lock().unwrap().clone();
             assert!(startup.is_empty(), "unexpected startup window: {startup:?}");
@@ -204,6 +268,30 @@ fn prewarmed_windows_display_captures_before_auto_save() {
                 scale: monitor.scale_factor(),
             };
             let state = handle.state::<AppState>();
+            let region = handle.get_webview_window(windows::REGION_LABEL).unwrap();
+            let region_handle = region.hwnd().unwrap();
+            for count in 1..=2 {
+                *frontend.region_started.lock().unwrap() = Some(Instant::now());
+                actions::start_capture(&handle, crate::state::CaptureKind::Region).unwrap();
+                eprintln!(
+                    "region {count}: capture and configure returned at {:?}",
+                    frontend.region_started.lock().unwrap().unwrap().elapsed()
+                );
+                wait_for("region presentation", || {
+                    frontend.region_shows.lock().unwrap().len() == count
+                });
+                wait_for("region frames", || {
+                    frontend.region_frames.lock().unwrap().len() == count
+                });
+                assert_eq!(region.hwnd().unwrap(), region_handle);
+                commands::cancel_region(region.clone(), handle.state()).unwrap();
+                assert!(is_cloaked(region_handle.0 as isize));
+                assert_ne!(
+                    unsafe { GetForegroundWindow() },
+                    region_handle.0,
+                    "cancel left the invisible region focused"
+                );
+            }
             // 保存先を意図的に待たせても、2枚とも先に表示できることを確認する。
             let saving = state.save_lock.lock().unwrap();
             for count in 1..=2 {
@@ -234,7 +322,7 @@ fn prewarmed_windows_display_captures_before_auto_save() {
                     frontend.shown.lock().unwrap().len() == count
                 });
                 eprintln!(
-                    "prewarmed capture {count}: {:?} until show (debug WebView2)",
+                    "prewarmed capture {count}: {:?} until show (WebView2)",
                     started.elapsed()
                 );
                 assert!(state

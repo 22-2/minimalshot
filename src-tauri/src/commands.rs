@@ -170,6 +170,31 @@ pub fn region_session(state: State<'_, AppState>) -> Option<u32> {
         .map(|pending| pending.id)
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RegionPreparation {
+    width: u32,
+    height: u32,
+    render_while_hidden: bool,
+}
+
+#[tauri::command]
+pub async fn prepare_region(window: WebviewWindow) -> AppResult<RegionPreparation> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = window.state::<AppState>();
+        // ページが窓の配置より先に起動しても、実寸が確定してから事前描画する。
+        let _creation = state.region_window_lock.lock().unwrap();
+        let size = window.inner_size()?;
+        Ok(RegionPreparation {
+            width: size.width,
+            height: size.height,
+            render_while_hidden: cfg!(windows),
+        })
+    })
+    .await
+    .map_err(|e| AppError::msg(e.to_string()))?
+}
+
 #[tauri::command]
 pub async fn region_png(state: State<'_, AppState>, session: u32) -> AppResult<Response> {
     let image = {
@@ -195,8 +220,7 @@ pub fn show_window(
         if pending.as_ref().map(|p| p.id) != session || session.is_none() {
             return Ok(());
         }
-        window.show()?;
-        window.set_focus()?;
+        crate::region_window::show(&window)?;
     } else if !window.is_visible()? {
         if window.label().starts_with(VIEWER_PREFIX)
             && state
@@ -264,7 +288,7 @@ pub async fn finish_region(
         }
         pending.take().unwrap().captured
     };
-    window.hide()?;
+    crate::region_window::hide(&window)?;
     window.emit("region-reset", ())?;
     let image = imaging::crop(&captured.image, rect.x, rect.y, rect.width, rect.height)?;
     let origin = (
@@ -288,7 +312,7 @@ pub async fn finish_region(
 #[tauri::command]
 pub fn cancel_region(window: WebviewWindow, state: State<'_, AppState>) -> AppResult<()> {
     state.pending_region.lock().unwrap().take();
-    window.hide()?;
+    crate::region_window::hide(&window)?;
     window.emit("region-reset", ())?;
     Ok(())
 }

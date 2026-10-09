@@ -20,8 +20,10 @@ export function RegionSelect() {
   useEffect(() => {
     let disposed = false;
     let active: number | null = null;
+    let revision = 0;
     let url: string | null = null;
     const reset = () => {
+      revision += 1;
       active = null;
       if (url) URL.revokeObjectURL(url);
       url = null;
@@ -50,8 +52,40 @@ export function RegionSelect() {
       listen<number>("region-load", ({ payload }) => void load(payload)),
       listen("region-reset", () => { if (!disposed) reset(); }),
     ];
+    const prepare = async () => {
+      const { width, height, renderWhileHidden } = await api.prepareRegion();
+      if (disposed || revision !== 0) return;
+      // 実画面を保存せず、実寸のダミー画像で PNG のデコードと初回合成を済ませる。
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error(t("viewer.loadFailed"));
+      context.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--color-canvas").trim();
+      context.fillRect(0, 0, width, height);
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error(t("viewer.loadFailed"))), "image/png");
+      });
+      const preparedUrl = URL.createObjectURL(blob);
+      try {
+        const image = new Image();
+        image.src = preparedUrl;
+        await image.decode();
+        if (disposed || revision !== 0) return;
+        url = preparedUrl;
+        setImageUrl(url);
+        // Windows では cloak 中も描画できる。非表示 WebView の rAF は待たない。
+        if (renderWhileHidden) {
+          await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+        }
+      } finally {
+        if (url !== preparedUrl) URL.revokeObjectURL(preparedUrl);
+      }
+    };
     // listener 登録より早く来た初回イベントも拾う。
     void Promise.all(listeners).then(async () => {
+      // 事前描画の失敗が実際のキャプチャまで妨げないよう、問い合わせは継続する。
+      await prepare().catch(console.error);
       if (disposed) return;
       const id = await api.regionSession();
       if (id !== null) await load(id);

@@ -36,6 +36,8 @@ pub struct AppState {
     pub shots: ShotStore,
     pub viewers: Mutex<ViewerPool>,
     pub region_window_lock: Mutex<()>,
+    #[cfg(windows)]
+    pub region_previous_foreground: std::sync::atomic::AtomicIsize,
     pub pending_captures: Mutex<HashMap<u32, PendingCapture>>,
     pub save_lock: Mutex<()>,
     pub auto_copy_lock: Mutex<u32>,
@@ -54,6 +56,8 @@ impl AppState {
             shots: ShotStore::default(),
             viewers: Mutex::new(ViewerPool::default()),
             region_window_lock: Mutex::new(()),
+            #[cfg(windows)]
+            region_previous_foreground: std::sync::atomic::AtomicIsize::new(0),
             pending_captures: Mutex::new(HashMap::new()),
             save_lock: Mutex::new(()),
             auto_copy_lock: Mutex::new(0),

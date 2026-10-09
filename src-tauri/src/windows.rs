@@ -61,19 +61,31 @@ fn region_window(app: &AppHandle) -> AppResult<WebviewWindow> {
     if let Some(existing) = app.get_webview_window(REGION_LABEL) {
         return Ok(existing);
     }
-    Ok(
-        WebviewWindowBuilder::new(app, REGION_LABEL, WebviewUrl::App("index.html".into()))
-            .title(t("app.name"))
-            .decorations(false)
-            .shadow(false)
-            .resizable(false)
-            .always_on_top(true)
-            .skip_taskbar(true)
-            .visible(false)
-            .focused(false)
-            .background_color(BACKGROUND)
-            .build()?,
-    )
+    let window = WebviewWindowBuilder::new(app, REGION_LABEL, WebviewUrl::App("index.html".into()))
+        .title(t("app.name"))
+        .decorations(false)
+        .shadow(false)
+        .resizable(false)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .visible(false)
+        .focused(false)
+        .focusable(!cfg!(windows))
+        .background_color(BACKGROUND)
+        .build()?;
+    let prepare = || -> AppResult<()> {
+        let cursor = app.cursor_position()?;
+        if let Some(monitor) = app.monitor_from_point(cursor.x, cursor.y)? {
+            window.set_position(*monitor.position())?;
+            window.set_size(*monitor.size())?;
+        }
+        crate::region_window::prepare(&window)
+    };
+    if let Err(error) = prepare() {
+        window.destroy()?;
+        return Err(error);
+    }
+    Ok(window)
 }
 
 pub fn prepare_region(app: &AppHandle) -> AppResult<()> {
@@ -164,9 +176,15 @@ pub fn open_region_overlay(
     session: u32,
 ) -> AppResult<()> {
     let window = region_window(app)?;
-    window.hide()?;
-    window.set_position(PhysicalPosition::new(monitor.x, monitor.y))?;
-    window.set_size(PhysicalSize::new(monitor.width, monitor.height))?;
+    crate::region_window::hide(&window)?;
+    let position = PhysicalPosition::new(monitor.x, monitor.y);
+    let size = PhysicalSize::new(monitor.width, monitor.height);
+    if window.outer_position()? != position {
+        window.set_position(position)?;
+    }
+    if window.inner_size()? != size {
+        window.set_size(size)?;
+    }
     // 新規 WebView の listener が間に合わない場合は region_session で取得する。
     window.emit("region-load", session)?;
     Ok(())
