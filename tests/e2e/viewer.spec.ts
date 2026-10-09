@@ -15,43 +15,109 @@ test.describe("viewer", () => {
     }
   });
 
-  test("enables path copy only after saving", async ({ page }) => {
+  test("copy and save buttons open menus with the context menu's items", async ({ page }) => {
     await installTauriMock(page, { label: "viewer-1" });
     await page.goto("/");
 
-    const copyPath = page.getByRole("button", { name: "保存するとパスをコピーできます" });
-    await expect(copyPath).toBeDisabled();
+    await page.getByRole("button", { name: "コピー", exact: true }).click();
+    await expect(page.getByRole("menuitem", { name: "パスのコピー" })).toHaveAttribute("data-disabled", "");
+    await page.getByRole("menuitem", { name: "画像をコピー" }).click();
+    await expect(page.locator(".toolbar-status")).toHaveText("画像をコピーしました");
 
     await page.getByRole("button", { name: "保存", exact: true }).click();
+    await page.getByRole("menuitem", { name: "既定の場所に保存" }).click();
     await expect(page.locator(".toolbar-status")).toHaveText("保存しました");
-    await expect(page.getByRole("button", { name: "保存", exact: true })).toBeDisabled();
 
-    await page.getByRole("button", { name: "パスをコピー" }).click();
+    await page.getByRole("button", { name: "コピー", exact: true }).click();
+    await page.getByRole("menuitem", { name: "パスのコピー" }).click();
     await expect(page.locator(".toolbar-status")).toHaveText("パスをコピーしました");
     expect(await commandNames(page)).toEqual(expect.arrayContaining(["save_shot", "copy_shot_path"]));
   });
 
-  test("copies the image and opens the external editor", async ({ page }) => {
+  test("saves with a chosen name", async ({ page }) => {
     await installTauriMock(page, { label: "viewer-1" });
     await page.goto("/");
 
-    await page.getByRole("button", { name: "画像をコピー" }).click();
-    await expect(page.locator(".toolbar-status")).toHaveText("画像をコピーしました");
-    await page.getByRole("button", { name: "外部ツールで開く" }).click();
-    await expect(page.locator(".toolbar-status")).toHaveText("外部ツールで開きました");
+    await page.getByRole("button", { name: "保存", exact: true }).click();
+    await page.getByRole("menuitem", { name: "名前を付けて保存" }).click();
+    await expect(page.locator(".toolbar-status")).toHaveText("保存しました");
+    await expect(page.getByRole("button", { name: "保存したファイルを削除" })).toBeVisible();
   });
 
-  test("shows backend errors in the toolbar", async ({ page }) => {
-    await installTauriMock(page, {
-      label: "viewer-1",
-      failures: { open_shot_in_editor: "mspaint.exe を起動できません" },
-    });
+  test("opens the external tool chosen from the toolbar menu", async ({ page }) => {
+    await installTauriMock(page, { label: "viewer-1" });
     await page.goto("/");
 
     await page.getByRole("button", { name: "外部ツールで開く" }).click();
-    const status = page.locator(".toolbar-status");
-    await expect(status).toHaveText("mspaint.exe を起動できません");
-    await expect(status).toHaveAttribute("data-tone", "error");
+    await page.getByRole("menuitem", { name: "GIMP" }).click();
+    await expect(page.locator(".toolbar-status")).toHaveText("外部ツールで開きました");
+    const call = (await calls(page)).find((c) => c.cmd === "open_shot_with");
+    expect(call?.args).toEqual({ tool: 1 });
+  });
+
+  test("right-click menu lists every action in order", async ({ page }) => {
+    await installTauriMock(page, { label: "viewer-1" });
+    await page.goto("/");
+    await expect(page.locator(".viewer-image")).toBeVisible();
+
+    await page.locator(".viewer-stage").click({ button: "right" });
+    const menu = page.getByRole("menu");
+    await expect(menu.getByRole("menuitem")).toHaveText([
+      "パスのコピー",
+      "画像をコピー",
+      "既定の場所に保存",
+      "名前を付けて保存",
+      "外部ツールで開く",
+      "設定",
+    ]);
+    await expect(menu.getByRole("separator")).toHaveCount(2);
+
+    await menu.getByRole("menuitem", { name: "外部ツールで開く" }).hover();
+    await page.getByRole("menuitem", { name: "ペイント" }).click();
+    await expect.poll(() => commandNames(page)).toContain("open_shot_with");
+  });
+
+  test("saved shots can be revealed and deleted from the right-click menu", async ({ page }) => {
+    await installTauriMock(page, { label: "viewer-1" });
+    await page.goto("/");
+    await page.getByRole("button", { name: "保存", exact: true }).click();
+    await page.getByRole("menuitem", { name: "既定の場所に保存" }).click();
+    await expect(page.locator(".toolbar-status")).toHaveText("保存しました");
+
+    const stage = page.locator(".viewer-stage");
+    await stage.click({ button: "right" });
+    await expect(page.getByRole("menuitem", { name: "既定の場所に保存" })).toHaveAttribute("data-disabled", "");
+    await page.getByRole("menuitem", { name: "エクスプローラーで開く" }).click();
+    await expect.poll(() => commandNames(page)).toContain("reveal_shot");
+
+    await stage.click({ button: "right" });
+    const remove = page.getByRole("menuitem", { name: "保存したファイルを削除" });
+    await expect(remove).toHaveCSS("color", "rgb(255, 123, 114)");
+    await remove.click();
+    await expect(page.locator(".toolbar-status")).toHaveText("ごみ箱に移動しました");
+    await expect(page.getByRole("button", { name: "保存したファイルを削除" })).toBeHidden();
+  });
+
+  test("opens settings from the right-click menu", async ({ page }) => {
+    await installTauriMock(page, { label: "viewer-1" });
+    await page.goto("/");
+    await expect(page.locator(".viewer-image")).toBeVisible();
+
+    await page.locator(".viewer-stage").click({ button: "right" });
+    await page.getByRole("menuitem", { name: "設定" }).click();
+    await expect.poll(() => commandNames(page)).toContain("open_settings");
+  });
+
+  test("Escape closes an open menu without closing the window", async ({ page }) => {
+    await installTauriMock(page, { label: "viewer-1" });
+    await page.goto("/");
+    await expect(page.locator(".viewer-image")).toBeVisible();
+
+    await page.locator(".viewer-stage").click({ button: "right" });
+    await expect(page.getByRole("menu")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("menu")).toBeHidden();
+    expect(await commandNames(page)).not.toContain("plugin:window|close");
   });
 
   test("toggles always-on-top", async ({ page }) => {
@@ -62,13 +128,17 @@ test.describe("viewer", () => {
     await expect(page.getByRole("button", { name: "最前面の固定を解除" })).toHaveAttribute("aria-pressed", "true");
   });
 
-  test("drags the window from anywhere on the image", async ({ page }) => {
+  test("drag on the image never moves the window", async ({ page }) => {
     await installTauriMock(page, { label: "viewer-1" });
     await page.goto("/");
-
     await expect(page.locator(".viewer-image")).toBeVisible();
-    await page.locator(".viewer-stage").click({ position: { x: 5, y: 5 } });
-    await expect.poll(() => commandNames(page)).toContain("plugin:window|start_dragging");
+
+    const box = (await page.locator(".viewer-stage").boundingBox())!;
+    await page.mouse.move(box.x + 20, box.y + 20);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 80, box.y + 60, { steps: 3 });
+    await page.mouse.up();
+    expect(await commandNames(page)).not.toContain("plugin:window|start_dragging");
   });
 
   test("asks before closing when configured", async ({ page }) => {
@@ -106,7 +176,8 @@ test.describe("viewer", () => {
     await installTauriMock(page, { label: "viewer-1" });
     await page.goto("/");
     await expect(page.locator(".viewer-image")).toBeVisible();
-    await page.getByRole("button", { name: "画像をコピー" }).click();
+    await page.getByRole("button", { name: "コピー", exact: true }).click();
+    await page.getByRole("menuitem", { name: "画像をコピー" }).click();
     await page.waitForTimeout(1000);
 
     // 開発時の StrictMode では effect が2回走るので、2回までは正常
@@ -155,11 +226,12 @@ test.describe("viewer", () => {
       .poll(async () => (await page.locator(".viewer-image").boundingBox())!.width)
       .toBeGreaterThan(640 * 1.5);
 
-    // 拡大中のドラッグはウィンドウ移動ではなくパンになる
+    // 拡大中のドラッグで画像が動く
+    const before = (await page.locator(".viewer-image").boundingBox())!.x;
     await page.mouse.down();
     await page.mouse.move(box.x + box.width / 2 + 50, box.y + box.height / 2, { steps: 3 });
     await page.mouse.up();
-    expect(await commandNames(page)).not.toContain("plugin:window|start_dragging");
+    await expect.poll(async () => (await page.locator(".viewer-image").boundingBox())!.x).toBeGreaterThan(before + 25);
 
     await stage.dblclick();
     await expect(title).toContainText("100%");

@@ -28,11 +28,15 @@ describe("Settings", () => {
     const user = userEvent.setup();
     render(<Settings />);
 
-    const editor = await screen.findByLabelText("実行ファイル");
-    expect(editor).toHaveValue("mspaint.exe");
+    const command = await screen.findByLabelText("コマンド");
+    expect(command).toHaveValue("mspaint.exe");
 
-    await user.clear(editor);
-    await user.type(editor, "paint.net");
+    await user.clear(command);
+    await user.type(command, "paint.net");
+    await user.click(screen.getByRole("button", { name: "ツールを追加" }));
+    const names = screen.getAllByLabelText("名前");
+    await user.type(names[1], "GIMP");
+    await user.type(screen.getAllByLabelText("コマンド")[1], "gimp.exe");
     await user.click(screen.getByRole("switch", { name: "自動で保存する" }));
     await user.click(screen.getByRole("radio", { name: "パス（保存時のみ）" }));
     await user.click(screen.getByRole("button", { name: "設定を保存" }));
@@ -41,8 +45,24 @@ describe("Settings", () => {
     expect(saved).toHaveLength(1);
     expect(saved[0]).toMatchObject({
       capture: { auto_save: true, auto_copy: "path" },
-      external: { editor: "paint.net" },
+      external: {
+        tools: [
+          { name: "ペイント", command: "paint.net", args: '"${file}"' },
+          { name: "GIMP", command: "gimp.exe", args: '"${file}"' },
+        ],
+      },
     });
+  });
+
+  it("removes a tool", async () => {
+    const user = userEvent.setup();
+    render(<Settings />);
+
+    await user.click(await screen.findByRole("button", { name: "このツールを削除" }));
+    expect(screen.getByText("ツールが登録されていません。")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "設定を保存" }));
+    await screen.findByText("設定を保存しました");
+    expect(saved[0]).toMatchObject({ external: { tools: [] } });
   });
 
   it("shows validation errors from the backend", async () => {

@@ -21,6 +21,7 @@
   --color-accent-strong: #a9cfff;
   --color-accent-contrast: #0e1726;
   --color-danger: #ff7b72;
+  --color-danger-surface: rgb(255 123 114 / 0.14);
   --color-selection-fill: rgb(127 184 255 / 0.12);
   --color-scrim: rgb(0 0 0 / 0.45);
 

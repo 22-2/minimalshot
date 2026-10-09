@@ -45,6 +45,12 @@ pub fn save_config(app: AppHandle, config: Config) -> AppResult<()> {
         std::path::Path::new(""),
         &chrono::Local::now(),
     )?;
+    for tool in &config.external.tools {
+        if tool.name.trim().is_empty() || tool.command.trim().is_empty() {
+            return Err(AppError::msg("外部ツールには名前とコマンドが必要です"));
+        }
+        crate::external::split_args(&tool.args)?;
+    }
     hotkeys::register(&app, &config.hotkeys)?;
     config.save(&state.config_path)?;
     *state.config.lock().unwrap() = config;
@@ -98,8 +104,30 @@ pub fn copy_shot_path(app: AppHandle, window: WebviewWindow) -> AppResult<()> {
 }
 
 #[tauri::command]
-pub fn open_shot_in_editor(app: AppHandle, window: WebviewWindow) -> AppResult<()> {
-    actions::open_in_editor(&app, shot_id(&window)?)
+pub fn open_shot_with(app: AppHandle, window: WebviewWindow, tool: usize) -> AppResult<()> {
+    actions::open_with(&app, shot_id(&window)?, tool)
+}
+
+#[tauri::command]
+pub fn reveal_shot(app: AppHandle, window: WebviewWindow) -> AppResult<()> {
+    actions::reveal(&app, shot_id(&window)?)
+}
+
+/// ダイアログを待つ間に UI スレッドを塞がないよう async にする
+#[tauri::command]
+pub async fn save_shot_as(app: AppHandle, window: WebviewWindow) -> AppResult<Option<String>> {
+    let path = actions::save_as(&app, shot_id(&window)?)?;
+    Ok(path.map(|p| p.to_string_lossy().into_owned()))
+}
+
+#[tauri::command]
+pub fn delete_saved_shot(app: AppHandle, window: WebviewWindow) -> AppResult<()> {
+    actions::delete_saved(&app, shot_id(&window)?)
+}
+
+#[tauri::command]
+pub fn open_settings(app: AppHandle) -> AppResult<()> {
+    crate::windows::open_settings(&app)
 }
 
 #[tauri::command]

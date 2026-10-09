@@ -55,9 +55,48 @@ pub struct Viewer {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(default)]
+#[serde(from = "ExternalFile")]
 pub struct External {
-    pub editor: String,
+    pub tools: Vec<ExternalTool>,
+}
+
+/// 「外部ツールで開く」に並ぶ1項目。`args` は `${file}` などの変数を含む1行の引数。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExternalTool {
+    pub name: String,
+    pub command: String,
+    #[serde(default = "default_args")]
+    pub args: String,
+}
+
+fn default_args() -> String {
+    "\"${file}\"".into()
+}
+
+/// 読み込み専用の形。0.0.3 までの `editor = "..."` も受け付け、ツール1件として扱う。
+#[derive(Deserialize)]
+struct ExternalFile {
+    tools: Option<Vec<ExternalTool>>,
+    editor: Option<String>,
+}
+
+impl From<ExternalFile> for External {
+    fn from(file: ExternalFile) -> Self {
+        if let Some(tools) = file.tools {
+            return Self { tools };
+        }
+        match file.editor {
+            Some(editor) if !editor.trim().is_empty() => Self {
+                tools: vec![ExternalTool {
+                    name: editor.clone(),
+                    command: editor,
+                    args: default_args(),
+                }],
+            },
+            Some(_) => Self { tools: Vec::new() },
+            None => Self::default(),
+        }
+    }
 }
 
 impl Default for Hotkeys {
@@ -83,7 +122,11 @@ impl Default for Storage {
 impl Default for External {
     fn default() -> Self {
         Self {
-            editor: "mspaint.exe".into(),
+            tools: vec![ExternalTool {
+                name: "ペイント".into(),
+                command: "mspaint.exe".into(),
+                args: default_args(),
+            }],
         }
     }
 }
@@ -140,8 +183,10 @@ format = "%Y-%m/%Y-%m-%d_%H-%M-%S.png"
 always_on_top = false
 confirm_on_close = false
 
-[external]
-editor = "mspaint.exe"
+[[external.tools]]
+name = "ペイント"
+command = "mspaint.exe"
+args = '"${file}"'
 "#;
         assert_eq!(Config::parse(text).unwrap(), Config::default());
     }
@@ -151,7 +196,26 @@ editor = "mspaint.exe"
         let config = Config::parse("[capture]\nauto_copy = \"path\"\n").unwrap();
         assert_eq!(config.capture.auto_copy, AutoCopy::Path);
         assert!(!config.capture.auto_save);
-        assert_eq!(config.external.editor, "mspaint.exe");
+        assert_eq!(config.external, External::default());
+    }
+
+    #[test]
+    fn migrates_legacy_editor() {
+        let config = Config::parse("[external]\neditor = \"C:/Tools/paint.net.exe\"\n").unwrap();
+        assert_eq!(
+            config.external.tools,
+            [ExternalTool {
+                name: "C:/Tools/paint.net.exe".into(),
+                command: "C:/Tools/paint.net.exe".into(),
+                args: "\"${file}\"".into(),
+            }]
+        );
+    }
+
+    #[test]
+    fn keeps_an_explicitly_empty_tool_list() {
+        let config = Config::parse("[external]\ntools = []\n").unwrap();
+        assert!(config.external.tools.is_empty());
     }
 
     #[test]

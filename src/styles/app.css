@@ -107,6 +107,7 @@ button {
   overflow: hidden;
   background: var(--color-canvas);
   cursor: grab;
+  touch-action: none;
 }
 
 .viewer-stage:active {
@@ -181,6 +182,15 @@ button {
   color: var(--color-text-disabled);
 }
 
+.icon-button[data-danger] {
+  color: var(--color-danger);
+}
+
+.icon-button[data-danger]:hover:not(:disabled) {
+  background: var(--color-danger-surface);
+  color: var(--color-danger);
+}
+
 .icon-button[aria-pressed="true"] {
   color: var(--color-accent);
 }
@@ -234,6 +244,9 @@ button {
 }
 
 .button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   height: var(--size-control);
   padding-inline: var(--space-3);
   border: var(--border-width) solid var(--color-border);
@@ -253,6 +266,108 @@ button {
 
 .button[data-variant="primary"]:hover {
   background: var(--color-accent-strong);
+}
+
+.button[data-variant="danger"] {
+  border-color: transparent;
+  background: transparent;
+  color: var(--color-danger);
+}
+
+.button[data-variant="danger"]:hover {
+  background: var(--color-danger-surface);
+}
+
+/* ---- メニュー（右クリック・ドロップダウン共通） ---- */
+
+.menu {
+  min-width: 200px;
+  padding: var(--space-1);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-medium);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-popover);
+  user-select: none;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--size-control);
+  padding-inline: var(--space-2);
+  border-radius: var(--radius-small);
+  color: var(--color-text);
+  outline: none;
+  cursor: default;
+}
+
+/* キーボード操作でも data-highlighted の背景で位置が分かるので、フォーカスリングは重ねない */
+.menu-item:focus-visible {
+  box-shadow: none;
+}
+
+.menu-item svg {
+  flex: none;
+  color: var(--color-text-muted);
+}
+
+.menu-item[data-highlighted],
+.menu-item[data-state="open"] {
+  background: var(--color-surface-hover);
+}
+
+.menu-item[data-disabled] {
+  color: var(--color-text-disabled);
+}
+
+.menu-item[data-disabled] svg {
+  color: var(--color-text-disabled);
+}
+
+.menu-item[data-danger],
+.menu-item[data-danger] svg {
+  color: var(--color-danger);
+}
+
+.menu-item[data-danger][data-highlighted] {
+  background: var(--color-danger-surface);
+}
+
+.menu-label {
+  flex: 1;
+  white-space: nowrap;
+}
+
+.menu-chevron {
+  margin-inline-start: var(--space-3);
+}
+
+.menu-separator {
+  height: var(--border-width);
+  margin: var(--space-1) calc(var(--space-1) * -1);
+  background: var(--color-border);
+}
+
+/* ---- 外部ツールの設定 ---- */
+
+.tool-list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.tool-card {
+  padding: var(--space-3) var(--space-3) var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-medium);
+}
+
+.tool-remove {
+  margin-inline-start: auto;
+  display: flex;
 }
 
 /* ---- 領域選択 ---- */
