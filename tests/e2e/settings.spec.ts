@@ -69,6 +69,16 @@ test.describe("settings", () => {
     await page.goto("/");
 
     await expect(page.getByText("バージョン 0.0.9")).toBeVisible();
+    const buildAt = process.env.VITE_DEV_BUILD_AT;
+    if (buildAt) {
+      await expect(page.locator(".about-body time")).toHaveAttribute("datetime", buildAt);
+      await expect(page.locator(".about-body time")).toHaveText(new Date(buildAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", hour12: false }));
+    } else {
+      await expect(page.locator(".about-body time")).toHaveCount(0);
+    }
+    await expect(page.locator(".titlebar-title")).toHaveAttribute("data-tauri-drag-region");
+    await page.getByRole("button", { name: "閉じる" }).click();
+    await expect.poll(async () => (await calls(page)).map((call) => call.cmd)).toContain("plugin:window|close");
     expect((await calls(page)).map((call) => call.cmd)).toContain("app_version");
   });
 

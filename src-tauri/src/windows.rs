@@ -231,7 +231,7 @@ pub fn open_about(app: &AppHandle) -> AppResult<()> {
         .visible(false)
         .focused(false)
         .background_color(BACKGROUND)
-        .inner_size(360.0, 220.0)
+        .inner_size(360.0, 260.0)
         .min_inner_size(300.0, 180.0)
         .center()
         .build()?;

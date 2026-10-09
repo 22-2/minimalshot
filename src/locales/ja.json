@@ -13,6 +13,7 @@
     "menu": "MinimalShot について",
     "title": "このアプリについて",
     "version": "バージョン",
+    "buildTime": "ビルド日時（JST）",
     "description": "撮る・浮かべる・渡すためのスクリーンショットツールです。"
   },
   "titlebar": {
