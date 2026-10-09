@@ -1,0 +1,432 @@
+@import "./tokens.css";
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-text);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+  overflow: hidden;
+  user-select: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---- ウィンドウ枠 ---- */
+
+.frame {
+  display: grid;
+  grid-template-rows: var(--size-titlebar) 1fr auto;
+  height: 100%;
+  border: var(--border-width) solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.titlebar {
+  display: flex;
+  align-items: center;
+  height: var(--size-titlebar);
+  padding-inline-start: var(--space-2);
+  background: var(--color-surface);
+  font-size: var(--font-size-small);
+  color: var(--color-text-muted);
+}
+
+.titlebar-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.titlebar-buttons {
+  display: flex;
+  height: 100%;
+}
+
+.titlebar-button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: default;
+  transition: background-color var(--duration-quick) var(--easing-standard);
+}
+
+.titlebar-button:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.titlebar-button[data-variant="close"]:hover {
+  background: var(--color-danger);
+  color: var(--color-accent-contrast);
+}
+
+/* ---- ビューア ---- */
+
+.viewer-stage {
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--color-canvas);
+  cursor: grab;
+}
+
+.viewer-stage:active {
+  cursor: grabbing;
+}
+
+.viewer-image {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.viewer-placeholder {
+  color: var(--color-text-muted);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--size-toolbar);
+  padding-inline: var(--space-1);
+  background: var(--color-surface);
+}
+
+.toolbar-spacer {
+  flex: 1;
+}
+
+.toolbar-status {
+  min-width: 0;
+  overflow: hidden;
+  padding-inline: var(--space-2);
+  font-size: var(--font-size-small);
+  color: var(--color-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toolbar-status[data-tone="error"] {
+  color: var(--color-danger);
+}
+
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: var(--size-control);
+  height: var(--size-control);
+  border: 0;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--color-text-muted);
+  transition: background-color var(--duration-quick) var(--easing-standard);
+}
+
+.icon-button:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.icon-button:disabled {
+  color: var(--color-text-disabled);
+}
+
+.icon-button[aria-pressed="true"] {
+  color: var(--color-accent);
+}
+
+.tooltip {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-small);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  font-size: var(--font-size-small);
+  box-shadow: var(--shadow-popover);
+}
+
+/* ---- 確認ダイアログ ---- */
+
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--color-scrim);
+}
+
+.dialog {
+  position: fixed;
+  inset-inline: var(--space-4);
+  top: 50%;
+  max-width: 320px;
+  margin-inline: auto;
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-medium);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-popover);
+  translate: 0 -50%;
+}
+
+.dialog-title {
+  margin: 0;
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-strong);
+}
+
+.dialog-description {
+  margin: var(--space-2) 0 var(--space-4);
+  color: var(--color-text-muted);
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.button {
+  height: var(--size-control);
+  padding-inline: var(--space-3);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-small);
+  background: var(--color-surface);
+}
+
+.button:hover {
+  background: var(--color-surface-hover);
+}
+
+.button[data-variant="primary"] {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+.button[data-variant="primary"]:hover {
+  background: var(--color-accent-strong);
+}
+
+/* ---- 領域選択 ---- */
+
+.region {
+  position: fixed;
+  inset: 0;
+  cursor: crosshair;
+}
+
+.region-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.region-dim {
+  position: absolute;
+  inset: 0;
+  background: var(--color-scrim);
+  pointer-events: none;
+}
+
+.region-selection {
+  position: absolute;
+  border: var(--border-width) solid var(--color-accent);
+  background: var(--color-selection-fill);
+  pointer-events: none;
+}
+
+.region-size {
+  position: absolute;
+  inset-block-start: calc(100% + var(--space-1));
+  inset-inline-start: 0;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-small);
+  background: var(--color-surface-raised);
+  font-family: var(--font-code);
+  font-size: var(--font-size-small);
+  white-space: nowrap;
+}
+
+.region-hint {
+  position: absolute;
+  inset-block-start: var(--space-4);
+  inset-inline: 0;
+  width: max-content;
+  margin-inline: auto;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-small);
+  background: var(--color-surface-raised);
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+/* ---- 設定 ---- */
+
+.settings-body {
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-5) var(--space-5);
+  user-select: text;
+}
+
+.settings-section {
+  margin-block-end: var(--space-5);
+}
+
+.settings-heading {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-strong);
+}
+
+.field {
+  display: grid;
+  grid-template-columns: 11rem 1fr;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  margin-block-end: var(--space-3);
+}
+
+.field-note {
+  grid-column: 2;
+  margin: 0;
+  font-size: var(--font-size-small);
+  color: var(--color-text-muted);
+}
+
+.section-note {
+  margin: calc(var(--space-1) * -1) 0 var(--space-3);
+  font-size: var(--font-size-small);
+  color: var(--color-text-muted);
+}
+
+.text-input {
+  width: 100%;
+  height: var(--size-control);
+  padding-inline: var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-small);
+  background: var(--color-canvas);
+  color: var(--color-text);
+  font-family: var(--font-code);
+  font-size: var(--font-size-body);
+}
+
+.text-input:focus-visible {
+  border-color: var(--color-accent);
+}
+
+.switch {
+  position: relative;
+  width: 32px;
+  height: 18px;
+  padding: 0;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: 9px;
+  background: var(--color-canvas);
+}
+
+.switch[data-state="checked"] {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+}
+
+.switch-thumb {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--color-text-muted);
+  translate: 2px 0;
+  transition: translate var(--duration-quick) var(--easing-standard);
+}
+
+.switch[data-state="checked"] .switch-thumb {
+  background: var(--color-accent-contrast);
+  translate: 16px 0;
+}
+
+.radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.radio-option {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.radio {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-canvas);
+}
+
+.radio[data-state="checked"] {
+  border-color: var(--color-accent);
+}
+
+.radio-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+.settings-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  height: auto;
+  padding: var(--space-2) var(--space-5);
+  border-block-start: var(--border-width) solid var(--color-border);
+}

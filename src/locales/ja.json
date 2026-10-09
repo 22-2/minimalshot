@@ -1,0 +1,67 @@
+{
+  "app": {
+    "name": "MinimaShot"
+  },
+  "tray": {
+    "region": "領域をキャプチャ",
+    "window": "ウィンドウをキャプチャ",
+    "fullscreen": "全画面をキャプチャ",
+    "settings": "設定",
+    "quit": "終了"
+  },
+  "titlebar": {
+    "minimize": "最小化",
+    "maximize": "最大化",
+    "close": "閉じる"
+  },
+  "viewer": {
+    "copyImage": "画像をコピー",
+    "copyPath": "パスをコピー",
+    "copyPathDisabled": "保存するとパスをコピーできます",
+    "save": "保存",
+    "openEditor": "外部ツールで開く",
+    "pin": "最前面に固定",
+    "unpin": "最前面の固定を解除",
+    "loading": "読み込み中",
+    "copiedImage": "画像をコピーしました",
+    "copiedPath": "パスをコピーしました",
+    "saved": "保存しました",
+    "opened": "外部ツールで開きました",
+    "closeTitle": "このキャプチャを閉じますか？",
+    "closeUnsaved": "保存していない画像は失われます。",
+    "closeSaved": "保存済みのファイルは残ります。",
+    "cancel": "キャンセル",
+    "confirmClose": "閉じる"
+  },
+  "region": {
+    "hint": "ドラッグで範囲を選択 / Esc でキャンセル"
+  },
+  "settings": {
+    "title": "設定",
+    "hotkeys": "ショートカット",
+    "hotkeyRegion": "領域",
+    "hotkeyWindow": "アクティブウィンドウ",
+    "hotkeyFullscreen": "全画面",
+    "hotkeyNote": "PrintScreen 単体は OS の動作を残すため割り当てられません。",
+    "afterCapture": "キャプチャ後",
+    "autoSave": "自動で保存する",
+    "autoCopy": "クリップボードへコピー",
+    "autoCopyNone": "しない",
+    "autoCopyImage": "画像",
+    "autoCopyPath": "パス（保存時のみ）",
+    "storage": "保存先",
+    "directory": "フォルダ",
+    "directoryNote": "{pictures} はピクチャフォルダ、{appname} は MinimaShot に置き換わります。",
+    "format": "ファイル名",
+    "formatNote": "strftime 形式。例: %Y-%m/%Y-%m-%d_%H-%M-%S.png",
+    "viewer": "ビューア",
+    "alwaysOnTop": "常に最前面に表示",
+    "confirmOnClose": "閉じるときに確認する",
+    "external": "外部ツール",
+    "editor": "実行ファイル",
+    "editorNote": "画像のパスを引数にして起動します。",
+    "save": "設定を保存",
+    "saved": "設定を保存しました",
+    "loadFailed": "設定を読み込めませんでした"
+  }
+}

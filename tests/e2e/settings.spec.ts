@@ -1,0 +1,32 @@
+import { expect, test } from "@playwright/test";
+
+import { calls, installTauriMock } from "./tauri-mock";
+
+test.describe("settings", () => {
+  test("edits and saves the configuration", async ({ page }) => {
+    await installTauriMock(page, { label: "settings" });
+    await page.goto("/");
+
+    await expect(page.getByLabel("ファイル名")).toHaveValue("%Y-%m/%Y-%m-%d_%H-%M-%S.png");
+    await page.getByLabel("ファイル名").fill("%Y/%m%d-%H%M%S.png");
+    await page.getByRole("switch", { name: "常に最前面に表示" }).click();
+    await page.getByRole("radio", { name: "しない" }).click();
+    await page.getByRole("button", { name: "設定を保存" }).click();
+
+    await expect(page.getByText("設定を保存しました")).toBeVisible();
+    const save = (await calls(page)).find((c) => c.cmd === "save_config");
+    expect(save?.args.config).toMatchObject({
+      storage: { format: "%Y/%m%d-%H%M%S.png" },
+      viewer: { always_on_top: true },
+      capture: { auto_copy: "none" },
+    });
+  });
+
+  test("uses only the dark palette", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "light" });
+    await installTauriMock(page, { label: "settings" });
+    await page.goto("/");
+
+    await expect(page.locator("body")).toHaveCSS("background-color", "rgb(22, 23, 26)");
+  });
+});

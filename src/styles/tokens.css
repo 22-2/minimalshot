@@ -1,0 +1,66 @@
+/*
+ * デザイントークン。色・寸法・文字・時間はここで定義した値だけを使う。
+ * ダークモード専用のため、ライト用の値は持たない。
+ */
+:root {
+  color-scheme: dark;
+
+  /* 面: 画像を主役にするため、彩度の低いグラファイトで段差だけを付ける */
+  --color-canvas: #16171a;
+  --color-surface: #1e1f23;
+  --color-surface-raised: #26282d;
+  --color-surface-hover: #2f3238;
+  --color-border: #34373e;
+
+  --color-text: #e8e9ec;
+  --color-text-muted: #9a9ea8;
+  --color-text-disabled: #5d616b;
+
+  /* アクセントは選択範囲・フォーカス・有効状態だけに使う */
+  --color-accent: #7fb8ff;
+  --color-accent-strong: #a9cfff;
+  --color-accent-contrast: #0e1726;
+  --color-danger: #ff7b72;
+  --color-selection-fill: rgb(127 184 255 / 0.12);
+  --color-scrim: rgb(0 0 0 / 0.45);
+
+  /* 寸法 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  --size-titlebar: 24px;
+  --size-toolbar: 32px;
+  --size-icon: 14px;
+  --size-control: 28px;
+
+  --radius-small: 4px;
+  --radius-medium: 6px;
+
+  --border-width: 1px;
+  --focus-ring: 0 0 0 2px var(--color-accent);
+
+  /* 文字: Windows 標準の UI フォントに合わせる */
+  --font-ui: "Segoe UI Variable Text", "Segoe UI", "Yu Gothic UI", "Meiryo UI", system-ui, sans-serif;
+  --font-code: "Cascadia Mono", Consolas, "BIZ UDGothic", monospace;
+  --font-size-small: 11px;
+  --font-size-body: 13px;
+  --font-size-heading: 15px;
+  --line-height-body: 1.55;
+  --font-weight-regular: 400;
+  --font-weight-strong: 600;
+
+  --duration-quick: 120ms;
+  --easing-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  --shadow-popover: 0 8px 24px rgb(0 0 0 / 0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-quick: 0ms;
+  }
+}
