@@ -35,7 +35,8 @@
     "openWith": "外部ツールで開く",
     "noTools": "設定で外部ツールを登録してください",
     "reveal": "エクスプローラーで開く",
-    "settings": "設定"
+    "settings": "設定",
+    "copiedOutput": "出力をクリップボードにコピーしました"
   },
   "region": {
     "hint": "ドラッグで範囲を選択 / Esc でキャンセル"
@@ -65,12 +66,14 @@
     "save": "設定を保存",
     "saved": "設定を保存しました",
     "loadFailed": "設定を読み込めませんでした",
-    "externalNote": "引数では ${file}（画像のフルパス）、${fileDirname}、${fileBasename}、${fileBasenameNoExtension}、${fileExtname} が使えます。空白を含む引数は \"\" で囲みます。",
+    "externalNote": "引数では ${file}（画像のフルパス）、${fileDirname}、${fileBasename}、${fileBasenameNoExtension}、${fileExtname} が使えます。空白を含む引数は \"\" で囲みます。「標準出力をコピー」をオンにすると、終了を待って標準出力をクリップボードへコピーします（例: tesseract.exe に \"${file}\" stdout -l jpn+eng）。",
     "toolName": "名前",
     "toolCommand": "コマンド",
     "toolArgs": "引数",
     "addTool": "ツールを追加",
     "removeTool": "このツールを削除",
-    "noTools": "ツールが登録されていません。"
+    "noTools": "ツールが登録されていません。",
+    "toolHideConsole": "コンソールを表示しない",
+    "toolCopyStdout": "標準出力をコピー"
   }
 }

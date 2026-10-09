@@ -63,6 +63,16 @@ pub fn build_args(template: &str, file: &Path) -> AppResult<Vec<String>> {
         .collect())
 }
 
+/// CLI の標準出力をクリップボード用の文字列にする。多くの CLI は UTF-8 で出すので UTF-8 として読み、
+/// 末尾の改行や Tesseract が付けるページ区切り（\x0c）は落とす。
+pub fn stdout_text(bytes: &[u8]) -> String {
+    let text = String::from_utf8_lossy(bytes);
+    let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
+    text.trim_end_matches(['\r', '\n', '\x0c', ' '])
+        .replace("\r\n", "\n")
+        .replace('\n', "\r\n")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -97,5 +107,11 @@ mod tests {
                 "shot 1.png",
             ]
         );
+    }
+
+    #[test]
+    fn cleans_cli_output_for_the_clipboard() {
+        let raw = "\u{feff}こんにちは\nworld\n\n\x0c".as_bytes();
+        assert_eq!(stdout_text(raw), "こんにちは\r\nworld");
     }
 }

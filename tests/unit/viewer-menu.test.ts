@@ -15,7 +15,7 @@ const actions = (): ViewerActions => ({
 });
 
 const ids = (entries: MenuEntry[]) => entries.map((e) => e.id);
-const tools = [{ name: "ペイント", command: "mspaint.exe", args: '"${file}"' }];
+const tools = [{ name: "ペイント", command: "mspaint.exe", args: '"${file}"', hide_console: false, copy_stdout: false }];
 const subEntries = (menu: MenuEntry[]) => {
   const sub = menu.find((e) => e.id === "open-with");
   return sub?.type === "sub" ? sub.entries : [];

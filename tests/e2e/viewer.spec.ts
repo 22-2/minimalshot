@@ -25,7 +25,7 @@ test.describe("viewer", () => {
     await openViewer(page);
 
     await expect(page.locator(".titlebar")).toContainText("640 × 360");
-    await expect(page.locator(".titlebar")).toHaveCSS("height", "24px");
+    await expect(page.locator(".titlebar")).toHaveCSS("height", "32px");
     for (const name of ["最小化", "最大化", "閉じる"]) {
       await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
     }
@@ -99,6 +99,19 @@ test.describe("viewer", () => {
     await page.getByRole("menuitem", { name: "GIMP" }).click();
     const call = (await calls(page)).find((c) => c.cmd === "open_shot_with");
     expect(call?.args).toEqual({ tool: 1 });
+  });
+
+  test("tools that copy their output report it", async ({ page }) => {
+    await openViewer(page, {
+      label: "viewer-1",
+      config: {
+        external: {
+          tools: [{ name: "OCR", command: "tesseract.exe", args: '"${file}" stdout', hide_console: true, copy_stdout: true }],
+        },
+      },
+    });
+    await choose(page, "外部ツールで開く", "OCR");
+    await expect(toast(page)).toHaveText("出力をクリップボードにコピーしました");
   });
 
   test("shows backend errors as a notice", async ({ page }) => {

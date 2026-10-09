@@ -8,8 +8,8 @@ pub const REGION_LABEL: &str = "region";
 pub const SETTINGS_LABEL: &str = "settings";
 pub const VIEWER_PREFIX: &str = "viewer-";
 
-/// タイトルバー24px（論理ピクセル）。CSS の --size-titlebar と揃える。
-const CHROME_HEIGHT: f64 = 24.0;
+/// タイトルバー32px（論理ピクセル）。CSS の --size-titlebar と揃える。
+const CHROME_HEIGHT: f64 = 32.0;
 /// ウィンドウ枠の線（左右・上下とも1px）。足さないと画像が等倍に収まらず 99% になる。
 const FRAME_BORDER: f64 = 2.0;
 const MIN_WIDTH: f64 = 240.0;
@@ -60,7 +60,7 @@ pub fn open_viewer(
     );
     // 領域キャプチャでは、画像が元の場所にそのまま浮いて見えるようタイトルバー分だけ上へずらす
     let desired = origin.map_or(centered, |(x, y)| {
-        (x, y - (24.0 * monitor.scale).round() as i32)
+        (x, y - (CHROME_HEIGHT * monitor.scale).round() as i32)
     });
     let position = clamp_position(desired, size, monitor);
 
@@ -127,7 +127,7 @@ mod tests {
 
     #[test]
     fn viewer_fits_small_images_with_chrome() {
-        assert_eq!(viewer_size((400, 300), &MONITOR), (402, 326));
+        assert_eq!(viewer_size((400, 300), &MONITOR), (402, 334));
     }
 
     #[test]
@@ -148,7 +148,7 @@ mod tests {
             height: 2160,
             ..MONITOR
         };
-        assert_eq!(viewer_size((800, 600), &hidpi), (804, 652));
+        assert_eq!(viewer_size((800, 600), &hidpi), (804, 668));
     }
 
     #[test]

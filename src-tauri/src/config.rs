@@ -67,6 +67,12 @@ pub struct ExternalTool {
     pub command: String,
     #[serde(default = "default_args")]
     pub args: String,
+    /// CLI を起動したときに黒いコンソールウィンドウを出さない。
+    #[serde(default)]
+    pub hide_console: bool,
+    /// 終了を待って標準出力をクリップボードへコピーする（OCR などの CLI 向け）。
+    #[serde(default)]
+    pub copy_stdout: bool,
 }
 
 fn default_args() -> String {
@@ -91,6 +97,8 @@ impl From<ExternalFile> for External {
                     name: editor.clone(),
                     command: editor,
                     args: default_args(),
+                    hide_console: false,
+                    copy_stdout: false,
                 }],
             },
             Some(_) => Self { tools: Vec::new() },
@@ -126,6 +134,8 @@ impl Default for External {
                 name: "ペイント".into(),
                 command: "mspaint.exe".into(),
                 args: default_args(),
+                hide_console: false,
+                copy_stdout: false,
             }],
         }
     }
@@ -208,8 +218,24 @@ args = '"${file}"'
                 name: "C:/Tools/paint.net.exe".into(),
                 command: "C:/Tools/paint.net.exe".into(),
                 args: "\"${file}\"".into(),
+                hide_console: false,
+                copy_stdout: false,
             }]
         );
+    }
+
+    #[test]
+    fn reads_tool_output_options() {
+        let text = r#"
+[[external.tools]]
+name = "OCR"
+command = "tesseract.exe"
+args = '"${file}" stdout -l jpn+eng'
+hide_console = true
+copy_stdout = true
+"#;
+        let tool = &Config::parse(text).unwrap().external.tools[0];
+        assert!(tool.hide_console && tool.copy_stdout);
     }
 
     #[test]

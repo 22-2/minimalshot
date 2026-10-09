@@ -66,7 +66,14 @@ export const useViewer = create<ViewerState>((set, get) => {
     clearStatus: () => set({ status: null }),
     copyImage: () => run(api.copyShotImage, "viewer.copiedImage"),
     copyPath: () => run(api.copyShotPath, "viewer.copiedPath"),
-    openWith: (tool) => run(() => api.openShotWith(tool), "viewer.opened"),
+    openWith: async (tool) => {
+      try {
+        const outcome = await api.openShotWith(tool);
+        set({ status: { tone: "info", text: t(outcome === "copied" ? "viewer.copiedOutput" : "viewer.opened") } });
+      } catch (error) {
+        set({ status: { tone: "error", text: errorMessage(error) } });
+      }
+    },
     reveal: () => run(api.revealShot, null),
     openSettings: () => run(api.openSettings, null),
     save: () => run(async () => setSavedPath(await api.saveShot()), "viewer.saved"),

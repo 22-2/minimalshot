@@ -12,7 +12,16 @@ export type Config = {
   external: { tools: ExternalTool[] };
 };
 
-export type ExternalTool = { name: string; command: string; args: string };
+export type ExternalTool = {
+  name: string;
+  command: string;
+  args: string;
+  hide_console: boolean;
+  copy_stdout: boolean;
+};
+
+/** 外部ツールを起動しただけか、出力をクリップボードへコピーしたか。 */
+export type ToolOutcome = "launched" | "copied";
 
 export type ShotInfo = {
   id: number;
@@ -33,7 +42,7 @@ export const api = {
   saveShot: () => invoke<string>("save_shot"),
   copyShotImage: () => invoke<void>("copy_shot_image"),
   copyShotPath: () => invoke<void>("copy_shot_path"),
-  openShotWith: (tool: number) => invoke<void>("open_shot_with", { tool }),
+  openShotWith: (tool: number) => invoke<ToolOutcome>("open_shot_with", { tool }),
   revealShot: () => invoke<void>("reveal_shot"),
   saveShotAs: () => invoke<string | null>("save_shot_as"),
   deleteSavedShot: () => invoke<void>("delete_saved_shot"),

@@ -35,14 +35,17 @@
   --space-5: 24px;
   --space-6: 32px;
 
-  --size-titlebar: 24px;
-  --size-titlebar-action: 18px;
+  /* タイトルバーは Windows の標準より少し低い 32px。文字とボタンは読みやすさを優先する */
+  --size-titlebar: 32px;
+  --size-titlebar-action: 24px;
+  --size-titlebar-button: 46px;
+  --size-titlebar-icon: 14px;
   --size-icon: 14px;
   --size-control: 28px;
   /* メニューは画像の上に一時的に重なるだけなので、操作部品より一回り小さくする */
   --size-menu-item: 24px;
   --size-menu-icon: 14px;
-  --size-titlebar-action-icon: 11px;
+  --size-titlebar-action-icon: 12px;
   --space-menu-inset: 4px;
   --space-menu-gap: 10px;
   --size-menu-min-width: 144px;

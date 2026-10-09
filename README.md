@@ -53,6 +53,15 @@ confirm_on_close = false
 name = "ペイント"
 command = "mspaint.exe"
 args = '"${file}"'
+hide_console = false # true でコンソールウィンドウを出さない
+copy_stdout = false  # true で終了を待ち、標準出力をクリップボードへコピー
+
+# 例: Tesseract で文字認識して結果をコピー
+[[external.tools]]
+name = "文字認識"
+command = 'C:\Program Files\Tesseract-OCR\tesseract.exe'
+args = '"${file}" stdout -l jpn+eng'
+copy_stdout = true
 ```
 
 0.0.3 までの `[external] editor = "..."` も読み込めます（ツール1件として扱います）。
