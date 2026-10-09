@@ -281,8 +281,10 @@ button {
 /* ---- メニュー（右クリック・ドロップダウン共通） ---- */
 
 .menu {
-  min-width: 200px;
-  padding: var(--space-1);
+  min-width: 168px;
+  padding: var(--space-menu-inset);
+  font-size: var(--font-size-menu);
+  line-height: 1;
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-medium);
   background: var(--color-surface-raised);
@@ -293,9 +295,9 @@ button {
 .menu-item {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  height: var(--size-control);
-  padding-inline: var(--space-2);
+  gap: var(--space-menu-gap);
+  height: var(--size-menu-item);
+  padding-inline: var(--space-menu-gap) var(--space-2);
   border-radius: var(--radius-small);
   color: var(--color-text);
   outline: none;
@@ -309,6 +311,8 @@ button {
 
 .menu-item svg {
   flex: none;
+  width: var(--size-menu-icon);
+  height: var(--size-menu-icon);
   color: var(--color-text-muted);
 }
 
@@ -340,12 +344,12 @@ button {
 }
 
 .menu-chevron {
-  margin-inline-start: var(--space-3);
+  margin-inline-start: var(--space-2);
 }
 
 .menu-separator {
   height: var(--border-width);
-  margin: var(--space-1) calc(var(--space-1) * -1);
+  margin: var(--space-menu-inset) calc(var(--space-menu-inset) * -1);
   background: var(--color-border);
 }
 

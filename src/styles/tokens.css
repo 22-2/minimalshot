@@ -37,6 +37,11 @@
   --size-toolbar: 32px;
   --size-icon: 14px;
   --size-control: 28px;
+  /* メニューは画像の上に一時的に重なるだけなので、操作部品より一回り小さくする */
+  --size-menu-item: 22px;
+  --size-menu-icon: 12px;
+  --space-menu-inset: 3px;
+  --space-menu-gap: 6px;
 
   --radius-small: 4px;
   --radius-medium: 6px;
@@ -48,6 +53,7 @@
   --font-ui: "Segoe UI Variable Text", "Segoe UI", "Yu Gothic UI", "Meiryo UI", system-ui, sans-serif;
   --font-code: "Cascadia Mono", Consolas, "BIZ UDGothic", monospace;
   --font-size-small: 11px;
+  --font-size-menu: 12px;
   --font-size-body: 13px;
   --font-size-heading: 15px;
   --line-height-body: 1.55;
