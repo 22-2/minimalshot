@@ -276,12 +276,13 @@ button {
 .menu {
   min-width: var(--size-menu-min-width);
   padding: var(--space-menu-inset);
-  font-size: var(--font-size-menu);
-  line-height: 1;
-  border: var(--border-width) solid var(--color-border);
+  border: var(--border-width) solid var(--color-hairline);
   border-radius: var(--radius-medium);
-  background: var(--color-surface-raised);
-  box-shadow: var(--shadow-popover);
+  background: var(--color-menu);
+  box-shadow: var(--shadow-menu);
+  font-size: var(--font-size-menu);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
   user-select: none;
 }
 
@@ -290,7 +291,7 @@ button {
   align-items: center;
   gap: var(--space-menu-gap);
   height: var(--size-menu-item);
-  padding-inline: var(--space-menu-gap) var(--space-2);
+  padding-inline: var(--space-2) var(--space-3);
   border-radius: var(--radius-small);
   color: var(--color-text);
   outline: none;
@@ -306,18 +307,23 @@ button {
   flex: none;
   width: var(--size-menu-icon);
   height: var(--size-menu-icon);
+  stroke-width: var(--stroke-icon);
   color: var(--color-text-muted);
 }
 
+/* 選択中の行はアクセント色で塗りつぶし、位置をはっきり示す */
 .menu-item[data-highlighted],
 .menu-item[data-state="open"] {
-  background: var(--color-surface-hover);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
 }
 
-.menu-item[data-disabled] {
-  color: var(--color-text-disabled);
+.menu-item[data-highlighted] svg,
+.menu-item[data-state="open"] svg {
+  color: var(--color-accent-contrast);
 }
 
+.menu-item[data-disabled],
 .menu-item[data-disabled] svg {
   color: var(--color-text-disabled);
 }
@@ -327,8 +333,14 @@ button {
   color: var(--color-danger);
 }
 
-.menu-item[data-danger][data-highlighted] {
-  background: var(--color-danger-surface);
+.menu-item[data-danger][data-highlighted],
+.menu-item[data-danger][data-highlighted] svg {
+  background: var(--color-danger);
+  color: var(--color-accent-contrast);
+}
+
+.menu-item[data-danger][data-highlighted] svg {
+  background: none;
 }
 
 .menu-label {
@@ -343,8 +355,8 @@ button {
 
 .menu-separator {
   height: var(--border-width);
-  margin: var(--space-menu-inset) calc(var(--space-menu-inset) * -1);
-  background: var(--color-border);
+  margin-block: var(--space-menu-inset);
+  background: var(--color-hairline);
 }
 
 /* ---- 外部ツールの設定 ---- */

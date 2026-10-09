@@ -47,7 +47,7 @@ test.describe("viewer", () => {
     ]);
     await expect(menu.getByRole("menuitemcheckbox")).toHaveText("常に最前面に表示");
     await expect(menu.getByRole("separator")).toHaveCount(2);
-    await expect(menu).toHaveCSS("font-size", "10px");
+    await expect(menu).toHaveCSS("font-size", "12px");
   });
 
   test("copies the image and the path once saved", async ({ page }) => {
@@ -121,6 +121,9 @@ test.describe("viewer", () => {
     await page.locator(".viewer-stage").click({ button: "right" });
     const remove = page.getByRole("menuitem", { name: "保存したファイルを削除" });
     await expect(remove).toHaveCSS("color", "rgb(255, 123, 114)");
+    await remove.hover();
+    // 選択中は危険色で塗りつぶす
+    await expect(remove).toHaveCSS("background-color", "rgb(255, 123, 114)");
     await remove.click();
     await expect(toast(page)).toHaveText("ごみ箱に移動しました");
     await page.locator(".viewer-stage").click({ button: "right" });
