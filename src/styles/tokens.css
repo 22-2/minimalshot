@@ -39,6 +39,7 @@
   --size-titlebar: 32px;
   --size-titlebar-action: 24px;
   --size-titlebar-button: 46px;
+  --size-titlebar-button-compact: 32px;
   --size-titlebar-icon: 14px;
   --size-icon: 14px;
   --size-control: 28px;
@@ -49,6 +50,8 @@
   --space-menu-inset: 4px;
   --space-menu-gap: 10px;
   --size-menu-min-width: 144px;
+  --size-settings-label: 11rem;
+  --size-dialog-max-width: 320px;
 
   --radius-small: 4px;
   --radius-medium: 6px;

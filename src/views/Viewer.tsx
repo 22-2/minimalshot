@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ExternalLink } from "lucide-react";
 
 import { ContextMenuArea, DropdownMenuButton } from "../components/Menu";
 import { TitleBar } from "../components/TitleBar";
@@ -105,9 +105,15 @@ export function Viewer() {
             <DropdownMenuButton
               entries={openWithEntries(tools, actions)}
               trigger={
-                <button type="button" className="titlebar-action">
-                  {t("viewer.openWith")}
-                  <ChevronDown aria-hidden />
+                <button
+                  type="button"
+                  className="titlebar-action"
+                  aria-label={t("viewer.openWith")}
+                  title={t("viewer.openWith")}
+                >
+                  <ExternalLink className="titlebar-action-compact" aria-hidden />
+                  <span className="titlebar-action-label">{t("viewer.openWith")}</span>
+                  <ChevronDown className="titlebar-action-chevron" aria-hidden />
                 </button>
               }
             />

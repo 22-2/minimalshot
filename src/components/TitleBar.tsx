@@ -18,7 +18,7 @@ export function TitleBar({ title, onClose, actions }: Props) {
 
   return (
     <header className="titlebar" data-tauri-drag-region>
-      <span className="titlebar-title" data-tauri-drag-region>
+      <span className="titlebar-title" title={title} data-tauri-drag-region>
         {title}
       </span>
       {actions}
