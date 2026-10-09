@@ -23,7 +23,9 @@ export type ExternalTool = {
 };
 
 /** 外部ツールを起動しただけか、出力をクリップボードへコピーしたか。 */
-export type ToolOutcome = "launched" | "copied";
+export type ToolOutcome = "launched" | "copied" | "skipped";
+
+export type CompletedActions = { saved: boolean; copied: AutoCopy | null; tools: string[] };
 
 export type ShotInfo = {
   id: number;

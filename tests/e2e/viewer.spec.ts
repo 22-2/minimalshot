@@ -72,6 +72,20 @@ test.describe("viewer", () => {
     await expect(toast(page)).toBeHidden({ timeout: 4000 });
   });
 
+  test("briefly lists completed automatic capture actions", async ({ page }) => {
+    await openViewer(page);
+    const emitActions = (payload: { saved: boolean; copied: "image" | "path" | null; tools: string[] }) =>
+      page.evaluate((actions) => {
+        (window as unknown as { __emit: (event: string, payload: unknown) => void }).__emit("capture-actions", actions);
+      }, payload);
+
+    await emitActions({ saved: true, copied: null, tools: [] });
+    await expect(page.locator(".viewer-action-toast")).toHaveText("自動処理: 保存");
+    await emitActions({ saved: true, copied: "image", tools: ["OCR"] });
+    await expect(page.locator(".viewer-action-toast")).toHaveText("自動処理: 保存・画像コピー・OCR");
+    await expect(page.locator(".viewer-action-toast")).toBeHidden({ timeout: 4000 });
+  });
+
   test("saves with a chosen name", async ({ page }) => {
     await openViewer(page);
     await choose(page, "名前を付けて保存");

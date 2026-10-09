@@ -97,6 +97,7 @@ pub fn complete_capture(
     let config = pending.config;
     let actions = config.capture.actions_for(pending.kind);
     let mut errors = Vec::new();
+    let mut completed = CompletedActions::default();
     if actions.auto_save {
         let saved = {
             // 同時撮影でも保存名の衝突回避から書き込みまでを直列化する。
@@ -112,6 +113,8 @@ pub fn complete_capture(
                 {
                     eprintln!("[{APP_NAME}] {error}");
                 }
+                completed.saved = true;
+                emit_completed_actions(app, label, &completed);
             }
             Err(error) => errors.push(error.to_string()),
         }
@@ -128,13 +131,18 @@ pub fn complete_capture(
                     Clipboard::new()?.set_text(path.to_string_lossy())?;
                     Ok(())
                 }),
-                None => Ok(()),
+                None => Ok(false),
             }
         }
-        AutoCopy::None => Ok(()),
+        AutoCopy::None => Ok(false),
     };
-    if let Err(error) = copied {
-        errors.push(error.to_string());
+    match copied {
+        Ok(true) => {
+            completed.copied = Some(actions.auto_copy);
+            emit_completed_actions(app, label, &completed);
+        }
+        Ok(false) => {}
+        Err(error) => errors.push(error.to_string()),
     }
     if !actions.auto_tools.is_empty() {
         let path = {
@@ -149,8 +157,12 @@ pub fn complete_capture(
                         errors.push(format!("外部ツール「{name}」が見つかりません"));
                         continue;
                     };
-                    if let Err(error) = run_tool(app, &path, tool, Some(id)) {
-                        errors.push(error.to_string());
+                    match run_tool(app, &path, tool, Some(id)) {
+                        Ok(_) => {
+                            completed.tools.push(name.clone());
+                            emit_completed_actions(app, label, &completed);
+                        }
+                        Err(error) => errors.push(error.to_string()),
                     }
                 }
             }
@@ -164,20 +176,33 @@ pub fn complete_capture(
     }
 }
 
+#[derive(Default, serde::Serialize)]
+struct CompletedActions {
+    saved: bool,
+    copied: Option<AutoCopy>,
+    tools: Vec<String>,
+}
+
+fn emit_completed_actions(app: &AppHandle, label: &str, completed: &CompletedActions) {
+    if let Err(error) = app.emit_to(label, "capture-actions", completed) {
+        eprintln!("[{APP_NAME}] {error}");
+    }
+}
+
 /// OCR などの処理が遅れて完了しても、後の撮影結果のコピーを上書きしない。
 fn copy_in_capture_order(
     app: &AppHandle,
     id: u32,
     copy: impl FnOnce() -> AppResult<()>,
-) -> AppResult<()> {
+) -> AppResult<bool> {
     let state = app.state::<AppState>();
     let mut last_copied = state.auto_copy_lock.lock().unwrap();
     if id < *last_copied {
-        return Ok(());
+        return Ok(false);
     }
     copy()?;
     *last_copied = id;
-    Ok(())
+    Ok(true)
 }
 
 pub fn save(app: &AppHandle, id: u32) -> AppResult<PathBuf> {
@@ -254,6 +279,7 @@ fn tool_path_for_shot(id: u32, shot: &Shot) -> AppResult<PathBuf> {
 pub enum ToolOutcome {
     Launched,
     Copied,
+    Skipped,
 }
 
 pub fn open_with(app: &AppHandle, id: u32, tool_index: usize) -> AppResult<ToolOutcome> {
@@ -309,10 +335,13 @@ fn run_tool(
         return Err(AppError::msg(format!("{} の出力が空でした", tool.name)));
     }
     if let Some(auto_id) = auto_id {
-        copy_in_capture_order(app, auto_id, || {
+        let copied = copy_in_capture_order(app, auto_id, || {
             Clipboard::new()?.set_text(text)?;
             Ok(())
         })?;
+        if !copied {
+            return Ok(ToolOutcome::Skipped);
+        }
     } else {
         Clipboard::new()?.set_text(text)?;
     }
@@ -414,4 +443,22 @@ pub fn delete_saved(app: &AppHandle, id: u32) -> AppResult<()> {
         shot.saved_path = None;
         Ok(())
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn completed_actions_event_matches_viewer_payload() {
+        let payload = CompletedActions {
+            saved: true,
+            copied: Some(AutoCopy::Image),
+            tools: vec!["OCR".into()],
+        };
+        assert_eq!(
+            serde_json::to_value(payload).unwrap(),
+            serde_json::json!({ "saved": true, "copied": "image", "tools": ["OCR"] })
+        );
+    }
 }

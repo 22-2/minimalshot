@@ -43,7 +43,11 @@
     "noTools": "設定で外部ツールを登録してください",
     "reveal": "エクスプローラーで開く",
     "settings": "設定",
-    "copiedOutput": "出力をクリップボードにコピーしました"
+    "copiedOutput": "出力をクリップボードにコピーしました",
+    "autoActions": "自動処理",
+    "autoSaved": "保存",
+    "autoCopiedImage": "画像コピー",
+    "autoCopiedPath": "パスコピー"
   },
   "region": {
     "hint": "ドラッグで範囲を選択 / Esc でキャンセル"

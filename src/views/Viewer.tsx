@@ -9,10 +9,18 @@ import { ContextMenuArea, DropdownMenuButton } from "../components/Menu";
 import { TitleBar } from "../components/TitleBar";
 import { useZoom } from "../lib/useZoom";
 import { useWindowReady } from "../lib/useWindowReady";
-import { api, errorMessage } from "../lib/api";
+import { api, errorMessage, type CompletedActions } from "../lib/api";
 import { openWithEntries, viewerMenu } from "../lib/viewerMenu";
 import { useViewer } from "../stores/viewer";
 import { t } from "../i18n";
+
+function completedActionLabels(actions: CompletedActions): string[] {
+  const labels: string[] = [];
+  if (actions.saved) labels.push(t("viewer.autoSaved"));
+  if (actions.copied === "image") labels.push(t("viewer.autoCopiedImage"));
+  if (actions.copied === "path") labels.push(t("viewer.autoCopiedPath"));
+  return [...labels, ...actions.tools];
+}
 
 export function Viewer() {
   const viewer = useViewer();
@@ -21,6 +29,7 @@ export function Viewer() {
   const [confirming, setConfirming] = useState(false);
   const [imageReady, setImageReady] = useState(false);
   const [session, setSession] = useState<number | null>(null);
+  const [autoActions, setAutoActions] = useState<CompletedActions | null>(null);
   // getCurrentWindow() は呼ぶたびに別オブジェクトを返す。effect の依存に入れると毎回の描画で
   // 読み込みが走り、PNG の再取得が止まらなくなる（WebView のメモリが尽きて真っ黒になる）
   const appWindow = useMemo(() => getCurrentWindow(), []);
@@ -52,6 +61,9 @@ export function Viewer() {
         if (!disposed) useViewer.getState().setSavedPath(payload);
       }),
       listen<string>("shot-error", ({ payload }) => reportError(payload)),
+      listen<CompletedActions>("capture-actions", ({ payload }) => {
+        if (!disposed) setAutoActions(payload);
+      }),
     ];
     // listener が登録される前に割り当てられた画像も取得する。予備の間は表示しない。
     void Promise.all(listeners).then(async () => {
@@ -96,6 +108,12 @@ export function Viewer() {
     const timer = window.setTimeout(clearStatus, status.tone === "error" ? 5000 : 2000);
     return () => window.clearTimeout(timer);
   }, [status, clearStatus]);
+
+  useEffect(() => {
+    if (!autoActions) return;
+    const timer = window.setTimeout(() => setAutoActions(null), 2200);
+    return () => window.clearTimeout(timer);
+  }, [autoActions]);
 
   // 画像内のドラッグはパンだけ。ウィンドウの移動はタイトルバーで行う
   const onPointerDown = (event: PointerEvent<HTMLElement>) => {
@@ -176,6 +194,11 @@ export function Viewer() {
             {status && (
               <output className="viewer-toast" data-tone={status.tone}>
                 {status.text}
+              </output>
+            )}
+            {autoActions && (
+              <output className="viewer-toast viewer-action-toast">
+                {t("viewer.autoActions")}: {completedActionLabels(autoActions).join("・")}
               </output>
             )}
           </main>
