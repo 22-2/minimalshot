@@ -1,11 +1,13 @@
 use tauri::window::Color;
 use tauri::{
-    AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindowBuilder,
+    AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindow,
+    WebviewWindowBuilder,
 };
 
 use crate::capture::MonitorGeometry;
 use crate::error::AppResult;
 use crate::i18n::t;
+use crate::state::AppState;
 
 pub const REGION_LABEL: &str = "region";
 pub const SETTINGS_LABEL: &str = "settings";
@@ -20,8 +22,63 @@ const FRAME_BORDER: f64 = 2.0;
 const MIN_WIDTH: f64 = 240.0;
 const MIN_HEIGHT: f64 = 160.0;
 
-pub fn viewer_label(id: u32) -> String {
-    format!("{VIEWER_PREFIX}{id}")
+fn build_viewer(app: &AppHandle, label: &str) -> AppResult<WebviewWindow> {
+    Ok(
+        WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
+            .title(t("app.name"))
+            .decorations(false)
+            // Windows 11 の枠なし窓に付く白い1px枠を避ける。枠線は CSS 側で描く。
+            .shadow(false)
+            .skip_taskbar(true)
+            .visible(false)
+            .focused(false)
+            .background_color(BACKGROUND)
+            .min_inner_size(MIN_WIDTH, MIN_HEIGHT)
+            .build()?,
+    )
+}
+
+/// build は UI スレッドとの往復を伴うので、pool のロックを保持せず実行する。
+pub fn prepare_viewer(app: &AppHandle) -> AppResult<()> {
+    let state = app.state::<AppState>();
+    let Some(label) = state.viewers.lock().unwrap().reserve_spare() else {
+        return Ok(());
+    };
+    match build_viewer(app, &label) {
+        Ok(_) => state.viewers.lock().unwrap().spare_created(&label),
+        Err(error) => {
+            state.viewers.lock().unwrap().remove(&label);
+            return Err(error);
+        }
+    }
+    Ok(())
+}
+
+fn region_window(app: &AppHandle) -> AppResult<WebviewWindow> {
+    let state = app.state::<AppState>();
+    // 起動直後のホットキーと事前準備が同時に走っても、同じラベルで二重作成しない。
+    let _creation = state.region_window_lock.lock().unwrap();
+    if let Some(existing) = app.get_webview_window(REGION_LABEL) {
+        return Ok(existing);
+    }
+    Ok(
+        WebviewWindowBuilder::new(app, REGION_LABEL, WebviewUrl::App("index.html".into()))
+            .title(t("app.name"))
+            .decorations(false)
+            .shadow(false)
+            .resizable(false)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .visible(false)
+            .focused(false)
+            .background_color(BACKGROUND)
+            .build()?,
+    )
+}
+
+pub fn prepare_region(app: &AppHandle) -> AppResult<()> {
+    region_window(app)?;
+    Ok(())
 }
 
 /// ビューアの物理サイズ。画像を等倍で見せつつ、モニターの9割を超えないようにする。
@@ -69,18 +126,35 @@ pub fn open_viewer(
     });
     let position = clamp_position(desired, size, monitor);
 
-    let window =
-        WebviewWindowBuilder::new(app, viewer_label(id), WebviewUrl::App("index.html".into()))
-            .title(t("app.name"))
-            .decorations(false)
-            .always_on_top(always_on_top)
-            .visible(false)
-            .focused(false)
-            .background_color(BACKGROUND)
-            .min_inner_size(MIN_WIDTH, MIN_HEIGHT)
-            .build()?;
-    window.set_size(PhysicalSize::new(size.0, size.1))?;
-    window.set_position(PhysicalPosition::new(position.0, position.1))?;
+    let state = app.state::<AppState>();
+    let (label, spare) = {
+        let mut pool = state.viewers.lock().unwrap();
+        match pool.take_spare() {
+            Some(label) => (label, true),
+            None => (pool.new_label(), false),
+        }
+    };
+    let window = if spare {
+        app.get_webview_window(&label)
+            .ok_or_else(|| crate::error::AppError::msg("予備のビューアが見つかりません"))?
+    } else {
+        build_viewer(app, &label)?
+    };
+    let configure = || -> AppResult<()> {
+        window.set_always_on_top(always_on_top)?;
+        window.set_size(PhysicalSize::new(size.0, size.1))?;
+        window.set_position(PhysicalPosition::new(position.0, position.1))?;
+        // 位置・サイズを確定してから割り当てる。初期化中のフロントエンドは
+        // viewer_session でも取得でき、イベントが先に届いても取りこぼさない。
+        state.viewers.lock().unwrap().bind(label.clone(), id);
+        window.emit("viewer-load", id)?;
+        Ok(())
+    };
+    if let Err(error) = configure() {
+        state.viewers.lock().unwrap().remove(&label);
+        window.destroy()?;
+        return Err(error);
+    }
     Ok(())
 }
 
@@ -89,21 +163,8 @@ pub fn open_region_overlay(
     monitor: &MonitorGeometry,
     session: u32,
 ) -> AppResult<()> {
-    let window = if let Some(existing) = app.get_webview_window(REGION_LABEL) {
-        existing.hide()?;
-        existing
-    } else {
-        WebviewWindowBuilder::new(app, REGION_LABEL, WebviewUrl::App("index.html".into()))
-            .title(t("app.name"))
-            .decorations(false)
-            .resizable(false)
-            .always_on_top(true)
-            .skip_taskbar(true)
-            .visible(false)
-            .focused(false)
-            .background_color(BACKGROUND)
-            .build()?
-    };
+    let window = region_window(app)?;
+    window.hide()?;
     window.set_position(PhysicalPosition::new(monitor.x, monitor.y))?;
     window.set_size(PhysicalSize::new(monitor.width, monitor.height))?;
     // 新規 WebView の listener が間に合わない場合は region_session で取得する。
@@ -125,6 +186,7 @@ pub fn open_settings(app: &AppHandle) -> AppResult<()> {
     WebviewWindowBuilder::new(app, SETTINGS_LABEL, WebviewUrl::App("index.html".into()))
         .title(format!("{} - {}", t("app.name"), t("settings.title")))
         .decorations(false)
+        .shadow(false)
         .visible(false)
         .focused(false)
         .background_color(BACKGROUND)

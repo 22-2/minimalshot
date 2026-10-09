@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { listen } from "@tauri-apps/api/event";
 
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ChevronDown, ExternalLink } from "lucide-react";
@@ -8,6 +9,7 @@ import { ContextMenuArea, DropdownMenuButton } from "../components/Menu";
 import { TitleBar } from "../components/TitleBar";
 import { useZoom } from "../lib/useZoom";
 import { useWindowReady } from "../lib/useWindowReady";
+import { api, errorMessage } from "../lib/api";
 import { openWithEntries, viewerMenu } from "../lib/viewerMenu";
 import { useViewer } from "../stores/viewer";
 import { t } from "../i18n";
@@ -18,6 +20,7 @@ export function Viewer() {
   const [pinned, setPinned] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [imageReady, setImageReady] = useState(false);
+  const [session, setSession] = useState<number | null>(null);
   // getCurrentWindow() は呼ぶたびに別オブジェクトを返す。effect の依存に入れると毎回の描画で
   // 読み込みが走り、PNG の再取得が止まらなくなる（WebView のメモリが尽きて真っ黒になる）
   const appWindow = useMemo(() => getCurrentWindow(), []);
@@ -26,11 +29,40 @@ export function Viewer() {
   const panFrom = useRef<{ x: number; y: number } | null>(null);
   const imageSize = useMemo(() => (info ? { width: info.width, height: info.height } : null), [info?.width, info?.height]);
   const zoom = useZoom(stageRef, imageRef, imageSize);
-  useWindowReady(imageReady || status?.tone === "error");
+  useWindowReady(session !== null && (imageReady || status?.tone === "error"));
 
   useEffect(() => {
-    void load();
-    void appWindow.isAlwaysOnTop().then(setPinned);
+    let disposed = false;
+    let active: number | null = null;
+    const loadCapture = async (id: number) => {
+      // 予備1枚は1つの撮影だけに使う。イベントと初期問い合わせの重複は読み直さない。
+      if (disposed || active !== null) return;
+      active = id;
+      setSession(id);
+      await load();
+      const pinned = await appWindow.isAlwaysOnTop();
+      if (!disposed) setPinned(pinned);
+    };
+    const reportError = (error: unknown) => {
+      if (!disposed) useViewer.setState({ status: { tone: "error", text: errorMessage(error) } });
+    };
+    const listeners = [
+      listen<number>("viewer-load", ({ payload }) => void loadCapture(payload).catch(reportError)),
+      listen<string>("shot-saved", ({ payload }) => {
+        if (!disposed) useViewer.getState().setSavedPath(payload);
+      }),
+      listen<string>("shot-error", ({ payload }) => reportError(payload)),
+    ];
+    // listener が登録される前に割り当てられた画像も取得する。予備の間は表示しない。
+    void Promise.all(listeners).then(async () => {
+      if (disposed) return;
+      const id = await api.viewerSession();
+      if (id !== null) await loadCapture(id);
+    }).catch(reportError);
+    return () => {
+      disposed = true;
+      for (const listener of listeners) void listener.then((stop) => stop());
+    };
   }, [load, appWindow]);
 
   const close = () => (confirmOnClose ? setConfirming(true) : void appWindow.close());

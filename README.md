@@ -79,6 +79,13 @@ pnpm test:e2e         # Playwright（Tauri IPC をモック）
 cd src-tauri && cargo test
 ```
 
+Windows の実際の WebView2 で、予備窓の非表示待機・連続表示・自動保存を検証する場合は、別のターミナルで `pnpm dev` を起動し、次を実行します。テスト用の色画像の窓を開き、一時フォルダへ保存します。通常のアプリの設定やホットキー、クリップボードは使いません。
+
+```sh
+cd src-tauri
+cargo test --features native-ui-test prewarmed_windows_display_captures_before_auto_save -- --ignored --nocapture
+```
+
 UI の文言は `src/locales/ja.json` にまとめ、Rust 側（トレイメニュー）も同じファイルを読みます。色や寸法は `src/styles/tokens.css` のトークンだけを使います。
 
 ## リリース

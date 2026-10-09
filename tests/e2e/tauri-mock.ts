@@ -6,6 +6,8 @@ type MockOptions = {
   /** 指定したコマンドを、この文言で失敗させる。 */
   failures?: Record<string, string>;
   delays?: Record<string, number>;
+  viewerSession?: number | null;
+  regionSession?: number | null;
 };
 
 export type Call = { cmd: string; args: Record<string, unknown> };
@@ -20,12 +22,15 @@ export async function installTauriMock(page: Page, options: MockOptions) {
     const presentations: { session: unknown; imagesReady: boolean; settingsReady: boolean }[] = [];
     let savedPath: string | null = null;
     let pinned = false;
-    let regionSession: number | null = 1;
+    let regionSession: number | null = opts.regionSession === undefined ? 1 : opts.regionSession;
+    let viewerSession: number | null = opts.viewerSession === undefined ? 1 : opts.viewerSession;
     let nextId = 0;
     const callbacks = new Map<number, (event: unknown) => void>();
     const listeners = new Map<number, { event: string; handler: number }>();
     const emit = (event: string, payload?: unknown) => {
       if (event === "region-load") regionSession = payload as number;
+      if (event === "viewer-load") viewerSession = payload as number;
+      if (event === "shot-saved") savedPath = payload as string;
       for (const [id, listener] of listeners) {
         if (listener.event === event) callbacks.get(listener.handler)?.({ event, id, payload });
       }
@@ -61,7 +66,8 @@ export async function installTauriMock(page: Page, options: MockOptions) {
       get_config: () => config,
       open_config_folder: () => undefined,
       save_config: () => undefined,
-      shot_info: () => ({ id: 1, width: 640, height: 360, savedPath }),
+      viewer_session: () => viewerSession,
+      shot_info: () => ({ id: viewerSession, width: 640, height: 360, savedPath }),
       shot_png: () => png(640, 360),
       save_shot: () => (savedPath = "C:\\Users\\me\\Pictures\\MinimalShot\\2026-10\\2026-10-09_12-00-00.png"),
       copy_shot_image: () => undefined,

@@ -39,6 +39,7 @@ export const api = {
   capture: (kind: CaptureKind) => invoke<void>("capture", { kind }),
 
   shotInfo: () => invoke<ShotInfo>("shot_info"),
+  viewerSession: () => invoke<number | null>("viewer_session"),
   shotPng: () => invoke<BinaryPayload>("shot_png").then(toBytes),
   saveShot: () => invoke<string>("save_shot"),
   copyShotImage: () => invoke<void>("copy_shot_image"),

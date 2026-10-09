@@ -2,16 +2,17 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use arboard::{Clipboard, ImageData};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_dialog::DialogExt;
 
 use crate::capture::{self, Captured};
-use crate::config::AutoCopy;
+use crate::config::{AutoCopy, Config};
 use crate::error::{AppError, AppResult};
 use crate::external;
 use crate::imaging;
 use crate::paths::{self, APP_NAME};
-use crate::state::{AppState, CaptureKind, PendingRegion};
+use crate::state::{AppState, CaptureKind, PendingCapture, PendingRegion};
+use crate::store::Shot;
 use crate::windows;
 
 pub fn start_capture(app: &AppHandle, kind: CaptureKind) -> AppResult<()> {
@@ -50,7 +51,7 @@ fn cursor(app: &AppHandle) -> AppResult<(i32, i32)> {
     Ok((position.x.round() as i32, position.y.round() as i32))
 }
 
-/// 撮影した画像を登録し、設定に応じて保存・コピーしてからビューアを出す。
+/// 画像を先に表示し、自動保存・コピーは show_window から開始する。
 pub fn finish_capture(
     app: &AppHandle,
     captured: Captured,
@@ -61,47 +62,95 @@ pub fn finish_capture(
     let dimensions = captured.image.dimensions();
     let id = state.shots.insert(captured.image);
 
-    if config.capture.auto_save {
-        save(app, id)?;
-    }
-    // 自動コピーの画像変換と WebView の初期化を重ね、コピー完了まで表示を待たせない。
-    windows::open_viewer(
+    state.pending_captures.lock().unwrap().insert(
+        id,
+        PendingCapture {
+            config: config.clone(),
+            shot: state.shots.get(id)?,
+        },
+    );
+    if let Err(error) = windows::open_viewer(
         app,
         id,
         dimensions,
         &captured.monitor,
         origin,
         config.viewer.always_on_top,
-    )?;
-    match config.capture.auto_copy {
-        AutoCopy::None => {}
-        AutoCopy::Image => copy_image(app, id)?,
-        // パスは保存したときだけ存在するので、未保存ならコピーしない
-        AutoCopy::Path if config.capture.auto_save => copy_path(app, id)?,
-        AutoCopy::Path => {}
+    ) {
+        state.pending_captures.lock().unwrap().remove(&id);
+        state.shots.remove(id);
+        return Err(error);
     }
 
+    Ok(())
+}
+
+pub fn complete_capture(
+    app: &AppHandle,
+    label: &str,
+    id: u32,
+    pending: PendingCapture,
+) -> AppResult<()> {
+    let state = app.state::<AppState>();
+    let config = pending.config;
+    if config.capture.auto_save {
+        let path = {
+            // 同時撮影でも保存名の衝突回避から書き込みまでを直列化する。
+            let _saving = state.save_lock.lock().unwrap();
+            let mut shot = pending.shot.lock().unwrap();
+            save_image(app, &config, &mut shot)?
+        };
+        app.emit_to(label, "shot-saved", path.to_string_lossy().as_ref())?;
+    }
+    if config.capture.auto_copy == AutoCopy::None
+        || (config.capture.auto_copy == AutoCopy::Path && !config.capture.auto_save)
+    {
+        return Ok(());
+    }
+    // 表示・保存の完了順が逆転しても、古い撮影が新しいクリップボードを上書きしない。
+    let mut last_copied = state.auto_copy_lock.lock().unwrap();
+    if id < *last_copied {
+        return Ok(());
+    }
+    match config.capture.auto_copy {
+        AutoCopy::Image => {
+            let image = pending.shot.lock().unwrap().image.clone();
+            set_clipboard_image(&image)?;
+        }
+        AutoCopy::Path => {
+            let shot = pending.shot.lock().unwrap();
+            let path = shot
+                .saved_path
+                .as_ref()
+                .ok_or_else(|| AppError::msg("まだ保存されていません"))?;
+            Clipboard::new()?.set_text(path.to_string_lossy())?;
+        }
+        AutoCopy::None => {}
+    }
+    *last_copied = id;
     Ok(())
 }
 
 pub fn save(app: &AppHandle, id: u32) -> AppResult<PathBuf> {
     let state = app.state::<AppState>();
     let config = state.config();
-    let pictures = app.path().picture_dir()?;
-    state.shots.with(id, |shot| {
-        if let Some(path) = &shot.saved_path {
-            return Ok(path.clone());
-        }
-        let path = paths::avoid_collision(paths::render_save_path(
-            &config.storage.directory,
-            &config.storage.format,
-            &pictures,
-            &chrono::Local::now(),
-        )?);
-        imaging::write_png(&shot.image, &path)?;
-        shot.saved_path = Some(path.clone());
-        Ok(path)
-    })
+    let _saving = state.save_lock.lock().unwrap();
+    state.shots.with(id, |shot| save_image(app, &config, shot))
+}
+
+fn save_image(app: &AppHandle, config: &Config, shot: &mut Shot) -> AppResult<PathBuf> {
+    if let Some(path) = &shot.saved_path {
+        return Ok(path.clone());
+    }
+    let path = paths::avoid_collision(paths::render_save_path(
+        &config.storage.directory,
+        &config.storage.format,
+        &app.path().picture_dir()?,
+        &chrono::Local::now(),
+    )?);
+    imaging::write_png(&shot.image, &path)?;
+    shot.saved_path = Some(path.clone());
+    Ok(path)
 }
 
 pub fn copy_image(app: &AppHandle, id: u32) -> AppResult<()> {
@@ -109,6 +158,10 @@ pub fn copy_image(app: &AppHandle, id: u32) -> AppResult<()> {
         .state::<AppState>()
         .shots
         .with(id, |shot| Ok(shot.image.clone()))?;
+    set_clipboard_image(&image)
+}
+
+fn set_clipboard_image(image: &image::RgbaImage) -> AppResult<()> {
     let (width, height) = image.dimensions();
     Clipboard::new()?.set_image(ImageData {
         width: width as usize,

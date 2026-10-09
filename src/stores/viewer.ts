@@ -12,6 +12,7 @@ type ViewerState = {
   confirmOnClose: boolean;
   status: Status;
   load: () => Promise<void>;
+  setSavedPath: (path: string | null) => void;
   copyImage: () => Promise<void>;
   copyPath: () => Promise<void>;
   save: () => Promise<void>;
@@ -45,6 +46,7 @@ export const useViewer = create<ViewerState>((set, get) => {
     tools: [],
     confirmOnClose: false,
     status: null,
+    setSavedPath,
 
     load: async () => {
       try {

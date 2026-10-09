@@ -20,13 +20,20 @@ pub struct ShotInfo {
     saved_path: Option<String>,
 }
 
-/// ビューアは自分のウィンドウラベルからキャプチャIDを得る。
+/// 予備の窓にもラベルがあるため、画像IDは割り当て表から取得する。
 fn shot_id(window: &WebviewWindow) -> AppResult<u32> {
     window
-        .label()
-        .strip_prefix(VIEWER_PREFIX)
-        .and_then(|id| id.parse().ok())
-        .ok_or_else(|| AppError::msg("ビューア以外のウィンドウです"))
+        .state::<AppState>()
+        .viewers
+        .lock()
+        .unwrap()
+        .shot_id(window.label())
+        .ok_or_else(|| AppError::msg("画像が割り当てられていません"))
+}
+
+#[tauri::command]
+pub fn viewer_session(window: WebviewWindow, state: State<'_, AppState>) -> Option<u32> {
+    state.viewers.lock().unwrap().shot_id(window.label())
 }
 
 #[tauri::command]
@@ -191,8 +198,45 @@ pub fn show_window(
         window.show()?;
         window.set_focus()?;
     } else if !window.is_visible()? {
+        if window.label().starts_with(VIEWER_PREFIX)
+            && state
+                .viewers
+                .lock()
+                .unwrap()
+                .shot_id(window.label())
+                .is_none()
+        {
+            return Ok(());
+        }
+        if window.label().starts_with(VIEWER_PREFIX) {
+            // 予備の間はタスクバーにも出さず、画像が準備できた窓だけ登録する。
+            window.set_skip_taskbar(false)?;
+        }
         window.show()?;
         window.set_focus()?;
+        if window.label().starts_with(VIEWER_PREFIX) {
+            let id = shot_id(&window)?;
+            let pending = state.pending_captures.lock().unwrap().remove(&id);
+            let app = window.app_handle().clone();
+            let label = window.label().to_owned();
+            if let Some(pending) = pending {
+                let app = app.clone();
+                tauri::async_runtime::spawn_blocking(move || {
+                    if let Err(error) = actions::complete_capture(&app, &label, id, pending) {
+                        eprintln!("[{}] {error}", crate::paths::APP_NAME);
+                        if let Err(emit_error) =
+                            app.emit_to(&label, "shot-error", error.to_string())
+                        {
+                            eprintln!("[{}] {emit_error}", crate::paths::APP_NAME);
+                        }
+                    }
+                });
+            }
+            // 次の撮影用の WebView 作成を、今回の表示までの待ちに含めない。
+            tauri::async_runtime::spawn_blocking(move || {
+                crate::report(crate::windows::prepare_viewer(&app));
+            });
+        }
     }
     Ok(())
 }

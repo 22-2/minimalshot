@@ -10,7 +10,11 @@ mod imaging;
 mod paths;
 mod state;
 mod store;
+mod viewer_pool;
 mod windows;
+
+#[cfg(all(test, windows, feature = "native-ui-test"))]
+mod native_tests;
 
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
@@ -104,6 +108,11 @@ pub fn run() {
             app.manage(AppState::new(config, config_path));
             setup_tray(app.handle())?;
             report(hotkeys::register(app.handle(), &hotkeys));
+            let app = app.handle().clone();
+            tauri::async_runtime::spawn_blocking(move || {
+                report(windows::prepare_region(&app));
+                report(windows::prepare_viewer(&app));
+            });
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -135,12 +144,11 @@ pub fn run() {
                     .unwrap()
                     .take();
             }
-            let id = window
-                .label()
-                .strip_prefix(windows::VIEWER_PREFIX)
-                .and_then(|id| id.parse::<u32>().ok());
+            let state = window.state::<AppState>();
+            let id = state.viewers.lock().unwrap().remove(window.label());
             if let Some(id) = id {
-                window.state::<AppState>().shots.remove(id);
+                state.pending_captures.lock().unwrap().remove(&id);
+                state.shots.remove(id);
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -149,6 +157,7 @@ pub fn run() {
             commands::save_config,
             commands::capture,
             commands::shot_info,
+            commands::viewer_session,
             commands::shot_png,
             commands::save_shot,
             commands::copy_shot_image,

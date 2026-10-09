@@ -8,11 +8,52 @@ async function presentations(page: Page) {
   }).__presentations);
 }
 
-async function emit(page: Page, event: string, payload?: number) {
+async function emit(page: Page, event: string, payload?: number | string) {
   await page.evaluate(({ event, payload }) => {
-    (window as unknown as { __emit: (event: string, payload?: number) => void }).__emit(event, payload);
+    (window as unknown as { __emit: (event: string, payload?: number | string) => void }).__emit(event, payload);
   }, { event, payload });
 }
+
+test("spare viewer waits for assignment and loads it only once", async ({ page }) => {
+  await installTauriMock(page, { label: "viewer-10", viewerSession: null, delays: { shot_png: 100 } });
+  await page.goto("/");
+  await expect.poll(() => commandNames(page)).toContain("viewer_session");
+  expect(await presentations(page)).toEqual([]);
+  expect(await commandNames(page)).not.toContain("shot_png");
+  expect(await commandNames(page)).not.toContain("shot_info");
+  await emit(page, "viewer-load", 42);
+  await emit(page, "viewer-load", 42);
+  await expect.poll(() => presentations(page)).toContainEqual({ session: null, imagesReady: true, settingsReady: false });
+  expect((await commandNames(page)).filter((cmd) => cmd === "shot_png")).toHaveLength(1);
+  await emit(page, "shot-saved", "C:/Pictures/shot.png");
+  await page.locator(".viewer-stage").click({ button: "right" });
+  await expect(page.getByRole("menuitem", { name: "パスのコピー" })).toBeEnabled();
+  await page.keyboard.press("Escape");
+  await emit(page, "shot-error", "自動コピーに失敗しました");
+  await expect(page.getByText("自動コピーに失敗しました")).toBeVisible();
+});
+
+test("prewarmed region stays hidden until a capture is assigned", async ({ page }) => {
+  await installTauriMock(page, { label: "region", regionSession: null });
+  await page.goto("/");
+  await expect.poll(() => commandNames(page)).toContain("region_session");
+  expect(await presentations(page)).toEqual([]);
+  expect(await commandNames(page)).not.toContain("region_png");
+  await emit(page, "region-load", 7);
+  await expect.poll(() => presentations(page)).toContainEqual({ session: 7, imagesReady: true, settingsReady: false });
+});
+
+test("viewer assignment during the initial query does not load twice", async ({ page }) => {
+  await installTauriMock(page, { label: "viewer-2", viewerSession: null, delays: { viewer_session: 300 } });
+  await page.goto("/");
+  await expect.poll(() => commandNames(page)).toContain("viewer_session");
+  await emit(page, "viewer-load", 9);
+  await expect.poll(() => presentations(page)).toHaveLength(1);
+  // 初期問い合わせの応答後にも、PNGの再取得を始めない。
+  await expect.poll(() => commandNames(page)).toContain("plugin:window|is_always_on_top");
+  await page.waitForTimeout(350);
+  expect((await commandNames(page)).filter((cmd) => cmd === "shot_png")).toHaveLength(1);
+});
 
 for (const label of ["viewer-1", "region"]) {
   test(`${label} shows only after its image has loaded`, async ({ page }) => {
