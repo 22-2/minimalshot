@@ -81,6 +81,14 @@ export function Viewer() {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (event.ctrlKey && !event.altKey && !event.metaKey && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        if (!confirming && !event.repeat) {
+          if (event.shiftKey) void useViewer.getState().saveAs();
+          else void useViewer.getState().save();
+        }
+        return;
+      }
       // 確認ダイアログ表示中の Esc はダイアログを閉じるだけにする
       if (event.key !== "Escape" || confirming) return;
       // メニューが開いているときの Esc はメニューを閉じるだけにする

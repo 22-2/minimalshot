@@ -92,6 +92,15 @@ test.describe("viewer", () => {
     await expect(toast(page)).toHaveText("保存しました");
   });
 
+  test("saves with Ctrl+S and opens Save As with Ctrl+Shift+S", async ({ page }) => {
+    await openViewer(page);
+    await page.keyboard.press("Control+s");
+    await expect.poll(() => commandNames(page)).toContain("save_shot");
+    await page.keyboard.press("Control+Shift+s");
+    await expect.poll(() => commandNames(page)).toContain("save_shot_as");
+    await expect(toast(page)).toHaveText("保存しました");
+  });
+
   test("opens a registered tool from the submenu", async ({ page }) => {
     await openViewer(page);
     await choose(page, "外部ツールで開く", "GIMP");
