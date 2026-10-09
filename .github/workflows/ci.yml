@@ -33,7 +33,20 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm exec vite build
-      - run: pnpm exec playwright install --with-deps chromium
+      # ブラウザ本体のダウンロードが最も遅い（Windows で約3分半）ため、Playwright の版ごとにキャッシュする
+      - id: playwright-version
+        shell: bash
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.os == 'Windows' && '~\AppData\Local\ms-playwright' || '~/.cache/ms-playwright' }}
+          key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps chromium
+      # キャッシュがあってもOSのライブラリは毎回入れる必要がある（Windows では不要）
+      - if: steps.playwright-cache.outputs.cache-hit == 'true' && runner.os == 'Linux'
+        run: pnpm exec playwright install-deps chromium
       - run: pnpm test:e2e
       - uses: actions/upload-artifact@v4
         if: failure()

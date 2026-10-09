@@ -1,6 +1,6 @@
 [package]
 name = "minimashot"
-version = "0.0.1"
+version = "0.0.2"
 description = "A screenshot tool that does as little as possible"
 edition = "2021"
 license = "MIT"
