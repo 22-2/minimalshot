@@ -19,10 +19,10 @@ pub fn start_capture(app: &AppHandle, kind: CaptureKind) -> AppResult<()> {
     let state = app.state::<AppState>();
     let _capture = state.capture_lock.lock().unwrap();
     match kind {
-        CaptureKind::Window => finish_capture(app, capture::focused_window()?, None),
+        CaptureKind::Window => finish_capture(app, capture::focused_window()?, None, kind),
         CaptureKind::Fullscreen => {
             let (x, y) = cursor(app)?;
-            finish_capture(app, capture::monitor_at(x, y)?, None)
+            finish_capture(app, capture::monitor_at(x, y)?, None, kind)
         }
         CaptureKind::Region => {
             // 選択中のオーバーレイを再撮影しない。初回の読み込み中も重複を避ける。
@@ -56,6 +56,7 @@ pub fn finish_capture(
     app: &AppHandle,
     captured: Captured,
     origin: Option<(i32, i32)>,
+    kind: CaptureKind,
 ) -> AppResult<()> {
     let state = app.state::<AppState>();
     let config = state.config();
@@ -66,6 +67,7 @@ pub fn finish_capture(
         id,
         PendingCapture {
             config: config.clone(),
+            kind,
             shot: state.shots.get(id)?,
         },
     );
@@ -93,40 +95,87 @@ pub fn complete_capture(
 ) -> AppResult<()> {
     let state = app.state::<AppState>();
     let config = pending.config;
-    if config.capture.auto_save {
-        let path = {
+    let actions = config.capture.actions_for(pending.kind);
+    let mut errors = Vec::new();
+    if actions.auto_save {
+        let saved = {
             // 同時撮影でも保存名の衝突回避から書き込みまでを直列化する。
             let _saving = state.save_lock.lock().unwrap();
             let mut shot = pending.shot.lock().unwrap();
-            save_image(app, &config, &mut shot)?
+            save_image(app, &config, &mut shot)
         };
-        app.emit_to(label, "shot-saved", path.to_string_lossy().as_ref())?;
+        match saved {
+            Ok(path) => {
+                // ビューアを閉じた後も、残りの自動アクションを続ける。
+                if let Err(error) =
+                    app.emit_to(label, "shot-saved", path.to_string_lossy().as_ref())
+                {
+                    eprintln!("[{APP_NAME}] {error}");
+                }
+            }
+            Err(error) => errors.push(error.to_string()),
+        }
     }
-    if config.capture.auto_copy == AutoCopy::None
-        || (config.capture.auto_copy == AutoCopy::Path && !config.capture.auto_save)
-    {
-        return Ok(());
+    let copied = match actions.auto_copy {
+        AutoCopy::Image => {
+            let image = pending.shot.lock().unwrap().image.clone();
+            copy_in_capture_order(app, id, || set_clipboard_image(&image))
+        }
+        AutoCopy::Path => {
+            let shot = pending.shot.lock().unwrap();
+            match shot.saved_path.as_ref() {
+                Some(path) => copy_in_capture_order(app, id, || {
+                    Clipboard::new()?.set_text(path.to_string_lossy())?;
+                    Ok(())
+                }),
+                None => Ok(()),
+            }
+        }
+        AutoCopy::None => Ok(()),
+    };
+    if let Err(error) = copied {
+        errors.push(error.to_string());
     }
-    // 表示・保存の完了順が逆転しても、古い撮影が新しいクリップボードを上書きしない。
+    if !actions.auto_tools.is_empty() {
+        let path = {
+            let shot = pending.shot.lock().unwrap();
+            tool_path_for_shot(id, &shot)
+        };
+        match path {
+            Ok(path) => {
+                for name in &actions.auto_tools {
+                    let Some(tool) = config.external.tools.iter().find(|tool| &tool.name == name)
+                    else {
+                        errors.push(format!("外部ツール「{name}」が見つかりません"));
+                        continue;
+                    };
+                    if let Err(error) = run_tool(app, &path, tool, Some(id)) {
+                        errors.push(error.to_string());
+                    }
+                }
+            }
+            Err(error) => errors.push(error.to_string()),
+        }
+    }
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(AppError::msg(errors.join("\n")))
+    }
+}
+
+/// OCR などの処理が遅れて完了しても、後の撮影結果のコピーを上書きしない。
+fn copy_in_capture_order(
+    app: &AppHandle,
+    id: u32,
+    copy: impl FnOnce() -> AppResult<()>,
+) -> AppResult<()> {
+    let state = app.state::<AppState>();
     let mut last_copied = state.auto_copy_lock.lock().unwrap();
     if id < *last_copied {
         return Ok(());
     }
-    match config.capture.auto_copy {
-        AutoCopy::Image => {
-            let image = pending.shot.lock().unwrap().image.clone();
-            set_clipboard_image(&image)?;
-        }
-        AutoCopy::Path => {
-            let shot = pending.shot.lock().unwrap();
-            let path = shot
-                .saved_path
-                .as_ref()
-                .ok_or_else(|| AppError::msg("まだ保存されていません"))?;
-            Clipboard::new()?.set_text(path.to_string_lossy())?;
-        }
-        AutoCopy::None => {}
-    }
+    copy()?;
     *last_copied = id;
     Ok(())
 }
@@ -183,16 +232,20 @@ pub fn copy_path(app: &AppHandle, id: u32) -> AppResult<()> {
 
 /// 外部ツールへ渡すパス。未保存なら一時フォルダに書き出し、保存設定には影響させない。
 fn path_for_tool(app: &AppHandle, id: u32) -> AppResult<PathBuf> {
-    app.state::<AppState>().shots.with(id, |shot| {
-        if let Some(path) = &shot.saved_path {
-            return Ok(path.clone());
-        }
-        let path = std::env::temp_dir()
-            .join(APP_NAME)
-            .join(format!("shot-{}-{id}.png", std::process::id()));
-        imaging::write_png(&shot.image, &path)?;
-        Ok(path)
-    })
+    app.state::<AppState>()
+        .shots
+        .with(id, |shot| tool_path_for_shot(id, shot))
+}
+
+fn tool_path_for_shot(id: u32, shot: &Shot) -> AppResult<PathBuf> {
+    if let Some(path) = &shot.saved_path {
+        return Ok(path.clone());
+    }
+    let path = std::env::temp_dir()
+        .join(APP_NAME)
+        .join(format!("shot-{}-{id}.png", std::process::id()));
+    imaging::write_png(&shot.image, &path)?;
+    Ok(path)
 }
 
 /// 外部ツールを起動した結果。フロントエンドの通知文を切り替えるために返す。
@@ -213,8 +266,17 @@ pub fn open_with(app: &AppHandle, id: u32, tool_index: usize) -> AppResult<ToolO
         .cloned()
         .ok_or_else(|| AppError::msg("外部ツールが見つかりません"))?;
     let path = path_for_tool(app, id)?;
+    run_tool(app, &path, &tool, None)
+}
+
+fn run_tool(
+    app: &AppHandle,
+    path: &Path,
+    tool: &crate::config::ExternalTool,
+    auto_id: Option<u32>,
+) -> AppResult<ToolOutcome> {
     let mut command = Command::new(tool.command.trim());
-    command.args(external::build_args(&tool.args, &path)?);
+    command.args(external::build_args(&tool.args, path)?);
     // 出力を受け取る CLI にコンソールを出しても空の黒い窓が一瞬見えるだけなので、まとめて隠す
     if tool.hide_console || tool.copy_stdout {
         hide_console(&mut command);
@@ -246,7 +308,14 @@ pub fn open_with(app: &AppHandle, id: u32, tool_index: usize) -> AppResult<ToolO
     if text.is_empty() {
         return Err(AppError::msg(format!("{} の出力が空でした", tool.name)));
     }
-    Clipboard::new()?.set_text(text)?;
+    if let Some(auto_id) = auto_id {
+        copy_in_capture_order(app, auto_id, || {
+            Clipboard::new()?.set_text(text)?;
+            Ok(())
+        })?;
+    } else {
+        Clipboard::new()?.set_text(text)?;
+    }
     Ok(ToolOutcome::Copied)
 }
 

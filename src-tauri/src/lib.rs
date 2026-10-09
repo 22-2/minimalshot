@@ -44,6 +44,7 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     let fullscreen =
         MenuItem::with_id(app, "fullscreen", t("tray.fullscreen"), true, None::<&str>)?;
     let settings = MenuItem::with_id(app, "settings", t("tray.settings"), true, None::<&str>)?;
+    let about = MenuItem::with_id(app, "about", t("about.menu"), true, None::<&str>)?;
     let config_folder = MenuItem::with_id(
         app,
         "config_folder",
@@ -62,6 +63,7 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
             &separator,
             &settings,
             &config_folder,
+            &about,
             &quit,
         ],
     )?;
@@ -75,6 +77,7 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
             "window" => capture_in_background(app, CaptureKind::Window),
             "fullscreen" => capture_in_background(app, CaptureKind::Fullscreen),
             "settings" => report(windows::open_settings(app)),
+            "about" => report(windows::open_about(app)),
             "config_folder" => report(actions::open_config_folder(app)),
             "quit" => app.exit(0),
             _ => {}
@@ -173,6 +176,8 @@ pub fn run() {
             commands::save_shot_as,
             commands::delete_saved_shot,
             commands::open_settings,
+            commands::open_about,
+            commands::app_version,
             commands::show_window,
             commands::region_session,
             commands::prepare_region,

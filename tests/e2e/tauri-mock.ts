@@ -36,8 +36,8 @@ export async function installTauriMock(page: Page, options: MockOptions) {
       }
     };
     const config = {
-      hotkeys: { region: "Ctrl+PrintScreen", window: "Alt+PrintScreen", fullscreen: "Shift+PrintScreen" },
-      capture: { auto_save: false, auto_copy: "image" },
+      hotkeys: { region: ["Ctrl+PrintScreen"], window: ["Alt+PrintScreen"], fullscreen: ["Shift+PrintScreen"] },
+      capture: { auto_save: false, auto_copy: "image", auto_tools: [] },
       storage: { directory: "{pictures}/{appname}", format: "%Y-%m/%Y-%m-%d_%H-%M-%S.png" },
       viewer: { always_on_top: false, confirm_on_close: false },
       external: {
@@ -82,6 +82,8 @@ export async function installTauriMock(page: Page, options: MockOptions) {
         savedPath = null;
       },
       open_settings: () => undefined,
+      open_about: () => undefined,
+      app_version: () => "0.0.9",
       show_window: (args) => {
         const images = Array.from(document.querySelectorAll<HTMLImageElement>(".viewer-image, .region-image"));
         presentations.push({

@@ -7,5 +7,6 @@ describe("resolveView", () => {
     expect(resolveView("viewer-12")).toBe("viewer");
     expect(resolveView("region")).toBe("region");
     expect(resolveView("settings")).toBe("settings");
+    expect(resolveView("about")).toBe("about");
   });
 });

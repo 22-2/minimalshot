@@ -11,6 +11,7 @@ type SettingsState = {
   saving: boolean;
   load: () => Promise<void>;
   openConfigFolder: () => Promise<void>;
+  openAbout: () => Promise<void>;
   update: <S extends keyof Config, K extends keyof Config[S]>(
     section: S,
     key: K,
@@ -39,6 +40,14 @@ export const useSettings = create<SettingsState>((set, get) => ({
       set({ status: { tone: "info", text: t("settings.openedConfigFolder") } });
     } catch (error) {
       set({ status: { tone: "error", text: `${t("settings.openConfigFolderFailed")}: ${errorMessage(error)}` } });
+    }
+  },
+
+  openAbout: async () => {
+    try {
+      await api.openAbout();
+    } catch (error) {
+      set({ status: { tone: "error", text: errorMessage(error) } });
     }
   },
 

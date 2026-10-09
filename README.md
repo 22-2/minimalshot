@@ -23,7 +23,7 @@
 - 常に最前面に表示
 - 設定
 
-トレイアイコンのメニューから、キャプチャと設定画面を開けます。トレイの右クリックメニューと設定画面の「設定フォルダを開く」から、`config.toml` のあるフォルダをエクスプローラーで開けます。
+トレイアイコンのメニューから、キャプチャ、設定画面、「MinimalShot について」を開けます。「このアプリについて」には実行中のバージョンが表示されます。トレイの右クリックメニューと設定画面の「設定フォルダを開く」から、`config.toml` のあるフォルダをエクスプローラーで開けます。
 
 ## 設定
 
@@ -31,13 +31,18 @@
 
 ```toml
 [hotkeys]
-region = "Ctrl+PrintScreen"
-window = "Alt+PrintScreen"
-fullscreen = "Shift+PrintScreen"
+region = ["Ctrl+PrintScreen", "Win+Shift+Z"]
+window = ["Alt+PrintScreen"]
+fullscreen = ["Shift+PrintScreen"]
 
 [capture]
 auto_save = false
 auto_copy = "image" # none / image / path（path は保存時のみ）
+auto_tools = [] # すべての撮影モードの既定動作。外部ツール名を複数指定できる
+
+[capture.region]
+auto_save = true
+auto_tools = ["文字認識"] # 指定しない項目は [capture] の値を引き継ぐ
 
 [storage]
 directory = "{pictures}/{appname}"
@@ -64,7 +69,7 @@ args = '"${file}" stdout -l jpn+eng'
 copy_stdout = true
 ```
 
-0.0.3 までの `[external] editor = "..."` も読み込めます（ツール1件として扱います）。
+`[capture.region]`、`[capture.window]`、`[capture.fullscreen]` でモードごとに既定動作を上書きできます。自動ツールは記載順に実行します。標準出力をコピーするツールを複数指定した場合、最後に実行したツールの結果がクリップボードに残ります。ホットキーは `Win` / `Windows` を修飾キーとして使え、大文字小文字を区別しません。以前の単一文字列形式も読み込めます。0.0.3 までの `[external] editor = "..."` も読み込めます（ツール1件として扱います）。
 
 ## 開発
 

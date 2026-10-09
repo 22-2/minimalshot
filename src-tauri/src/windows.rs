@@ -11,6 +11,7 @@ use crate::state::AppState;
 
 pub const REGION_LABEL: &str = "region";
 pub const SETTINGS_LABEL: &str = "settings";
+pub const ABOUT_LABEL: &str = "about";
 pub const VIEWER_PREFIX: &str = "viewer-";
 // src/styles/tokens.css の --color-canvas。WebView の最初のフレームも白くしない。
 const BACKGROUND: Color = Color(22, 23, 26, 255);
@@ -211,6 +212,27 @@ pub fn open_settings(app: &AppHandle) -> AppResult<()> {
         .inner_size(560.0, 640.0)
         .min_inner_size(MIN_WIDTH, MIN_HEIGHT)
         .prevent_overflow()
+        .center()
+        .build()?;
+    Ok(())
+}
+
+pub fn open_about(app: &AppHandle) -> AppResult<()> {
+    if let Some(existing) = app.get_webview_window(ABOUT_LABEL) {
+        existing.unminimize()?;
+        existing.set_focus()?;
+        return Ok(());
+    }
+    WebviewWindowBuilder::new(app, ABOUT_LABEL, WebviewUrl::App("index.html".into()))
+        .title(format!("{} - {}", t("app.name"), t("about.title")))
+        .decorations(false)
+        .shadow(false)
+        .resizable(false)
+        .visible(false)
+        .focused(false)
+        .background_color(BACKGROUND)
+        .inner_size(360.0, 220.0)
+        .min_inner_size(300.0, 180.0)
         .center()
         .build()?;
     Ok(())

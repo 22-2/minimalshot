@@ -25,6 +25,7 @@ pub struct PendingRegion {
 
 pub struct PendingCapture {
     pub config: Config,
+    pub kind: CaptureKind,
     // ビューアをすぐ閉じても、表示後に開始した自動保存・コピーは完了させる。
     pub shot: Arc<Mutex<Shot>>,
 }

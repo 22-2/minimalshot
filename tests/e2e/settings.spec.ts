@@ -47,6 +47,31 @@ test.describe("settings", () => {
     });
   });
 
+  test("assigns multiple shortcuts and an automatic tool to one capture mode", async ({ page }) => {
+    await installTauriMock(page, { label: "settings" });
+    await page.goto("/");
+
+    await page.getByRole("button", { name: "領域: ショートカットを追加" }).click();
+    await page.getByLabel("領域 2").fill("win+shift+z");
+    await page.getByRole("switch", { name: "既定動作を使う" }).first().click();
+    await page.getByRole("checkbox", { name: "ペイント" }).last().check();
+    await page.getByRole("button", { name: "設定を保存" }).click();
+
+    const save = (await calls(page)).find((c) => c.cmd === "save_config");
+    expect(save?.args.config).toMatchObject({
+      hotkeys: { region: ["Ctrl+PrintScreen", "win+shift+z"] },
+      capture: { region: { auto_tools: ["ペイント"] } },
+    });
+  });
+
+  test("shows the running app version in About", async ({ page }) => {
+    await installTauriMock(page, { label: "about" });
+    await page.goto("/");
+
+    await expect(page.getByText("バージョン 0.0.9")).toBeVisible();
+    expect((await calls(page)).map((call) => call.cmd)).toContain("app_version");
+  });
+
   test("uses only the dark palette", async ({ page }) => {
     await page.emulateMedia({ colorScheme: "light" });
     await installTauriMock(page, { label: "settings" });

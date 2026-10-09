@@ -19,9 +19,28 @@ pub struct Config {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Hotkeys {
-    pub region: String,
-    pub window: String,
-    pub fullscreen: String,
+    #[serde(deserialize_with = "one_or_many")]
+    pub region: Vec<String>,
+    #[serde(deserialize_with = "one_or_many")]
+    pub window: Vec<String>,
+    #[serde(deserialize_with = "one_or_many")]
+    pub fullscreen: Vec<String>,
+}
+
+fn one_or_many<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Value {
+        One(String),
+        Many(Vec<String>),
+    }
+    Ok(match Value::deserialize(deserializer)? {
+        Value::One(value) => vec![value],
+        Value::Many(values) => values,
+    })
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -38,6 +57,56 @@ pub enum AutoCopy {
 pub struct Capture {
     pub auto_save: bool,
     pub auto_copy: AutoCopy,
+    pub auto_tools: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub region: Option<CaptureOverride>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub window: Option<CaptureOverride>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fullscreen: Option<CaptureOverride>,
+}
+
+/// モード別の指定項目だけを `[capture]` の既定値に上書きする。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(default)]
+pub struct CaptureOverride {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auto_save: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auto_copy: Option<AutoCopy>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auto_tools: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CaptureActions {
+    pub auto_save: bool,
+    pub auto_copy: AutoCopy,
+    pub auto_tools: Vec<String>,
+}
+
+impl Capture {
+    pub fn actions_for(&self, kind: crate::state::CaptureKind) -> CaptureActions {
+        let override_ = match kind {
+            crate::state::CaptureKind::Region => &self.region,
+            crate::state::CaptureKind::Window => &self.window,
+            crate::state::CaptureKind::Fullscreen => &self.fullscreen,
+        };
+        CaptureActions {
+            auto_save: override_
+                .as_ref()
+                .and_then(|v| v.auto_save)
+                .unwrap_or(self.auto_save),
+            auto_copy: override_
+                .as_ref()
+                .and_then(|v| v.auto_copy)
+                .unwrap_or(self.auto_copy),
+            auto_tools: override_
+                .as_ref()
+                .and_then(|v| v.auto_tools.clone())
+                .unwrap_or_else(|| self.auto_tools.clone()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -111,9 +180,9 @@ impl Default for Hotkeys {
     fn default() -> Self {
         // PrintScreen 単体は OS 標準の動作を残すため割り当てない
         Self {
-            region: "Ctrl+PrintScreen".into(),
-            window: "Alt+PrintScreen".into(),
-            fullscreen: "Shift+PrintScreen".into(),
+            region: vec!["Ctrl+PrintScreen".into()],
+            window: vec!["Alt+PrintScreen".into()],
+            fullscreen: vec!["Shift+PrintScreen".into()],
         }
     }
 }
@@ -242,6 +311,40 @@ copy_stdout = true
     fn keeps_an_explicitly_empty_tool_list() {
         let config = Config::parse("[external]\ntools = []\n").unwrap();
         assert!(config.external.tools.is_empty());
+    }
+
+    #[test]
+    fn mode_actions_inherit_only_unspecified_defaults() {
+        let config = Config::parse(
+            r#"
+[capture]
+auto_save = true
+auto_copy = "image"
+auto_tools = ["OCR"]
+[capture.region]
+auto_copy = "none"
+auto_tools = []
+"#,
+        )
+        .unwrap();
+        let region = config
+            .capture
+            .actions_for(crate::state::CaptureKind::Region);
+        assert!(region.auto_save);
+        assert_eq!(region.auto_copy, AutoCopy::None);
+        assert!(region.auto_tools.is_empty());
+        let window = config
+            .capture
+            .actions_for(crate::state::CaptureKind::Window);
+        assert_eq!(window.auto_tools, ["OCR"]);
+        assert_eq!(Config::parse(&config.to_toml().unwrap()).unwrap(), config);
+    }
+
+    #[test]
+    fn legacy_single_hotkey_is_read_as_list() {
+        let config = Config::parse("[hotkeys]\nregion = \"win+shift+z\"\n").unwrap();
+        assert_eq!(config.hotkeys.region, ["win+shift+z"]);
+        assert_eq!(Config::parse(&config.to_toml().unwrap()).unwrap(), config);
     }
 
     #[test]

@@ -10,6 +10,7 @@ const views = {
   viewer: lazy(() => import("./views/Viewer").then((module) => ({ default: module.Viewer }))),
   region: lazy(() => import("./views/RegionSelect").then((module) => ({ default: module.RegionSelect }))),
   settings: lazy(() => import("./views/Settings").then((module) => ({ default: module.Settings }))),
+  about: lazy(() => import("./views/About").then((module) => ({ default: module.About }))),
 };
 const View = views[resolveView(getCurrentWindow().label)];
 

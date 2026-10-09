@@ -63,8 +63,34 @@ pub fn save_config(app: AppHandle, config: Config) -> AppResult<()> {
         }
         crate::external::split_args(&tool.args)?;
     }
+    let mut names = std::collections::HashSet::new();
+    for tool in &config.external.tools {
+        if !names.insert(&tool.name) {
+            return Err(AppError::msg(format!(
+                "外部ツール「{}」の名前が重複しています",
+                tool.name
+            )));
+        }
+    }
+    for actions in [
+        config.capture.actions_for(CaptureKind::Region),
+        config.capture.actions_for(CaptureKind::Window),
+        config.capture.actions_for(CaptureKind::Fullscreen),
+    ] {
+        for name in actions.auto_tools {
+            if !names.contains(&name) {
+                return Err(AppError::msg(format!(
+                    "自動実行する外部ツール「{name}」が見つかりません"
+                )));
+            }
+        }
+    }
+    let previous_hotkeys = state.config().hotkeys;
     hotkeys::register(&app, &config.hotkeys)?;
-    config.save(&state.config_path)?;
+    if let Err(error) = config.save(&state.config_path) {
+        let _ = hotkeys::register(&app, &previous_hotkeys);
+        return Err(error);
+    }
     *state.config.lock().unwrap() = config;
     Ok(())
 }
@@ -158,6 +184,16 @@ pub fn delete_saved_shot(app: AppHandle, window: WebviewWindow) -> AppResult<()>
 #[tauri::command]
 pub async fn open_settings(app: AppHandle) -> AppResult<()> {
     crate::windows::open_settings(&app)
+}
+
+#[tauri::command]
+pub async fn open_about(app: AppHandle) -> AppResult<()> {
+    crate::windows::open_about(&app)
+}
+
+#[tauri::command]
+pub fn app_version(app: AppHandle) -> String {
+    app.package_info().version.to_string()
 }
 
 #[tauri::command]
@@ -303,6 +339,7 @@ pub async fn finish_region(
                 monitor: captured.monitor,
             },
             Some(origin),
+            CaptureKind::Region,
         )
     })
     .await
@@ -323,7 +360,13 @@ mod tests {
     #[test]
     fn window_creating_commands_are_async() {
         let source = include_str!("commands.rs");
-        for name in ["capture", "finish_region", "open_settings", "save_shot_as"] {
+        for name in [
+            "capture",
+            "finish_region",
+            "open_settings",
+            "open_about",
+            "save_shot_as",
+        ] {
             assert!(
                 source.contains(&format!("pub async fn {name}(")),
                 "{name} must be an async command"

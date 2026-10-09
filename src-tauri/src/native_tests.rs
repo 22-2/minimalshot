@@ -316,6 +316,7 @@ fn prewarmed_windows_display_captures_before_auto_save() {
                         monitor: geometry,
                     },
                     None,
+                    crate::state::CaptureKind::Fullscreen,
                 )
                 .unwrap();
                 wait_for("capture presentation", || {

@@ -21,7 +21,7 @@ describe("Settings", () => {
       if (cmd === "get_config") return defaultConfig();
       if (cmd === "save_config") {
         const config = (args as { config: ReturnType<typeof defaultConfig> }).config;
-        if (config.hotkeys.region === "PrintScreen") throw "ショートカット「PrintScreen」には修飾キーが必要です";
+        if (config.hotkeys.region.includes("PrintScreen")) throw "ショートカット「PrintScreen」には修飾キーが必要です";
         saved.push(config);
       }
     });
@@ -51,7 +51,7 @@ describe("Settings", () => {
     expect(await screen.findByText("設定を保存しました")).toBeInTheDocument();
     expect(saved).toHaveLength(1);
     expect(saved[0]).toMatchObject({
-      capture: { auto_save: true, auto_copy: "path" },
+      capture: { auto_save: true, auto_copy: "path", auto_tools: [] },
       external: {
         tools: [
           { name: "ペイント", command: "paint.net", args: '"${file}"', hide_console: false, copy_stdout: false },
@@ -59,6 +59,37 @@ describe("Settings", () => {
         ],
       },
     });
+  });
+
+  it("edits mode actions, automatic tools, and multiple shortcuts", async () => {
+    const user = userEvent.setup();
+    render(<Settings />);
+    await screen.findByLabelText("領域");
+
+    await user.click(screen.getByRole("button", { name: "領域: ショートカットを追加" }));
+    await user.type(screen.getByLabelText("領域 2"), "win+shift+z");
+    await user.click(screen.getAllByRole("switch", { name: "既定動作を使う" })[0]);
+    await user.click(screen.getAllByRole("checkbox", { name: "ペイント" })[1]);
+    await user.click(screen.getByRole("button", { name: "設定を保存" }));
+
+    expect(saved[0]).toMatchObject({
+      hotkeys: { region: ["Ctrl+PrintScreen", "win+shift+z"] },
+      capture: { region: { auto_tools: ["ペイント"] } },
+    });
+  });
+
+  it("keeps an automatic tool selected when its name changes", async () => {
+    const user = userEvent.setup();
+    render(<Settings />);
+    await screen.findByLabelText("領域");
+
+    await user.click(screen.getByRole("checkbox", { name: "ペイント" }));
+    const name = screen.getByLabelText("名前");
+    await user.clear(name);
+    await user.type(name, "OCR");
+    await user.click(screen.getByRole("button", { name: "設定を保存" }));
+
+    expect(saved[0]).toMatchObject({ capture: { auto_tools: ["OCR"] } });
   });
 
   it("removes a tool", async () => {

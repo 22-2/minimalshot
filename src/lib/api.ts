@@ -2,11 +2,13 @@ import { invoke } from "@tauri-apps/api/core";
 
 export type AutoCopy = "none" | "image" | "path";
 export type CaptureKind = "region" | "window" | "fullscreen";
+export type CaptureActions = { auto_save: boolean; auto_copy: AutoCopy; auto_tools: string[] };
+export type CaptureOverride = Partial<CaptureActions>;
 
 /** Rust 側の `config::Config` と同じ形。 */
 export type Config = {
-  hotkeys: { region: string; window: string; fullscreen: string };
-  capture: { auto_save: boolean; auto_copy: AutoCopy };
+  hotkeys: Record<CaptureKind, string[]>;
+  capture: CaptureActions & Partial<Record<CaptureKind, CaptureOverride>>;
   storage: { directory: string; format: string };
   viewer: { always_on_top: boolean; confirm_on_close: boolean };
   external: { tools: ExternalTool[] };
@@ -49,9 +51,11 @@ export const api = {
   saveShotAs: () => invoke<string | null>("save_shot_as"),
   deleteSavedShot: () => invoke<void>("delete_saved_shot"),
   openSettings: () => invoke<void>("open_settings"),
+  openAbout: () => invoke<void>("open_about"),
+  appVersion: () => invoke<string>("app_version"),
   showWindow: (session?: number) => invoke<void>("show_window", { session: session ?? null }),
 
-  regionSession: () => invoke<number | null>("region_session"),
+regionSession: () => invoke<number | null>("region_session"),
   prepareRegion: () => invoke<{ width: number; height: number; renderWhileHidden: boolean }>("prepare_region"),
   regionPng: (session: number) => invoke<BinaryPayload>("region_png", { session }).then(toBytes),
   finishRegion: (rect: Rect, session: number) => invoke<void>("finish_region", { rect, session }),
