@@ -35,6 +35,9 @@ export const useViewer = create<ViewerState>((set, get) => {
     load: async () => {
       try {
         const [info, png] = await Promise.all([api.shotInfo(), api.shotPng()]);
+        // 読み直したときに前の Blob を解放し、メモリが積み上がらないようにする
+        const previous = get().imageUrl;
+        if (previous) URL.revokeObjectURL(previous);
         set({ info, imageUrl: pngUrl(png) });
       } catch (error) {
         set({ status: { tone: "error", text: errorMessage(error) } });

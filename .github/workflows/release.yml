@@ -10,16 +10,15 @@ on:
         description: "Tag to release (e.g. v0.0.1)"
         required: true
 
+# CI は main への push（PR のマージ）で既に通っているので、ここではビルドと公開だけを行う
 jobs:
-  ci:
-    uses: ./.github/workflows/ci.yml
-
   release:
-    name: Build Windows installers
-    needs: ci
+    name: Build and publish exe
     runs-on: windows-latest
     permissions:
       contents: write
+    env:
+      VERSION: ${{ inputs.version || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -28,16 +27,23 @@ jobs:
           node-version: 22
           cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
+      # リリースビルドは CI（debug）と成果物が別物なので、専用のキーで依存のビルド結果を持ち回す
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          shared-key: release
       - run: pnpm install --frozen-lockfile
-      - uses: tauri-apps/tauri-action@v0
+      # インストーラーは作らず、フロントエンドを埋め込んだ単体の exe だけをビルドする
+      - run: pnpm tauri build --no-bundle
+      - name: Publish GitHub release
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tagName: ${{ inputs.version || github.ref_name }}
-          releaseName: MinimaShot ${{ inputs.version || github.ref_name }}
-          releaseBody: Windows 用インストーラー（NSIS / MSI）です。
-          releaseDraft: false
-          prerelease: true
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          asset="MinimaShot_${VERSION}_x64.exe"
+          cp src-tauri/target/release/minimashot.exe "$asset"
+          gh release create "$VERSION" "$asset" \
+            --target "$GITHUB_SHA" \
+            --title "MinimaShot $VERSION" \
+            --notes "Windows 用の実行ファイルです。インストール不要で、そのまま起動できます（WebView2 ランタイムが必要です。Windows 10/11 には標準で入っています）。" \
+            --prerelease

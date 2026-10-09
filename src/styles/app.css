@@ -100,6 +100,7 @@ button {
 /* ---- ビューア ---- */
 
 .viewer-stage {
+  position: relative;
   display: grid;
   place-items: center;
   min-height: 0;
@@ -112,12 +113,20 @@ button {
   cursor: grabbing;
 }
 
+/* 位置と倍率は useZoom が transform で直接書き換える */
 .viewer-image {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
   display: block;
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
+  max-width: none;
+  transform-origin: 0 0;
+  will-change: transform;
   pointer-events: none;
+}
+
+.viewer-image[data-pixelated="true"] {
+  image-rendering: pixelated;
 }
 
 .viewer-placeholder {

@@ -66,7 +66,8 @@ test.describe("viewer", () => {
     await installTauriMock(page, { label: "viewer-1" });
     await page.goto("/");
 
-    await page.locator(".viewer-stage").dispatchEvent("mousedown", { button: 0 });
+    await expect(page.locator(".viewer-image")).toBeVisible();
+    await page.locator(".viewer-stage").click({ position: { x: 5, y: 5 } });
     await expect.poll(() => commandNames(page)).toContain("plugin:window|start_dragging");
   });
 
@@ -99,5 +100,69 @@ test.describe("viewer", () => {
     await page.getByRole("button", { name: "閉じる", exact: true }).click();
     await expect.poll(() => commandNames(page)).toContain("plugin:window|close");
     expect((await calls(page)).some((c) => c.cmd === "plugin:window|close")).toBe(true);
+  });
+
+  test("loads the image once instead of refetching on every render", async ({ page }) => {
+    await installTauriMock(page, { label: "viewer-1" });
+    await page.goto("/");
+    await expect(page.locator(".viewer-image")).toBeVisible();
+    await page.getByRole("button", { name: "画像をコピー" }).click();
+    await page.waitForTimeout(1000);
+
+    // 開発時の StrictMode では effect が2回走るので、2回までは正常
+    const fetches = (await commandNames(page)).filter((cmd) => cmd === "shot_png");
+    expect(fetches.length).toBeLessThanOrEqual(2);
+  });
+
+  test("closes with Escape", async ({ page }) => {
+    await installTauriMock(page, { label: "viewer-1" });
+    await page.goto("/");
+    await expect(page.locator(".viewer-image")).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await expect.poll(() => commandNames(page)).toContain("plugin:window|close");
+  });
+
+  test("Escape asks first when confirmation is on", async ({ page }) => {
+    await installTauriMock(page, {
+      label: "viewer-1",
+      config: { viewer: { always_on_top: false, confirm_on_close: true } },
+    });
+    await page.goto("/");
+    await expect(page.locator(".viewer-image")).toBeVisible();
+    await page.waitForTimeout(200);
+
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("alertdialog")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("alertdialog")).toBeHidden();
+    expect(await commandNames(page)).not.toContain("plugin:window|close");
+  });
+
+  test("zooms smoothly with the wheel and fits again on double-click", async ({ page }) => {
+    await page.setViewportSize({ width: 800, height: 500 });
+    await installTauriMock(page, { label: "viewer-1" });
+    await page.goto("/");
+    const title = page.locator(".titlebar");
+    await expect(title).toContainText("100%");
+
+    const stage = page.locator(".viewer-stage");
+    const box = (await stage.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.wheel(0, -300);
+    await expect(title).not.toContainText(" 100%");
+    await expect
+      .poll(async () => (await page.locator(".viewer-image").boundingBox())!.width)
+      .toBeGreaterThan(640 * 1.5);
+
+    // 拡大中のドラッグはウィンドウ移動ではなくパンになる
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + 50, box.y + box.height / 2, { steps: 3 });
+    await page.mouse.up();
+    expect(await commandNames(page)).not.toContain("plugin:window|start_dragging");
+
+    await stage.dblclick();
+    await expect(title).toContainText("100%");
+    await expect.poll(async () => Math.round((await page.locator(".viewer-image").boundingBox())!.width)).toBe(640);
   });
 });

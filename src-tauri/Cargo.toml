@@ -28,7 +28,7 @@ thiserror = "2"
 [dev-dependencies]
 tempfile = "3"
 
+# fat LTO と codegen-units = 1 は CI でのビルドに数分かかる割に、この規模では差が小さいため使わない
 [profile.release]
-lto = true
-codegen-units = 1
+lto = "thin"
 strip = true
