@@ -8,6 +8,8 @@ test.describe("region selection", () => {
     await page.goto("/");
     await expect(page.locator(".region-image")).toBeVisible();
     await expect(page.getByText("ドラッグで範囲を選択")).toBeVisible();
+    // 最初に見える画像は事前描画用の場合がある。撮影セッションの表示完了を待つ。
+    await expect.poll(() => commandNames(page)).toContain("show_window");
 
     await page.mouse.move(300, 200);
     await page.mouse.down();
