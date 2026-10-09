@@ -171,3 +171,10 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# MinimaShot
+node_modules
+dist
+src-tauri/gen/schemas
+test-results
+playwright-report

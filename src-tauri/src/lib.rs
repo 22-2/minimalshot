@@ -1,0 +1,124 @@
+mod actions;
+mod capture;
+mod commands;
+mod config;
+mod error;
+mod hotkeys;
+mod i18n;
+mod imaging;
+mod paths;
+mod state;
+mod store;
+mod windows;
+
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+use tauri::tray::TrayIconBuilder;
+use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
+use tauri_plugin_global_shortcut::ShortcutState;
+
+use crate::config::Config;
+use crate::i18n::t;
+use crate::state::{AppState, CaptureKind};
+
+fn report(result: error::AppResult<()>) {
+    // 常駐アプリなので、失敗してもプロセスは落とさずログに残す
+    if let Err(err) = result {
+        eprintln!("[{}] {err}", paths::APP_NAME);
+    }
+}
+
+fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
+    let region = MenuItem::with_id(app, "region", t("tray.region"), true, None::<&str>)?;
+    let window = MenuItem::with_id(app, "window", t("tray.window"), true, None::<&str>)?;
+    let fullscreen =
+        MenuItem::with_id(app, "fullscreen", t("tray.fullscreen"), true, None::<&str>)?;
+    let settings = MenuItem::with_id(app, "settings", t("tray.settings"), true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", t("tray.quit"), true, None::<&str>)?;
+    let separator = PredefinedMenuItem::separator(app)?;
+    let menu = Menu::with_items(
+        app,
+        &[&region, &window, &fullscreen, &separator, &settings, &quit],
+    )?;
+
+    TrayIconBuilder::with_id("main")
+        .icon(app.default_window_icon().cloned().expect("bundle icon"))
+        .tooltip(t("app.name"))
+        .menu(&menu)
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            "region" => report(actions::start_capture(app, CaptureKind::Region)),
+            "window" => report(actions::start_capture(app, CaptureKind::Window)),
+            "fullscreen" => report(actions::start_capture(app, CaptureKind::Fullscreen)),
+            "settings" => report(windows::open_settings(app)),
+            "quit" => app.exit(0),
+            _ => {}
+        })
+        .build(app)?;
+    Ok(())
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    let app = tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            report(windows::open_settings(app));
+        }))
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(|app, shortcut, event| {
+                    if event.state() != ShortcutState::Pressed {
+                        return;
+                    }
+                    if let Some(kind) = hotkeys::kind_for(app, shortcut) {
+                        report(actions::start_capture(app, kind));
+                    }
+                })
+                .build(),
+        )
+        .setup(|app| {
+            let config_path = app.path().app_config_dir()?.join("config.toml");
+            let config = Config::load_or_create(&config_path)?;
+            let hotkeys = config.hotkeys.clone();
+            app.manage(AppState::new(config, config_path));
+            setup_tray(app.handle())?;
+            report(hotkeys::register(app.handle(), &hotkeys));
+            Ok(())
+        })
+        .on_window_event(|window, event| {
+            if !matches!(event, WindowEvent::Destroyed) {
+                return;
+            }
+            let id = window
+                .label()
+                .strip_prefix(windows::VIEWER_PREFIX)
+                .and_then(|id| id.parse::<u32>().ok());
+            if let Some(id) = id {
+                window.state::<AppState>().shots.remove(id);
+            }
+        })
+        .invoke_handler(tauri::generate_handler![
+            commands::get_config,
+            commands::save_config,
+            commands::capture,
+            commands::shot_info,
+            commands::shot_png,
+            commands::save_shot,
+            commands::copy_shot_image,
+            commands::copy_shot_path,
+            commands::open_shot_in_editor,
+            commands::region_png,
+            commands::finish_region,
+            commands::cancel_region,
+        ])
+        .build(tauri::generate_context!())
+        .expect("error while building MinimaShot");
+
+    app.run(|_app, event| {
+        // ウィンドウを全部閉じてもトレイ常駐を続ける（明示的な終了だけ code が入る）
+        if let RunEvent::ExitRequested {
+            api, code: None, ..
+        } = event
+        {
+            api.prevent_exit();
+        }
+    });
+}
