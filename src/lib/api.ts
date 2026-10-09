@@ -27,18 +27,26 @@ export const api = {
   capture: (kind: CaptureKind) => invoke<void>("capture", { kind }),
 
   shotInfo: () => invoke<ShotInfo>("shot_info"),
-  shotPng: () => invoke<ArrayBuffer>("shot_png"),
+  shotPng: () => invoke<BinaryPayload>("shot_png").then(toBytes),
   saveShot: () => invoke<string>("save_shot"),
   copyShotImage: () => invoke<void>("copy_shot_image"),
   copyShotPath: () => invoke<void>("copy_shot_path"),
   openShotInEditor: () => invoke<void>("open_shot_in_editor"),
 
-  regionPng: () => invoke<ArrayBuffer>("region_png"),
+  regionPng: () => invoke<BinaryPayload>("region_png").then(toBytes),
   finishRegion: (rect: Rect) => invoke<void>("finish_region", { rect }),
   cancelRegion: () => invoke<void>("cancel_region"),
 };
 
-export function pngUrl(bytes: ArrayBuffer): string {
+/** 通常は ArrayBuffer で届くが、IPC が postMessage に落ちた場合は数値配列になる。 */
+export type BinaryPayload = ArrayBuffer | Uint8Array | number[];
+
+export function toBytes(payload: BinaryPayload): Uint8Array<ArrayBuffer> {
+  if (payload instanceof ArrayBuffer) return new Uint8Array(payload);
+  return Uint8Array.from(payload);
+}
+
+export function pngUrl(bytes: Uint8Array<ArrayBuffer>): string {
   return URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
 }
 
