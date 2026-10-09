@@ -46,7 +46,7 @@ button {
 
 .frame {
   display: grid;
-  grid-template-rows: var(--size-titlebar) 1fr auto;
+  grid-template-rows: var(--size-titlebar) minmax(0, 1fr) auto;
   height: 100%;
   border: var(--border-width) solid var(--color-border);
   background: var(--color-surface);
@@ -68,6 +68,34 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 写真アプリの「プログラムから開く」のように、ウィンドウ操作の左に置く控えめなボタン */
+.titlebar-action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--size-titlebar-action);
+  margin-inline-end: var(--space-2);
+  padding-inline: var(--space-2) var(--space-1);
+  border: 0;
+  border-radius: var(--radius-small);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  font-size: var(--font-size-small);
+  white-space: nowrap;
+  transition: background-color var(--duration-quick) var(--easing-standard);
+}
+
+.titlebar-action:hover,
+.titlebar-action[data-state="open"] {
+  background: var(--color-surface-hover);
+}
+
+.titlebar-action svg {
+  width: var(--size-menu-icon);
+  height: var(--size-menu-icon);
+  color: var(--color-text-muted);
 }
 
 .titlebar-buttons {
@@ -130,21 +158,29 @@ button {
   image-rendering: pixelated;
 }
 
+.viewer-toast {
+  position: absolute;
+  inset-block-end: var(--space-2);
+  inset-inline-start: var(--space-2);
+  max-width: calc(100% - var(--space-4));
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-small);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-popover);
+  color: var(--color-text);
+  font-size: var(--font-size-small);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.viewer-toast[data-tone="error"] {
+  color: var(--color-danger);
+}
+
 .viewer-placeholder {
   color: var(--color-text-muted);
-}
-
-.toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  height: var(--size-toolbar);
-  padding-inline: var(--space-1);
-  background: var(--color-surface);
-}
-
-.toolbar-spacer {
-  flex: 1;
 }
 
 .toolbar-status {
@@ -159,49 +195,6 @@ button {
 
 .toolbar-status[data-tone="error"] {
   color: var(--color-danger);
-}
-
-.icon-button {
-  display: grid;
-  place-items: center;
-  width: var(--size-control);
-  height: var(--size-control);
-  border: 0;
-  border-radius: var(--radius-small);
-  background: transparent;
-  color: var(--color-text-muted);
-  transition: background-color var(--duration-quick) var(--easing-standard);
-}
-
-.icon-button:hover:not(:disabled) {
-  background: var(--color-surface-hover);
-  color: var(--color-text);
-}
-
-.icon-button:disabled {
-  color: var(--color-text-disabled);
-}
-
-.icon-button[data-danger] {
-  color: var(--color-danger);
-}
-
-.icon-button[data-danger]:hover:not(:disabled) {
-  background: var(--color-danger-surface);
-  color: var(--color-danger);
-}
-
-.icon-button[aria-pressed="true"] {
-  color: var(--color-accent);
-}
-
-.tooltip {
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-small);
-  background: var(--color-surface-raised);
-  color: var(--color-text);
-  font-size: var(--font-size-small);
-  box-shadow: var(--shadow-popover);
 }
 
 /* ---- 確認ダイアログ ---- */
@@ -281,7 +274,7 @@ button {
 /* ---- メニュー（右クリック・ドロップダウン共通） ---- */
 
 .menu {
-  min-width: 168px;
+  min-width: var(--size-menu-min-width);
   padding: var(--space-menu-inset);
   font-size: var(--font-size-menu);
   line-height: 1;
@@ -343,7 +336,8 @@ button {
   white-space: nowrap;
 }
 
-.menu-chevron {
+.menu-trailing {
+  display: flex;
   margin-inline-start: var(--space-2);
 }
 

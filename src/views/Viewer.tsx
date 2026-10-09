@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import * as Tooltip from "@radix-ui/react-tooltip";
-import { Copy, ExternalLink, Pin, PinOff, Save, Trash2 } from "lucide-react";
 
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import { IconButton } from "../components/IconButton";
+import { ChevronDown } from "lucide-react";
+
 import { ContextMenuArea, DropdownMenuButton } from "../components/Menu";
 import { TitleBar } from "../components/TitleBar";
 import { useZoom } from "../lib/useZoom";
-import { viewerMenu } from "../lib/viewerMenu";
+import { openWithEntries, viewerMenu } from "../lib/viewerMenu";
 import { useViewer } from "../stores/viewer";
 import { t } from "../i18n";
 
@@ -50,10 +49,18 @@ export function Viewer() {
     return () => window.removeEventListener("keydown", onKey, true);
   }, [appWindow, confirmOnClose, confirming]);
 
-  const togglePin = async () => {
-    await appWindow.setAlwaysOnTop(!pinned);
-    setPinned(!pinned);
+  const changePinned = async (next: boolean) => {
+    await appWindow.setAlwaysOnTop(next);
+    setPinned(next);
   };
+
+  // 操作結果は画像の隅に短く出して消す。バーを持たない代わりの通知
+  const { clearStatus } = viewer;
+  useEffect(() => {
+    if (!status) return;
+    const timer = window.setTimeout(clearStatus, status.tone === "error" ? 5000 : 2000);
+    return () => window.clearTimeout(timer);
+  }, [status, clearStatus]);
 
   // 画像内のドラッグはパンだけ。ウィンドウの移動はタイトルバーで行う
   const onPointerDown = (event: PointerEvent<HTMLElement>) => {
@@ -69,28 +76,41 @@ export function Viewer() {
   };
 
   const saved = info?.savedPath != null;
-  const menu = viewerMenu(
-    { saved, tools },
-    {
+  const actions = {
       copyPath: () => void viewer.copyPath(),
       copyImage: () => void viewer.copyImage(),
       save: () => void viewer.save(),
       saveAs: () => void viewer.saveAs(),
       deleteSaved: () => void viewer.deleteSaved(),
-      openWith: (tool) => void viewer.openWith(tool),
+      openWith: (tool: number) => void viewer.openWith(tool),
       reveal: () => void viewer.reveal(),
       openSettings: () => void viewer.openSettings(),
-    },
-  );
+      setPinned: (next: boolean) => void changePinned(next),
+  };
+  const menu = viewerMenu({ saved, pinned, tools }, actions);
   const title = info
     ? `${t("app.name")}  ${info.width} × ${info.height}  ${Math.round(zoom.scale * 100)}%`
     : t("app.name");
 
   return (
-    <Tooltip.Provider delayDuration={400}>
+    <>
       <div className="frame">
-        <TitleBar title={title} onClose={close} />
-        <ContextMenuArea entries={menu.context}>
+        <TitleBar
+          title={title}
+          onClose={close}
+          actions={
+            <DropdownMenuButton
+              entries={openWithEntries(tools, actions)}
+              trigger={
+                <button type="button" className="titlebar-action">
+                  {t("viewer.openWith")}
+                  <ChevronDown aria-hidden />
+                </button>
+              }
+            />
+          }
+        />
+        <ContextMenuArea entries={menu}>
           <main
             ref={stageRef}
             className="viewer-stage"
@@ -104,29 +124,13 @@ export function Viewer() {
             ) : (
               <span className="viewer-placeholder">{t("viewer.loading")}</span>
             )}
+            {status && (
+              <output className="viewer-toast" data-tone={status.tone}>
+                {status.text}
+              </output>
+            )}
           </main>
         </ContextMenuArea>
-        <footer className="toolbar">
-          <DropdownMenuButton entries={menu.copy} trigger={<IconButton icon={Copy} label={t("viewer.copy")} />} />
-          <DropdownMenuButton entries={menu.save} trigger={<IconButton icon={Save} label={t("viewer.saveMenu")} />} />
-          <DropdownMenuButton
-            entries={menu.openWith}
-            trigger={<IconButton icon={ExternalLink} label={t("viewer.openWith")} />}
-          />
-          {saved && (
-            <IconButton icon={Trash2} label={t("viewer.deleteSaved")} onClick={() => void viewer.deleteSaved()} danger />
-          )}
-          <output className="toolbar-status" data-tone={status?.tone} title={info?.savedPath ?? undefined}>
-            {status?.text ?? info?.savedPath ?? ""}
-          </output>
-          <span className="toolbar-spacer" />
-          <IconButton
-            icon={pinned ? Pin : PinOff}
-            label={pinned ? t("viewer.unpin") : t("viewer.pin")}
-            onClick={togglePin}
-            pressed={pinned}
-          />
-        </footer>
       </div>
       <ConfirmDialog
         open={confirming}
@@ -137,6 +141,6 @@ export function Viewer() {
         confirmLabel={t("viewer.confirmClose")}
         onConfirm={() => void appWindow.close()}
       />
-    </Tooltip.Provider>
+    </>
   );
 }

@@ -1,4 +1,4 @@
-import { AppWindow, Copy, ExternalLink, FilePen, FolderOpen, Link, Save, Settings, Trash2, type LucideIcon } from "lucide-react";
+import { AppWindow, Copy, ExternalLink, FilePen, FolderOpen, Link, Pin, Save, Settings, Trash2, type LucideIcon } from "lucide-react";
 
 import type { ExternalTool } from "./api";
 import { t } from "../i18n";
@@ -13,6 +13,14 @@ export type MenuEntry =
       disabled?: boolean;
       danger?: boolean;
     }
+  | {
+      type: "check";
+      id: string;
+      label: string;
+      icon: LucideIcon;
+      checked: boolean;
+      onCheckedChange: (checked: boolean) => void;
+    }
   | { type: "separator"; id: string }
   | { type: "sub"; id: string; label: string; icon: LucideIcon; entries: MenuEntry[] };
 
@@ -25,15 +33,13 @@ export type ViewerActions = {
   openWith: (tool: number) => void;
   reveal: () => void;
   openSettings: () => void;
+  setPinned: (pinned: boolean) => void;
 };
 
-type MenuState = { saved: boolean; tools: ExternalTool[] };
+type MenuState = { saved: boolean; pinned: boolean; tools: ExternalTool[] };
 
-/**
- * 右クリックメニューと下部バーのドロップダウンで同じ項目を使うため、項目の定義はここに集める。
- * 下部バーは各グループを、右クリックメニューは全体を表示する。
- */
-export function viewerMenu({ saved, tools }: MenuState, actions: ViewerActions) {
+/** ビューアの右クリックメニュー。ビューアの操作はすべてここから行う。 */
+export function viewerMenu({ saved, pinned, tools }: MenuState, actions: ViewerActions): MenuEntry[] {
   const copy: MenuEntry[] = [
     { type: "item", id: "copy-path", label: t("viewer.copyPath"), icon: Link, onSelect: actions.copyPath, disabled: !saved },
     { type: "item", id: "copy-image", label: t("viewer.copyImage"), icon: Copy, onSelect: actions.copyImage },
@@ -48,18 +54,9 @@ export function viewerMenu({ saved, tools }: MenuState, actions: ViewerActions) 
     ? [{ type: "item", id: "delete", label: t("viewer.deleteSaved"), icon: Trash2, onSelect: actions.deleteSaved, danger: true }]
     : [];
 
-  const openWith: MenuEntry[] =
-    tools.length > 0
-      ? tools.map((tool, index) => ({
-          type: "item" as const,
-          id: `tool-${index}`,
-          label: tool.name,
-          icon: AppWindow,
-          onSelect: () => actions.openWith(index),
-        }))
-      : [{ type: "item", id: "no-tools", label: t("viewer.noTools"), icon: Settings, onSelect: actions.openSettings }];
+  const openWith = openWithEntries(tools, actions);
 
-  const context: MenuEntry[] = [
+  return [
     ...copy,
     ...save,
     ...deleteSaved,
@@ -68,9 +65,22 @@ export function viewerMenu({ saved, tools }: MenuState, actions: ViewerActions) 
     ...(saved
       ? [{ type: "item" as const, id: "reveal", label: t("viewer.reveal"), icon: FolderOpen, onSelect: actions.reveal }]
       : []),
-    { type: "separator", id: "sep-settings" },
+    { type: "separator", id: "sep-window" },
+    { type: "check", id: "pin", label: t("viewer.pin"), icon: Pin, checked: pinned, onCheckedChange: actions.setPinned },
     { type: "item", id: "settings", label: t("viewer.settings"), icon: Settings, onSelect: actions.openSettings },
   ];
+}
 
-  return { copy, save, openWith, context };
+/** 「外部ツールで開く」の一覧。右クリックのサブメニューとタイトルバーのボタンで共通。 */
+export function openWithEntries(tools: ExternalTool[], actions: Pick<ViewerActions, "openWith" | "openSettings">): MenuEntry[] {
+  if (tools.length === 0) {
+    return [{ type: "item", id: "no-tools", label: t("viewer.noTools"), icon: Settings, onSelect: actions.openSettings }];
+  }
+  return tools.map((tool, index) => ({
+    type: "item",
+    id: `tool-${index}`,
+    label: tool.name,
+    icon: AppWindow,
+    onSelect: () => actions.openWith(index),
+  }));
 }

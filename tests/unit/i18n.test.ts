@@ -10,7 +10,7 @@ function leaves(node: unknown, prefix = ""): [string, unknown][] {
 
 describe("i18n", () => {
   it("resolves nested keys", () => {
-    expect(t("viewer.saveMenu")).toBe("保存");
+    expect(t("viewer.save")).toBe("既定の場所に保存");
   });
 
   it("has only non-empty strings", () => {

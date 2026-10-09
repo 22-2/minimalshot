@@ -20,6 +20,7 @@ type ViewerState = {
   openWith: (tool: number) => Promise<void>;
   reveal: () => Promise<void>;
   openSettings: () => Promise<void>;
+  clearStatus: () => void;
 };
 
 export const useViewer = create<ViewerState>((set, get) => {
@@ -62,6 +63,7 @@ export const useViewer = create<ViewerState>((set, get) => {
       }
     },
 
+    clearStatus: () => set({ status: null }),
     copyImage: () => run(api.copyShotImage, "viewer.copiedImage"),
     copyPath: () => run(api.copyShotPath, "viewer.copiedPath"),
     openWith: (tool) => run(() => api.openShotWith(tool), "viewer.opened"),
