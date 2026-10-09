@@ -4,7 +4,7 @@ use chrono::{DateTime, TimeZone};
 
 use crate::error::{AppError, AppResult};
 
-pub const APP_NAME: &str = "MinimaShot";
+pub const APP_NAME: &str = "MinimalShot";
 
 /// `{pictures}` と `{appname}` を展開した保存先ディレクトリに、日付書式で作ったファイル名を連結する。
 pub fn render_save_path<Tz: TimeZone>(
@@ -80,7 +80,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             path,
-            PathBuf::from("/home/me/Pictures/MinimaShot/2026-10/2026-10-09_12-34-56.png")
+            PathBuf::from("/home/me/Pictures/MinimalShot/2026-10/2026-10-09_12-34-56.png")
         );
     }
 

@@ -14,7 +14,7 @@ mod windows;
 
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
+use tauri::{AppHandle, Emitter, Manager, RunEvent, WindowEvent};
 use tauri_plugin_global_shortcut::ShortcutState;
 
 use crate::config::Config;
@@ -26,6 +26,11 @@ fn report(result: error::AppResult<()>) {
     if let Err(err) = result {
         eprintln!("[{}] {err}", paths::APP_NAME);
     }
+}
+
+fn capture_in_background(app: &AppHandle, kind: CaptureKind) {
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || report(actions::start_capture(&app, kind)));
 }
 
 fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
@@ -46,9 +51,9 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
         .tooltip(t("app.name"))
         .menu(&menu)
         .on_menu_event(|app, event| match event.id().as_ref() {
-            "region" => report(actions::start_capture(app, CaptureKind::Region)),
-            "window" => report(actions::start_capture(app, CaptureKind::Window)),
-            "fullscreen" => report(actions::start_capture(app, CaptureKind::Fullscreen)),
+            "region" => capture_in_background(app, CaptureKind::Region),
+            "window" => capture_in_background(app, CaptureKind::Window),
+            "fullscreen" => capture_in_background(app, CaptureKind::Fullscreen),
             "settings" => report(windows::open_settings(app)),
             "quit" => app.exit(0),
             _ => {}
@@ -71,7 +76,7 @@ pub fn run() {
                         return;
                     }
                     if let Some(kind) = hotkeys::kind_for(app, shortcut) {
-                        report(actions::start_capture(app, kind));
+                        capture_in_background(app, kind);
                     }
                 })
                 .build(),
@@ -86,8 +91,33 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            // 再表示のたびに WebView2 を起動し直さない。設定の未保存編集は次回 open で再読込する。
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                if window.label() == windows::SETTINGS_LABEL {
+                    api.prevent_close();
+                    report(window.hide().map_err(Into::into));
+                } else if window.label() == windows::REGION_LABEL {
+                    api.prevent_close();
+                    window
+                        .state::<AppState>()
+                        .pending_region
+                        .lock()
+                        .unwrap()
+                        .take();
+                    report(window.hide().map_err(Into::into));
+                    report(window.emit("region-reset", ()).map_err(Into::into));
+                }
+            }
             if !matches!(event, WindowEvent::Destroyed) {
                 return;
+            }
+            if window.label() == windows::REGION_LABEL {
+                window
+                    .state::<AppState>()
+                    .pending_region
+                    .lock()
+                    .unwrap()
+                    .take();
             }
             let id = window
                 .label()
@@ -111,12 +141,14 @@ pub fn run() {
             commands::save_shot_as,
             commands::delete_saved_shot,
             commands::open_settings,
+            commands::show_window,
+            commands::region_session,
             commands::region_png,
             commands::finish_region,
             commands::cancel_region,
         ])
         .build(tauri::generate_context!())
-        .expect("error while building MinimaShot");
+        .expect("error while building MinimalShot");
 
     app.run(|_app, event| {
         // ウィンドウを全部閉じてもトレイ常駐を続ける（明示的な終了だけ code が入る）

@@ -1,4 +1,7 @@
-use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindowBuilder};
+use tauri::window::Color;
+use tauri::{
+    AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindowBuilder,
+};
 
 use crate::capture::MonitorGeometry;
 use crate::error::AppResult;
@@ -7,6 +10,8 @@ use crate::i18n::t;
 pub const REGION_LABEL: &str = "region";
 pub const SETTINGS_LABEL: &str = "settings";
 pub const VIEWER_PREFIX: &str = "viewer-";
+// src/styles/tokens.css の --color-canvas。WebView の最初のフレームも白くしない。
+const BACKGROUND: Color = Color(22, 23, 26, 255);
 
 /// タイトルバー32px（論理ピクセル）。CSS の --size-titlebar と揃える。
 const CHROME_HEIGHT: f64 = 32.0;
@@ -70,42 +75,58 @@ pub fn open_viewer(
             .decorations(false)
             .always_on_top(always_on_top)
             .visible(false)
+            .focused(false)
+            .background_color(BACKGROUND)
             .build()?;
     window.set_size(PhysicalSize::new(size.0, size.1))?;
     window.set_position(PhysicalPosition::new(position.0, position.1))?;
-    window.show()?;
-    window.set_focus()?;
     Ok(())
 }
 
-pub fn open_region_overlay(app: &AppHandle, monitor: &MonitorGeometry) -> AppResult<()> {
-    if let Some(existing) = app.get_webview_window(REGION_LABEL) {
-        existing.close()?;
-    }
-    let window = WebviewWindowBuilder::new(app, REGION_LABEL, WebviewUrl::App("index.html".into()))
-        .title(t("app.name"))
-        .decorations(false)
-        .resizable(false)
-        .always_on_top(true)
-        .skip_taskbar(true)
-        .visible(false)
-        .build()?;
+pub fn open_region_overlay(
+    app: &AppHandle,
+    monitor: &MonitorGeometry,
+    session: u32,
+) -> AppResult<()> {
+    let window = if let Some(existing) = app.get_webview_window(REGION_LABEL) {
+        existing.hide()?;
+        existing
+    } else {
+        WebviewWindowBuilder::new(app, REGION_LABEL, WebviewUrl::App("index.html".into()))
+            .title(t("app.name"))
+            .decorations(false)
+            .resizable(false)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .visible(false)
+            .focused(false)
+            .background_color(BACKGROUND)
+            .build()?
+    };
     window.set_position(PhysicalPosition::new(monitor.x, monitor.y))?;
     window.set_size(PhysicalSize::new(monitor.width, monitor.height))?;
-    window.show()?;
-    window.set_focus()?;
+    // 新規 WebView の listener が間に合わない場合は region_session で取得する。
+    window.emit("region-load", session)?;
     Ok(())
 }
 
 pub fn open_settings(app: &AppHandle) -> AppResult<()> {
     if let Some(existing) = app.get_webview_window(SETTINGS_LABEL) {
-        existing.unminimize()?;
-        existing.set_focus()?;
+        if existing.is_visible()? {
+            existing.unminimize()?;
+            existing.set_focus()?;
+        } else {
+            // 閉じたときの未保存編集を捨て、最新の設定を読み込んでから再表示する。
+            existing.emit("settings-open", ())?;
+        }
         return Ok(());
     }
     WebviewWindowBuilder::new(app, SETTINGS_LABEL, WebviewUrl::App("index.html".into()))
         .title(format!("{} - {}", t("app.name"), t("settings.title")))
         .decorations(false)
+        .visible(false)
+        .focused(false)
+        .background_color(BACKGROUND)
         .inner_size(560.0, 640.0)
         .min_inner_size(420.0, 360.0)
         .center()

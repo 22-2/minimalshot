@@ -1,12 +1,12 @@
 [package]
-name = "minimashot"
+name = "minimalshot"
 version = "0.0.6"
 description = "A screenshot tool that does as little as possible"
 edition = "2021"
 license = "MIT"
 
 [lib]
-name = "minimashot_lib"
+name = "minimalshot_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

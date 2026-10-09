@@ -35,7 +35,7 @@ printscreen単体は上書きしない
 
 conventional commitsで、コミット英語
 uiは日本語で（ただしテキストは言語ファイルにまとめたい）
-名前はMinimaShotとかで
+名前はMinimalShotとかで
 
 uiはダークモードだけでライトは実装しない
 cssはデザイントークンを規程して厳密に守る

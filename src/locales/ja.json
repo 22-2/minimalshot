@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "MinimaShot"
+    "name": "MinimalShot"
   },
   "tray": {
     "region": "領域をキャプチャ",
@@ -20,6 +20,7 @@
     "save": "既定の場所に保存",
     "pin": "常に最前面に表示",
     "loading": "読み込み中",
+    "loadFailed": "画像を読み込めませんでした",
     "copiedImage": "画像をコピーしました",
     "copiedPath": "パスをコピーしました",
     "saved": "保存しました",
@@ -56,7 +57,7 @@
     "autoCopyPath": "パス（保存時のみ）",
     "storage": "保存先",
     "directory": "フォルダ",
-    "directoryNote": "{pictures} はピクチャフォルダ、{appname} は MinimaShot に置き換わります。",
+    "directoryNote": "{pictures} はピクチャフォルダ、{appname} は MinimalShot に置き換わります。",
     "format": "ファイル名",
     "formatNote": "strftime 形式。例: %Y-%m/%Y-%m-%d_%H-%M-%S.png",
     "viewer": "ビューア",

@@ -172,7 +172,7 @@ vite.config.ts.timestamp-*
 # Turbo Repo
 .turbo
 
-# MinimaShot
+# MinimalShot
 node_modules
 dist
 src-tauri/gen/schemas

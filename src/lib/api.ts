@@ -47,9 +47,11 @@ export const api = {
   saveShotAs: () => invoke<string | null>("save_shot_as"),
   deleteSavedShot: () => invoke<void>("delete_saved_shot"),
   openSettings: () => invoke<void>("open_settings"),
+  showWindow: (session?: number) => invoke<void>("show_window", { session: session ?? null }),
 
-  regionPng: () => invoke<BinaryPayload>("region_png").then(toBytes),
-  finishRegion: (rect: Rect) => invoke<void>("finish_region", { rect }),
+  regionSession: () => invoke<number | null>("region_session"),
+  regionPng: (session: number) => invoke<BinaryPayload>("region_png", { session }).then(toBytes),
+  finishRegion: (rect: Rect, session: number) => invoke<void>("finish_region", { rect, session }),
   cancelRegion: () => invoke<void>("cancel_region"),
 };
 

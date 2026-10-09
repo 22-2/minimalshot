@@ -40,10 +40,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          asset="MinimaShot_${VERSION}_x64.exe"
-          cp src-tauri/target/release/minimashot.exe "$asset"
+          asset="MinimalShot_${VERSION}_x64.exe"
+          cp src-tauri/target/release/minimalshot.exe "$asset"
           gh release create "$VERSION" "$asset" \
             --target "$GITHUB_SHA" \
-            --title "MinimaShot $VERSION" \
+            --title "MinimalShot $VERSION" \
             --notes "Windows 用の実行ファイルです。インストール不要で、そのまま起動できます（WebView2 ランタイムが必要です。Windows 10/11 には標準で入っています）。" \
             --prerelease

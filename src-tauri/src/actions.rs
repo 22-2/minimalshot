@@ -11,10 +11,12 @@ use crate::error::{AppError, AppResult};
 use crate::external;
 use crate::imaging;
 use crate::paths::{self, APP_NAME};
-use crate::state::{AppState, CaptureKind};
+use crate::state::{AppState, CaptureKind, PendingRegion};
 use crate::windows;
 
 pub fn start_capture(app: &AppHandle, kind: CaptureKind) -> AppResult<()> {
+    let state = app.state::<AppState>();
+    let _capture = state.capture_lock.lock().unwrap();
     match kind {
         CaptureKind::Window => finish_capture(app, capture::focused_window()?, None),
         CaptureKind::Fullscreen => {
@@ -22,11 +24,23 @@ pub fn start_capture(app: &AppHandle, kind: CaptureKind) -> AppResult<()> {
             finish_capture(app, capture::monitor_at(x, y)?, None)
         }
         CaptureKind::Region => {
+            // 選択中のオーバーレイを再撮影しない。初回の読み込み中も重複を避ける。
+            if state.pending_region.lock().unwrap().is_some() {
+                return Ok(());
+            }
             let (x, y) = cursor(app)?;
             let captured = capture::monitor_at(x, y)?;
             let monitor = captured.monitor;
-            *app.state::<AppState>().pending_region.lock().unwrap() = Some(captured);
-            windows::open_region_overlay(app, &monitor)
+            let session = state.next_region_id();
+            *state.pending_region.lock().unwrap() = Some(PendingRegion {
+                id: session,
+                captured,
+            });
+            if let Err(error) = windows::open_region_overlay(app, &monitor, session) {
+                state.pending_region.lock().unwrap().take();
+                return Err(error);
+            }
+            Ok(())
         }
     }
 }
@@ -50,6 +64,15 @@ pub fn finish_capture(
     if config.capture.auto_save {
         save(app, id)?;
     }
+    // 自動コピーの画像変換と WebView の初期化を重ね、コピー完了まで表示を待たせない。
+    windows::open_viewer(
+        app,
+        id,
+        dimensions,
+        &captured.monitor,
+        origin,
+        config.viewer.always_on_top,
+    )?;
     match config.capture.auto_copy {
         AutoCopy::None => {}
         AutoCopy::Image => copy_image(app, id)?,
@@ -58,14 +81,7 @@ pub fn finish_capture(
         AutoCopy::Path => {}
     }
 
-    windows::open_viewer(
-        app,
-        id,
-        dimensions,
-        &captured.monitor,
-        origin,
-        config.viewer.always_on_top,
-    )
+    Ok(())
 }
 
 pub fn save(app: &AppHandle, id: u32) -> AppResult<PathBuf> {
@@ -89,15 +105,17 @@ pub fn save(app: &AppHandle, id: u32) -> AppResult<PathBuf> {
 }
 
 pub fn copy_image(app: &AppHandle, id: u32) -> AppResult<()> {
-    app.state::<AppState>().shots.with(id, |shot| {
-        let (width, height) = shot.image.dimensions();
-        Clipboard::new()?.set_image(ImageData {
-            width: width as usize,
-            height: height as usize,
-            bytes: shot.image.as_raw().into(),
-        })?;
-        Ok(())
-    })
+    let image = app
+        .state::<AppState>()
+        .shots
+        .with(id, |shot| Ok(shot.image.clone()))?;
+    let (width, height) = image.dimensions();
+    Clipboard::new()?.set_image(ImageData {
+        width: width as usize,
+        height: height as usize,
+        bytes: image.as_raw().into(),
+    })?;
+    Ok(())
 }
 
 pub fn copy_path(app: &AppHandle, id: u32) -> AppResult<()> {
