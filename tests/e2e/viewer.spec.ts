@@ -100,4 +100,16 @@ test.describe("viewer", () => {
     await expect.poll(() => commandNames(page)).toContain("plugin:window|close");
     expect((await calls(page)).some((c) => c.cmd === "plugin:window|close")).toBe(true);
   });
+
+  test("loads the image once instead of refetching on every render", async ({ page }) => {
+    await installTauriMock(page, { label: "viewer-1" });
+    await page.goto("/");
+    await expect(page.locator(".viewer-image")).toBeVisible();
+    await page.getByRole("button", { name: "画像をコピー" }).click();
+    await page.waitForTimeout(1000);
+
+    // 開発時の StrictMode では effect が2回走るので、2回までは正常
+    const fetches = (await commandNames(page)).filter((cmd) => cmd === "shot_png");
+    expect(fetches.length).toBeLessThanOrEqual(2);
+  });
 });

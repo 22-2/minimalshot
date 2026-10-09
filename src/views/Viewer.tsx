@@ -1,4 +1,4 @@
-import { useEffect, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { Copy, ExternalLink, Link, Pin, PinOff, Save } from "lucide-react";
@@ -15,7 +15,9 @@ export function Viewer() {
   const [pinned, setPinned] = useState(false);
   const [confirmOnClose, setConfirmOnClose] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const appWindow = getCurrentWindow();
+  // getCurrentWindow() は呼ぶたびに別オブジェクトを返す。effect の依存に入れると毎回の描画で
+  // 読み込みが走り、PNG の再取得が止まらなくなる（WebView のメモリが尽きて真っ黒になる）
+  const appWindow = useMemo(() => getCurrentWindow(), []);
 
   useEffect(() => {
     void load();
