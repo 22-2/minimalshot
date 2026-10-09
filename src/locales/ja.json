@@ -16,12 +16,9 @@
   },
   "viewer": {
     "copyImage": "画像をコピー",
-    "copyPath": "パスをコピー",
-    "copyPathDisabled": "保存するとパスをコピーできます",
-    "save": "保存",
-    "openEditor": "外部ツールで開く",
-    "pin": "最前面に固定",
-    "unpin": "最前面の固定を解除",
+    "copyPath": "パスのコピー",
+    "save": "既定の場所に保存",
+    "pin": "常に最前面に表示",
     "loading": "読み込み中",
     "copiedImage": "画像をコピーしました",
     "copiedPath": "パスをコピーしました",
@@ -31,7 +28,14 @@
     "closeUnsaved": "保存していない画像は失われます。",
     "closeSaved": "保存済みのファイルは残ります。",
     "cancel": "キャンセル",
-    "confirmClose": "閉じる"
+    "confirmClose": "閉じる",
+    "saveAs": "名前を付けて保存",
+    "deleteSaved": "保存したファイルを削除",
+    "deleted": "ごみ箱に移動しました",
+    "openWith": "外部ツールで開く",
+    "noTools": "設定で外部ツールを登録してください",
+    "reveal": "エクスプローラーで開く",
+    "settings": "設定"
   },
   "region": {
     "hint": "ドラッグで範囲を選択 / Esc でキャンセル"
@@ -58,10 +62,15 @@
     "alwaysOnTop": "常に最前面に表示",
     "confirmOnClose": "閉じるときに確認する",
     "external": "外部ツール",
-    "editor": "実行ファイル",
-    "editorNote": "画像のパスを引数にして起動します。",
     "save": "設定を保存",
     "saved": "設定を保存しました",
-    "loadFailed": "設定を読み込めませんでした"
+    "loadFailed": "設定を読み込めませんでした",
+    "externalNote": "引数では ${file}（画像のフルパス）、${fileDirname}、${fileBasename}、${fileBasenameNoExtension}、${fileExtname} が使えます。空白を含む引数は \"\" で囲みます。",
+    "toolName": "名前",
+    "toolCommand": "コマンド",
+    "toolArgs": "引数",
+    "addTool": "ツールを追加",
+    "removeTool": "このツールを削除",
+    "noTools": "ツールが登録されていません。"
   }
 }

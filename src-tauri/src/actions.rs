@@ -1,12 +1,14 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use arboard::{Clipboard, ImageData};
 use tauri::{AppHandle, Manager};
+use tauri_plugin_dialog::DialogExt;
 
 use crate::capture::{self, Captured};
 use crate::config::AutoCopy;
 use crate::error::{AppError, AppResult};
+use crate::external;
 use crate::imaging;
 use crate::paths::{self, APP_NAME};
 use crate::state::{AppState, CaptureKind};
@@ -109,7 +111,7 @@ pub fn copy_path(app: &AppHandle, id: u32) -> AppResult<()> {
 }
 
 /// 外部ツールへ渡すパス。未保存なら一時フォルダに書き出し、保存設定には影響させない。
-fn path_for_editor(app: &AppHandle, id: u32) -> AppResult<PathBuf> {
+fn path_for_tool(app: &AppHandle, id: u32) -> AppResult<PathBuf> {
     app.state::<AppState>().shots.with(id, |shot| {
         if let Some(path) = &shot.saved_path {
             return Ok(path.clone());
@@ -122,15 +124,92 @@ fn path_for_editor(app: &AppHandle, id: u32) -> AppResult<PathBuf> {
     })
 }
 
-pub fn open_in_editor(app: &AppHandle, id: u32) -> AppResult<()> {
-    let editor = app.state::<AppState>().config().external.editor;
-    if editor.trim().is_empty() {
-        return Err(AppError::msg("外部ツールが設定されていません"));
-    }
-    let path = path_for_editor(app, id)?;
-    Command::new(editor.trim())
-        .arg(path)
+pub fn open_with(app: &AppHandle, id: u32, tool_index: usize) -> AppResult<()> {
+    let tool = app
+        .state::<AppState>()
+        .config()
+        .external
+        .tools
+        .get(tool_index)
+        .cloned()
+        .ok_or_else(|| AppError::msg("外部ツールが見つかりません"))?;
+    let path = path_for_tool(app, id)?;
+    Command::new(tool.command.trim())
+        .args(external::build_args(&tool.args, &path)?)
         .spawn()
-        .map_err(|e| AppError::msg(format!("{editor} を起動できません: {e}")))?;
+        .map_err(|e| AppError::msg(format!("{} を起動できません: {e}", tool.name)))?;
     Ok(())
+}
+
+fn saved_path(app: &AppHandle, id: u32) -> AppResult<PathBuf> {
+    app.state::<AppState>().shots.with(id, |shot| {
+        shot.saved_path
+            .clone()
+            .ok_or_else(|| AppError::msg("まだ保存されていません"))
+    })
+}
+
+/// 保存先のファイルをエクスプローラーで選択した状態で開く。
+pub fn reveal(app: &AppHandle, id: u32) -> AppResult<()> {
+    let path = saved_path(app, id)?;
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        // explorer は引数を独自に解釈するので、/select, とパスをまとめて生のまま渡す
+        Command::new("explorer.exe")
+            .raw_arg(format!("/select,\"{}\"", path.display()))
+            .spawn()?;
+    }
+    #[cfg(not(windows))]
+    {
+        let dir = path.parent().unwrap_or(&path);
+        Command::new("xdg-open").arg(dir).spawn()?;
+    }
+    Ok(())
+}
+
+/// 名前を付けて保存。キャンセルされたら None を返す。
+pub fn save_as(app: &AppHandle, id: u32) -> AppResult<Option<PathBuf>> {
+    let suggested = paths::render_save_path(
+        "",
+        &app.state::<AppState>().config().storage.format,
+        Path::new(""),
+        &chrono::Local::now(),
+    )?;
+    let file_name = suggested
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "shot.png".into());
+    let Some(chosen) = app
+        .dialog()
+        .file()
+        .add_filter("PNG", &["png"])
+        .set_file_name(file_name)
+        .blocking_save_file()
+    else {
+        return Ok(None);
+    };
+    let mut path = chosen
+        .into_path()
+        .map_err(|e| AppError::msg(e.to_string()))?;
+    if path.extension().is_none() {
+        path.set_extension("png");
+    }
+    app.state::<AppState>().shots.with(id, |shot| {
+        imaging::write_png(&shot.image, &path)?;
+        shot.saved_path = Some(path.clone());
+        Ok(())
+    })?;
+    Ok(Some(path))
+}
+
+/// 保存したファイルをごみ箱へ送り、未保存の状態に戻す（画像はビューアに残る）。
+pub fn delete_saved(app: &AppHandle, id: u32) -> AppResult<()> {
+    let path = saved_path(app, id)?;
+    trash::delete(&path)
+        .map_err(|e| AppError::msg(format!("{} を削除できません: {e}", path.display())))?;
+    app.state::<AppState>().shots.with(id, |shot| {
+        shot.saved_path = None;
+        Ok(())
+    })
 }

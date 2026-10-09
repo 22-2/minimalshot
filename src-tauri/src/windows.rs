@@ -8,8 +8,10 @@ pub const REGION_LABEL: &str = "region";
 pub const SETTINGS_LABEL: &str = "settings";
 pub const VIEWER_PREFIX: &str = "viewer-";
 
-/// タイトルバー24px + 下部ツールバー32px（論理ピクセル）。CSSのトークンと揃える。
-const CHROME_HEIGHT: f64 = 56.0;
+/// タイトルバー24px（論理ピクセル）。CSS の --size-titlebar と揃える。
+const CHROME_HEIGHT: f64 = 24.0;
+/// ウィンドウ枠の線（左右・上下とも1px）。足さないと画像が等倍に収まらず 99% になる。
+const FRAME_BORDER: f64 = 2.0;
 const MIN_WIDTH: f64 = 240.0;
 const MIN_HEIGHT: f64 = 160.0;
 
@@ -19,8 +21,8 @@ pub fn viewer_label(id: u32) -> String {
 
 /// ビューアの物理サイズ。画像を等倍で見せつつ、モニターの9割を超えないようにする。
 pub fn viewer_size(image: (u32, u32), monitor: &MonitorGeometry) -> (u32, u32) {
-    let chrome = CHROME_HEIGHT * monitor.scale;
-    let width = f64::from(image.0)
+    let chrome = (CHROME_HEIGHT + FRAME_BORDER) * monitor.scale;
+    let width = (f64::from(image.0) + FRAME_BORDER * monitor.scale)
         .max(MIN_WIDTH * monitor.scale)
         .min(f64::from(monitor.width) * 0.9);
     let height = (f64::from(image.1) + chrome)
@@ -125,7 +127,7 @@ mod tests {
 
     #[test]
     fn viewer_fits_small_images_with_chrome() {
-        assert_eq!(viewer_size((400, 300), &MONITOR), (400, 356));
+        assert_eq!(viewer_size((400, 300), &MONITOR), (402, 326));
     }
 
     #[test]
@@ -146,7 +148,7 @@ mod tests {
             height: 2160,
             ..MONITOR
         };
-        assert_eq!(viewer_size((800, 600), &hidpi), (800, 712));
+        assert_eq!(viewer_size((800, 600), &hidpi), (804, 652));
     }
 
     #[test]

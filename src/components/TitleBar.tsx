@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Minus, Square, X } from "lucide-react";
 
@@ -7,9 +8,11 @@ type Props = {
   title: string;
   /** 閉じる前に確認したい場合などに差し替える。 */
   onClose?: () => void;
+  /** ウィンドウ操作ボタンのすぐ左に置く部品。 */
+  actions?: ReactNode;
 };
 
-export function TitleBar({ title, onClose }: Props) {
+export function TitleBar({ title, onClose, actions }: Props) {
   const appWindow = getCurrentWindow();
   const close = onClose ?? (() => void appWindow.close());
 
@@ -18,6 +21,7 @@ export function TitleBar({ title, onClose }: Props) {
       <span className="titlebar-title" data-tauri-drag-region>
         {title}
       </span>
+      {actions}
       <div className="titlebar-buttons">
         <button
           type="button"

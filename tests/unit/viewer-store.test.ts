@@ -31,3 +31,25 @@ describe("viewer store", () => {
     expect(useViewer.getState().status).toEqual({ tone: "error", text: "まだ保存されていません" });
   });
 });
+
+describe("viewer store save-as and delete", () => {
+  beforeEach(() => {
+    mockWindows("viewer-1");
+    useViewer.setState({ info: { id: 1, width: 10, height: 10, savedPath: null }, status: null });
+  });
+
+  it("keeps state unchanged when save-as is cancelled", async () => {
+    mockIPC((cmd) => (cmd === "save_shot_as" ? null : undefined));
+    await useViewer.getState().saveAs();
+    expect(useViewer.getState().info?.savedPath).toBeNull();
+    expect(useViewer.getState().status).toBeNull();
+  });
+
+  it("forgets the saved path after deleting", async () => {
+    mockIPC(() => undefined);
+    useViewer.setState({ info: { id: 1, width: 10, height: 10, savedPath: "C:/a.png" } });
+    await useViewer.getState().deleteSaved();
+    expect(useViewer.getState().info?.savedPath).toBeNull();
+    expect(useViewer.getState().status).toEqual({ tone: "info", text: "ごみ箱に移動しました" });
+  });
+});

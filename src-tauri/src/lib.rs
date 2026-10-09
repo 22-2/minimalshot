@@ -3,6 +3,7 @@ mod capture;
 mod commands;
 mod config;
 mod error;
+mod external;
 mod hotkeys;
 mod i18n;
 mod imaging;
@@ -62,6 +63,7 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             report(windows::open_settings(app));
         }))
+        .plugin(tauri_plugin_dialog::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, shortcut, event| {
@@ -104,7 +106,11 @@ pub fn run() {
             commands::save_shot,
             commands::copy_shot_image,
             commands::copy_shot_path,
-            commands::open_shot_in_editor,
+            commands::open_shot_with,
+            commands::reveal_shot,
+            commands::save_shot_as,
+            commands::delete_saved_shot,
+            commands::open_settings,
             commands::region_png,
             commands::finish_region,
             commands::cancel_region,

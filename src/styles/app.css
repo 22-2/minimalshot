@@ -46,7 +46,7 @@ button {
 
 .frame {
   display: grid;
-  grid-template-rows: var(--size-titlebar) 1fr auto;
+  grid-template-rows: var(--size-titlebar) minmax(0, 1fr) auto;
   height: 100%;
   border: var(--border-width) solid var(--color-border);
   background: var(--color-surface);
@@ -68,6 +68,34 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 写真アプリの「プログラムから開く」のように、ウィンドウ操作の左に置く控えめなボタン */
+.titlebar-action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--size-titlebar-action);
+  margin-inline-end: var(--space-2);
+  padding-inline: var(--space-2) var(--space-1);
+  border: 0;
+  border-radius: var(--radius-small);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  font-size: var(--font-size-small);
+  white-space: nowrap;
+  transition: background-color var(--duration-quick) var(--easing-standard);
+}
+
+.titlebar-action:hover,
+.titlebar-action[data-state="open"] {
+  background: var(--color-surface-hover);
+}
+
+.titlebar-action svg {
+  width: var(--size-titlebar-action-icon);
+  height: var(--size-titlebar-action-icon);
+  color: var(--color-text-muted);
 }
 
 .titlebar-buttons {
@@ -107,6 +135,7 @@ button {
   overflow: hidden;
   background: var(--color-canvas);
   cursor: grab;
+  touch-action: none;
 }
 
 .viewer-stage:active {
@@ -129,21 +158,29 @@ button {
   image-rendering: pixelated;
 }
 
+.viewer-toast {
+  position: absolute;
+  inset-block-end: var(--space-2);
+  inset-inline-start: var(--space-2);
+  max-width: calc(100% - var(--space-4));
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-small);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-popover);
+  color: var(--color-text);
+  font-size: var(--font-size-small);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.viewer-toast[data-tone="error"] {
+  color: var(--color-danger);
+}
+
 .viewer-placeholder {
   color: var(--color-text-muted);
-}
-
-.toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  height: var(--size-toolbar);
-  padding-inline: var(--space-1);
-  background: var(--color-surface);
-}
-
-.toolbar-spacer {
-  flex: 1;
 }
 
 .toolbar-status {
@@ -158,40 +195,6 @@ button {
 
 .toolbar-status[data-tone="error"] {
   color: var(--color-danger);
-}
-
-.icon-button {
-  display: grid;
-  place-items: center;
-  width: var(--size-control);
-  height: var(--size-control);
-  border: 0;
-  border-radius: var(--radius-small);
-  background: transparent;
-  color: var(--color-text-muted);
-  transition: background-color var(--duration-quick) var(--easing-standard);
-}
-
-.icon-button:hover:not(:disabled) {
-  background: var(--color-surface-hover);
-  color: var(--color-text);
-}
-
-.icon-button:disabled {
-  color: var(--color-text-disabled);
-}
-
-.icon-button[aria-pressed="true"] {
-  color: var(--color-accent);
-}
-
-.tooltip {
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-small);
-  background: var(--color-surface-raised);
-  color: var(--color-text);
-  font-size: var(--font-size-small);
-  box-shadow: var(--shadow-popover);
 }
 
 /* ---- 確認ダイアログ ---- */
@@ -234,6 +237,9 @@ button {
 }
 
 .button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   height: var(--size-control);
   padding-inline: var(--space-3);
   border: var(--border-width) solid var(--color-border);
@@ -253,6 +259,125 @@ button {
 
 .button[data-variant="primary"]:hover {
   background: var(--color-accent-strong);
+}
+
+.button[data-variant="danger"] {
+  border-color: transparent;
+  background: transparent;
+  color: var(--color-danger);
+}
+
+.button[data-variant="danger"]:hover {
+  background: var(--color-danger-surface);
+}
+
+/* ---- メニュー（右クリック・ドロップダウン共通） ---- */
+
+.menu {
+  min-width: var(--size-menu-min-width);
+  padding: var(--space-menu-inset);
+  border: var(--border-width) solid var(--color-hairline);
+  border-radius: var(--radius-medium);
+  background: var(--color-menu);
+  box-shadow: var(--shadow-menu);
+  font-size: var(--font-size-menu);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+  user-select: none;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-menu-gap);
+  height: var(--size-menu-item);
+  padding-inline: var(--space-2) var(--space-3);
+  border-radius: var(--radius-small);
+  color: var(--color-text);
+  outline: none;
+  cursor: default;
+}
+
+/* キーボード操作でも data-highlighted の背景で位置が分かるので、フォーカスリングは重ねない */
+.menu-item:focus-visible {
+  box-shadow: none;
+}
+
+.menu-item svg {
+  flex: none;
+  width: var(--size-menu-icon);
+  height: var(--size-menu-icon);
+  stroke-width: var(--stroke-icon);
+  color: var(--color-text-muted);
+}
+
+/* 選択中の行はアクセント色で塗りつぶし、位置をはっきり示す */
+.menu-item[data-highlighted],
+.menu-item[data-state="open"] {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+.menu-item[data-highlighted] svg,
+.menu-item[data-state="open"] svg {
+  color: var(--color-accent-contrast);
+}
+
+.menu-item[data-disabled],
+.menu-item[data-disabled] svg {
+  color: var(--color-text-disabled);
+}
+
+.menu-item[data-danger],
+.menu-item[data-danger] svg {
+  color: var(--color-danger);
+}
+
+.menu-item[data-danger][data-highlighted],
+.menu-item[data-danger][data-highlighted] svg {
+  background: var(--color-danger);
+  color: var(--color-accent-contrast);
+}
+
+.menu-item[data-danger][data-highlighted] svg {
+  background: none;
+}
+
+.menu-label {
+  flex: 1;
+  white-space: nowrap;
+}
+
+.menu-trailing {
+  display: flex;
+  margin-inline-start: var(--space-2);
+}
+
+.menu-separator {
+  height: var(--border-width);
+  margin-block: var(--space-menu-inset);
+  background: var(--color-hairline);
+}
+
+/* ---- 外部ツールの設定 ---- */
+
+.tool-list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.tool-card {
+  padding: var(--space-3) var(--space-3) var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-medium);
+}
+
+.tool-remove {
+  margin-inline-start: auto;
+  display: flex;
 }
 
 /* ---- 領域選択 ---- */

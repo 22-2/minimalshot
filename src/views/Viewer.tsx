@@ -1,20 +1,20 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import * as Tooltip from "@radix-ui/react-tooltip";
-import { Copy, ExternalLink, Link, Pin, PinOff, Save } from "lucide-react";
 
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import { IconButton } from "../components/IconButton";
+import { ChevronDown } from "lucide-react";
+
+import { ContextMenuArea, DropdownMenuButton } from "../components/Menu";
 import { TitleBar } from "../components/TitleBar";
-import { api } from "../lib/api";
 import { useZoom } from "../lib/useZoom";
+import { openWithEntries, viewerMenu } from "../lib/viewerMenu";
 import { useViewer } from "../stores/viewer";
 import { t } from "../i18n";
 
 export function Viewer() {
-  const { info, imageUrl, status, load, copyImage, copyPath, save, openEditor } = useViewer();
+  const viewer = useViewer();
+  const { info, imageUrl, status, tools, confirmOnClose, load } = viewer;
   const [pinned, setPinned] = useState(false);
-  const [confirmOnClose, setConfirmOnClose] = useState(false);
   const [confirming, setConfirming] = useState(false);
   // getCurrentWindow() は呼ぶたびに別オブジェクトを返す。effect の依存に入れると毎回の描画で
   // 読み込みが走り、PNG の再取得が止まらなくなる（WebView のメモリが尽きて真っ黒になる）
@@ -28,7 +28,6 @@ export function Viewer() {
   useEffect(() => {
     void load();
     void appWindow.isAlwaysOnTop().then(setPinned);
-    void api.getConfig().then((config) => setConfirmOnClose(config.viewer.confirm_on_close));
   }, [load, appWindow]);
 
   const close = () => (confirmOnClose ? setConfirming(true) : void appWindow.close());
@@ -37,6 +36,8 @@ export function Viewer() {
     const onKey = (event: KeyboardEvent) => {
       // 確認ダイアログ表示中の Esc はダイアログを閉じるだけにする
       if (event.key !== "Escape" || confirming) return;
+      // メニューが開いているときの Esc はメニューを閉じるだけにする
+      if (document.querySelector('[role="menu"]')) return;
       // 同じ Esc が、今開くダイアログにまで届いて即座に閉じないよう止める
       event.stopPropagation();
       if (confirmOnClose) setConfirming(true);
@@ -48,18 +49,22 @@ export function Viewer() {
     return () => window.removeEventListener("keydown", onKey, true);
   }, [appWindow, confirmOnClose, confirming]);
 
-  const togglePin = async () => {
-    await appWindow.setAlwaysOnTop(!pinned);
-    setPinned(!pinned);
+  const changePinned = async (next: boolean) => {
+    await appWindow.setAlwaysOnTop(next);
+    setPinned(next);
   };
 
-  // 画像のどこを掴んでもウィンドウごと動かせる。拡大して画像がはみ出しているときだけ、画像のパンにする
+  // 操作結果は画像の隅に短く出して消す。バーを持たない代わりの通知
+  const { clearStatus } = viewer;
+  useEffect(() => {
+    if (!status) return;
+    const timer = window.setTimeout(clearStatus, status.tone === "error" ? 5000 : 2000);
+    return () => window.clearTimeout(timer);
+  }, [status, clearStatus]);
+
+  // 画像内のドラッグはパンだけ。ウィンドウの移動はタイトルバーで行う
   const onPointerDown = (event: PointerEvent<HTMLElement>) => {
     if (event.button !== 0) return;
-    if (!zoom.canPan()) {
-      void appWindow.startDragging();
-      return;
-    }
     event.currentTarget.setPointerCapture(event.pointerId);
     panFrom.current = { x: event.clientX, y: event.clientY };
   };
@@ -71,49 +76,61 @@ export function Viewer() {
   };
 
   const saved = info?.savedPath != null;
+  const actions = {
+      copyPath: () => void viewer.copyPath(),
+      copyImage: () => void viewer.copyImage(),
+      save: () => void viewer.save(),
+      saveAs: () => void viewer.saveAs(),
+      deleteSaved: () => void viewer.deleteSaved(),
+      openWith: (tool: number) => void viewer.openWith(tool),
+      reveal: () => void viewer.reveal(),
+      openSettings: () => void viewer.openSettings(),
+      setPinned: (next: boolean) => void changePinned(next),
+  };
+  const menu = viewerMenu({ saved, pinned, tools }, actions);
   const title = info
     ? `${t("app.name")}  ${info.width} × ${info.height}  ${Math.round(zoom.scale * 100)}%`
     : t("app.name");
 
   return (
-    <Tooltip.Provider delayDuration={400}>
+    <>
       <div className="frame">
-        <TitleBar title={title} onClose={close} />
-        <main
-          ref={stageRef}
-          className="viewer-stage"
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={() => (panFrom.current = null)}
-          onDoubleClick={() => zoom.fit()}
-        >
-          {imageUrl ? (
-            <img ref={imageRef} className="viewer-image" src={imageUrl} alt="" draggable={false} />
-          ) : (
-            <span className="viewer-placeholder">{t("viewer.loading")}</span>
-          )}
-        </main>
-        <footer className="toolbar">
-          <IconButton icon={Copy} label={t("viewer.copyImage")} onClick={copyImage} />
-          <IconButton
-            icon={Link}
-            label={saved ? t("viewer.copyPath") : t("viewer.copyPathDisabled")}
-            onClick={copyPath}
-            disabled={!saved}
-          />
-          <IconButton icon={Save} label={t("viewer.save")} onClick={save} disabled={saved} />
-          <IconButton icon={ExternalLink} label={t("viewer.openEditor")} onClick={openEditor} />
-          <output className="toolbar-status" data-tone={status?.tone} title={info?.savedPath ?? undefined}>
-            {status?.text ?? info?.savedPath ?? ""}
-          </output>
-          <span className="toolbar-spacer" />
-          <IconButton
-            icon={pinned ? Pin : PinOff}
-            label={pinned ? t("viewer.unpin") : t("viewer.pin")}
-            onClick={togglePin}
-            pressed={pinned}
-          />
-        </footer>
+        <TitleBar
+          title={title}
+          onClose={close}
+          actions={
+            <DropdownMenuButton
+              entries={openWithEntries(tools, actions)}
+              trigger={
+                <button type="button" className="titlebar-action">
+                  {t("viewer.openWith")}
+                  <ChevronDown aria-hidden />
+                </button>
+              }
+            />
+          }
+        />
+        <ContextMenuArea entries={menu}>
+          <main
+            ref={stageRef}
+            className="viewer-stage"
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={() => (panFrom.current = null)}
+            onDoubleClick={() => zoom.fit()}
+          >
+            {imageUrl ? (
+              <img ref={imageRef} className="viewer-image" src={imageUrl} alt="" draggable={false} />
+            ) : (
+              <span className="viewer-placeholder">{t("viewer.loading")}</span>
+            )}
+            {status && (
+              <output className="viewer-toast" data-tone={status.tone}>
+                {status.text}
+              </output>
+            )}
+          </main>
+        </ContextMenuArea>
       </div>
       <ConfirmDialog
         open={confirming}
@@ -124,6 +141,6 @@ export function Viewer() {
         confirmLabel={t("viewer.confirmClose")}
         onConfirm={() => void appWindow.close()}
       />
-    </Tooltip.Provider>
+    </>
   );
 }

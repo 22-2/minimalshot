@@ -3,7 +3,9 @@ import * as RadioGroup from "@radix-ui/react-radio-group";
 import * as Switch from "@radix-ui/react-switch";
 
 import { TitleBar } from "../components/TitleBar";
-import type { AutoCopy } from "../lib/api";
+import { Plus, Trash2 } from "lucide-react";
+
+import type { AutoCopy, ExternalTool } from "../lib/api";
 import { useSettings } from "../stores/settings";
 import { t } from "../i18n";
 
@@ -43,6 +45,47 @@ function SwitchField(props: { label: string; checked: boolean; onChange: (checke
         </Switch.Root>
       )}
     </Field>
+  );
+}
+
+function ToolList({ tools, onChange }: { tools: ExternalTool[]; onChange: (tools: ExternalTool[]) => void }) {
+  const edit = (index: number, patch: Partial<ExternalTool>) =>
+    onChange(tools.map((tool, i) => (i === index ? { ...tool, ...patch } : tool)));
+
+  return (
+    <>
+      {tools.length === 0 && <p className="section-note">{t("settings.noTools")}</p>}
+      <ul className="tool-list">
+        {tools.map((tool, index) => (
+          <li key={index} className="tool-card">
+            <TextField label={t("settings.toolName")} value={tool.name} onChange={(name) => edit(index, { name })} />
+            <TextField
+              label={t("settings.toolCommand")}
+              value={tool.command}
+              onChange={(command) => edit(index, { command })}
+            />
+            <TextField label={t("settings.toolArgs")} value={tool.args} onChange={(args) => edit(index, { args })} />
+            <button
+              type="button"
+              className="button tool-remove"
+              data-variant="danger"
+              onClick={() => onChange(tools.filter((_, i) => i !== index))}
+            >
+              <Trash2 size={14} aria-hidden />
+              {t("settings.removeTool")}
+            </button>
+          </li>
+        ))}
+      </ul>
+      <button
+        type="button"
+        className="button"
+        onClick={() => onChange([...tools, { name: "", command: "", args: '"${file}"' }])}
+      >
+        <Plus size={14} aria-hidden />
+        {t("settings.addTool")}
+      </button>
+    </>
   );
 }
 
@@ -152,12 +195,8 @@ export function Settings() {
 
             <section className="settings-section">
               <h2 className="settings-heading">{t("settings.external")}</h2>
-              <TextField
-                label={t("settings.editor")}
-                note={t("settings.editorNote")}
-                value={draft.external.editor}
-                onChange={(v) => update("external", "editor", v)}
-              />
+              <p className="section-note">{t("settings.externalNote")}</p>
+              <ToolList tools={draft.external.tools} onChange={(tools) => update("external", "tools", tools)} />
             </section>
           </>
         )}

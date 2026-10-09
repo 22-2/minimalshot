@@ -9,8 +9,10 @@ export type Config = {
   capture: { auto_save: boolean; auto_copy: AutoCopy };
   storage: { directory: string; format: string };
   viewer: { always_on_top: boolean; confirm_on_close: boolean };
-  external: { editor: string };
+  external: { tools: ExternalTool[] };
 };
+
+export type ExternalTool = { name: string; command: string; args: string };
 
 export type ShotInfo = {
   id: number;
@@ -31,7 +33,11 @@ export const api = {
   saveShot: () => invoke<string>("save_shot"),
   copyShotImage: () => invoke<void>("copy_shot_image"),
   copyShotPath: () => invoke<void>("copy_shot_path"),
-  openShotInEditor: () => invoke<void>("open_shot_in_editor"),
+  openShotWith: (tool: number) => invoke<void>("open_shot_with", { tool }),
+  revealShot: () => invoke<void>("reveal_shot"),
+  saveShotAs: () => invoke<string | null>("save_shot_as"),
+  deleteSavedShot: () => invoke<void>("delete_saved_shot"),
+  openSettings: () => invoke<void>("open_settings"),
 
   regionPng: () => invoke<BinaryPayload>("region_png").then(toBytes),
   finishRegion: (rect: Rect) => invoke<void>("finish_region", { rect }),

@@ -10,6 +10,8 @@
   --color-surface: #1e1f23;
   --color-surface-raised: #26282d;
   --color-surface-hover: #2f3238;
+  --color-menu: #24262b;
+  --color-hairline: rgb(255 255 255 / 0.08);
   --color-border: #34373e;
 
   --color-text: #e8e9ec;
@@ -21,6 +23,7 @@
   --color-accent-strong: #a9cfff;
   --color-accent-contrast: #0e1726;
   --color-danger: #ff7b72;
+  --color-danger-surface: rgb(255 123 114 / 0.14);
   --color-selection-fill: rgb(127 184 255 / 0.12);
   --color-scrim: rgb(0 0 0 / 0.45);
 
@@ -33,12 +36,21 @@
   --space-6: 32px;
 
   --size-titlebar: 24px;
-  --size-toolbar: 32px;
+  --size-titlebar-action: 18px;
   --size-icon: 14px;
   --size-control: 28px;
+  /* メニューは画像の上に一時的に重なるだけなので、操作部品より一回り小さくする */
+  --size-menu-item: 24px;
+  --size-menu-icon: 14px;
+  --size-titlebar-action-icon: 11px;
+  --space-menu-inset: 4px;
+  --space-menu-gap: 10px;
+  --size-menu-min-width: 144px;
 
   --radius-small: 4px;
   --radius-medium: 6px;
+  /* アイコンの線は細めにして、文字と並べたときに輪郭をシャープに見せる */
+  --stroke-icon: 1.5;
 
   --border-width: 1px;
   --focus-ring: 0 0 0 2px var(--color-accent);
@@ -47,16 +59,20 @@
   --font-ui: "Segoe UI Variable Text", "Segoe UI", "Yu Gothic UI", "Meiryo UI", system-ui, sans-serif;
   --font-code: "Cascadia Mono", Consolas, "BIZ UDGothic", monospace;
   --font-size-small: 11px;
+  --font-size-menu: 12px;
   --font-size-body: 13px;
   --font-size-heading: 15px;
   --line-height-body: 1.55;
   --font-weight-regular: 400;
+  --font-weight-medium: 500;
   --font-weight-strong: 600;
 
   --duration-quick: 120ms;
   --easing-standard: cubic-bezier(0.2, 0, 0, 1);
 
   --shadow-popover: 0 8px 24px rgb(0 0 0 / 0.5);
+  /* 外側の黒い1px線で背景から切り離し、ぼかしは短めにして輪郭を締める */
+  --shadow-menu: 0 0 0 1px rgb(0 0 0 / 0.5), 0 8px 20px rgb(0 0 0 / 0.45);
 }
 
 @media (prefers-reduced-motion: reduce) {
