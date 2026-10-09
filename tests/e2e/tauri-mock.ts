@@ -59,6 +59,7 @@ export async function installTauriMock(page: Page, options: MockOptions) {
 
     const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
       get_config: () => config,
+      open_config_folder: () => undefined,
       save_config: () => undefined,
       shot_info: () => ({ id: 1, width: 640, height: 360, savedPath }),
       shot_png: () => png(640, 360),

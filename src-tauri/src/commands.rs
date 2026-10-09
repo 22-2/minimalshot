@@ -35,6 +35,11 @@ pub fn get_config(state: State<'_, AppState>) -> Config {
 }
 
 #[tauri::command]
+pub fn open_config_folder(app: AppHandle) -> AppResult<()> {
+    actions::open_config_folder(&app)
+}
+
+#[tauri::command]
 pub fn save_config(app: AppHandle, config: Config) -> AppResult<()> {
     let state = app.state::<AppState>();
     // 先に全項目を検証し、不正な設定はファイルに書かない

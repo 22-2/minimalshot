@@ -44,6 +44,9 @@
   },
   "settings": {
     "title": "設定",
+    "openConfigFolder": "設定フォルダを開く",
+    "openedConfigFolder": "設定フォルダを開きました",
+    "openConfigFolderFailed": "設定フォルダを開けませんでした",
     "hotkeys": "ショートカット",
     "hotkeyRegion": "領域",
     "hotkeyWindow": "アクティブウィンドウ",

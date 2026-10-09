@@ -34,6 +34,7 @@ export type Rect = { x: number; y: number; width: number; height: number };
 
 export const api = {
   getConfig: () => invoke<Config>("get_config"),
+  openConfigFolder: () => invoke<void>("open_config_folder"),
   saveConfig: (config: Config) => invoke<void>("save_config", { config }),
   capture: (kind: CaptureKind) => invoke<void>("capture", { kind }),
 

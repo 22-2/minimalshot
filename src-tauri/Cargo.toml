@@ -1,6 +1,6 @@
 [package]
 name = "minimalshot"
-version = "0.0.8"
+version = "0.0.9"
 description = "A screenshot tool that does as little as possible"
 edition = "2021"
 license = "MIT"

@@ -3,6 +3,31 @@ import { expect, test } from "@playwright/test";
 import { calls, installTauriMock } from "./tauri-mock";
 
 test.describe("settings", () => {
+  test("opens the config folder without saving or discarding edits", async ({ page }) => {
+    await installTauriMock(page, { label: "settings" });
+    await page.goto("/");
+
+    await page.getByLabel("ファイル名").fill("unsaved.png");
+    await page.getByRole("button", { name: "設定フォルダを開く" }).click();
+
+    await expect(page.getByText("設定フォルダを開きました")).toBeVisible();
+    await expect(page.getByLabel("ファイル名")).toHaveValue("unsaved.png");
+    const commands = (await calls(page)).map((call) => call.cmd);
+    expect(commands).toContain("open_config_folder");
+    expect(commands).not.toContain("save_config");
+  });
+
+  test("reports a config folder launch failure", async ({ page }) => {
+    await installTauriMock(page, {
+      label: "settings",
+      failures: { open_config_folder: "アクセスが拒否されました" },
+    });
+    await page.goto("/");
+    await page.getByRole("button", { name: "設定フォルダを開く" }).click();
+
+    await expect(page.getByText("設定フォルダを開けませんでした: アクセスが拒否されました")).toBeVisible();
+  });
+
   test("edits and saves the configuration", async ({ page }) => {
     await installTauriMock(page, { label: "settings" });
     await page.goto("/");

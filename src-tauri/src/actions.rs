@@ -215,6 +215,20 @@ fn saved_path(app: &AppHandle, id: u32) -> AppResult<PathBuf> {
     })
 }
 
+pub fn open_config_folder(app: &AppHandle) -> AppResult<()> {
+    let state = app.state::<AppState>();
+    let directory = state
+        .config_path
+        .parent()
+        .ok_or_else(|| AppError::msg("設定フォルダが見つかりません"))?;
+    std::fs::create_dir_all(directory)?;
+    #[cfg(windows)]
+    Command::new("explorer.exe").arg(directory).spawn()?;
+    #[cfg(not(windows))]
+    Command::new("xdg-open").arg(directory).spawn()?;
+    Ok(())
+}
+
 /// 保存先のファイルをエクスプローラーで選択した状態で開く。
 pub fn reveal(app: &AppHandle, id: u32) -> AppResult<()> {
     let path = saved_path(app, id)?;

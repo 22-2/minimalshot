@@ -39,11 +39,26 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     let fullscreen =
         MenuItem::with_id(app, "fullscreen", t("tray.fullscreen"), true, None::<&str>)?;
     let settings = MenuItem::with_id(app, "settings", t("tray.settings"), true, None::<&str>)?;
+    let config_folder = MenuItem::with_id(
+        app,
+        "config_folder",
+        t("settings.openConfigFolder"),
+        true,
+        None::<&str>,
+    )?;
     let quit = MenuItem::with_id(app, "quit", t("tray.quit"), true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
     let menu = Menu::with_items(
         app,
-        &[&region, &window, &fullscreen, &separator, &settings, &quit],
+        &[
+            &region,
+            &window,
+            &fullscreen,
+            &separator,
+            &settings,
+            &config_folder,
+            &quit,
+        ],
     )?;
 
     TrayIconBuilder::with_id("main")
@@ -55,6 +70,7 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
             "window" => capture_in_background(app, CaptureKind::Window),
             "fullscreen" => capture_in_background(app, CaptureKind::Fullscreen),
             "settings" => report(windows::open_settings(app)),
+            "config_folder" => report(actions::open_config_folder(app)),
             "quit" => app.exit(0),
             _ => {}
         })
@@ -129,6 +145,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::get_config,
+            commands::open_config_folder,
             commands::save_config,
             commands::capture,
             commands::shot_info,

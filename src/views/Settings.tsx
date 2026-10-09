@@ -4,7 +4,7 @@ import * as RadioGroup from "@radix-ui/react-radio-group";
 import * as Switch from "@radix-ui/react-switch";
 
 import { TitleBar } from "../components/TitleBar";
-import { Plus, Trash2 } from "lucide-react";
+import { FolderOpen, Plus, Trash2 } from "lucide-react";
 
 import type { AutoCopy, ExternalTool } from "../lib/api";
 import { useSettings } from "../stores/settings";
@@ -122,7 +122,7 @@ const autoCopyOptions: { value: AutoCopy; label: string }[] = [
 ];
 
 export function Settings() {
-  const { draft, status, saving, load, update, save } = useSettings();
+  const { draft, status, saving, load, openConfigFolder, update, save } = useSettings();
   const autoCopyLabel = useId();
   const [presentation, setPresentation] = useState(0);
   useWindowReady(presentation > 0, presentation);
@@ -152,6 +152,12 @@ export function Settings() {
           void save();
         }}
       >
+        <div className="settings-section">
+          <button type="button" className="button" onClick={() => void openConfigFolder()}>
+            <FolderOpen size={14} aria-hidden />
+            {t("settings.openConfigFolder")}
+          </button>
+        </div>
         {draft && (
           <>
             <section className="settings-section">
