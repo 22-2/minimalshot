@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
@@ -6,6 +6,9 @@ import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { Settings } from "../../src/views/Settings";
 import { useSettings } from "../../src/stores/settings";
 import { defaultConfig } from "./fixtures";
+
+// Tauri の mockIPC はイベントの listener 管理を実装しない。再表示は E2E で検証する。
+vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => {}) }));
 
 describe("Settings", () => {
   let saved: unknown[];

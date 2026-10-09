@@ -9,13 +9,12 @@ use crate::error::{AppError, AppResult};
 /// 保存用の PNG と同じく可逆で、ピクセルは変わらない。
 pub fn encode_png(image: &RgbaImage) -> AppResult<Vec<u8>> {
     let mut bytes = Vec::new();
-    PngEncoder::new_with_quality(&mut bytes, CompressionType::Fast, FilterType::Sub)
-        .write_image(
-            image.as_raw(),
-            image.width(),
-            image.height(),
-            image::ExtendedColorType::Rgba8,
-        )?;
+    PngEncoder::new_with_quality(&mut bytes, CompressionType::Fast, FilterType::Sub).write_image(
+        image.as_raw(),
+        image.width(),
+        image.height(),
+        image::ExtendedColorType::Rgba8,
+    )?;
     Ok(bytes)
 }
 
