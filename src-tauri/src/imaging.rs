@@ -1,13 +1,21 @@
-use std::io::Cursor;
 use std::path::Path;
 
-use image::{ImageFormat, RgbaImage};
+use image::codecs::png::{CompressionType, FilterType, PngEncoder};
+use image::{ImageEncoder, ImageFormat, RgbaImage};
 
 use crate::error::{AppError, AppResult};
 
+/// プレビュー用。毎行すべてのフィルターを試す処理を省き、表示までの時間を短縮する。
+/// 保存用の PNG と同じく可逆で、ピクセルは変わらない。
 pub fn encode_png(image: &RgbaImage) -> AppResult<Vec<u8>> {
     let mut bytes = Vec::new();
-    image.write_to(&mut Cursor::new(&mut bytes), ImageFormat::Png)?;
+    PngEncoder::new_with_quality(&mut bytes, CompressionType::Fast, FilterType::Sub)
+        .write_image(
+            image.as_raw(),
+            image.width(),
+            image.height(),
+            image::ExtendedColorType::Rgba8,
+        )?;
     Ok(bytes)
 }
 

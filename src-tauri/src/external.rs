@@ -92,7 +92,7 @@ mod tests {
 
     #[test]
     fn expands_all_variables_without_splitting_spaces() {
-        let file = Path::new("/My Pictures/MinimaShot/shot 1.png");
+        let file = Path::new("/My Pictures/MinimalShot/shot 1.png");
         let args = build_args(
             r#""${file}" ${fileDirname} ${fileBasename} ${fileBasenameNoExtension}${fileExtname}"#,
             file,
@@ -101,8 +101,8 @@ mod tests {
         assert_eq!(
             args,
             [
-                "/My Pictures/MinimaShot/shot 1.png",
-                "/My Pictures/MinimaShot",
+                "/My Pictures/MinimalShot/shot 1.png",
+                "/My Pictures/MinimalShot",
                 "shot 1.png",
                 "shot 1.png",
             ]

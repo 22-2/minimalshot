@@ -24,6 +24,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
   saving: false,
 
   load: async () => {
+    set({ draft: null, status: null });
     try {
       set({ draft: await api.getConfig(), status: null });
     } catch (error) {

@@ -7,6 +7,7 @@ import { ChevronDown } from "lucide-react";
 import { ContextMenuArea, DropdownMenuButton } from "../components/Menu";
 import { TitleBar } from "../components/TitleBar";
 import { useZoom } from "../lib/useZoom";
+import { useWindowReady } from "../lib/useWindowReady";
 import { openWithEntries, viewerMenu } from "../lib/viewerMenu";
 import { useViewer } from "../stores/viewer";
 import { t } from "../i18n";
@@ -16,6 +17,7 @@ export function Viewer() {
   const { info, imageUrl, status, tools, confirmOnClose, load } = viewer;
   const [pinned, setPinned] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [imageReady, setImageReady] = useState(false);
   // getCurrentWindow() は呼ぶたびに別オブジェクトを返す。effect の依存に入れると毎回の描画で
   // 読み込みが走り、PNG の再取得が止まらなくなる（WebView のメモリが尽きて真っ黒になる）
   const appWindow = useMemo(() => getCurrentWindow(), []);
@@ -24,6 +26,7 @@ export function Viewer() {
   const panFrom = useRef<{ x: number; y: number } | null>(null);
   const imageSize = useMemo(() => (info ? { width: info.width, height: info.height } : null), [info?.width, info?.height]);
   const zoom = useZoom(stageRef, imageRef, imageSize);
+  useWindowReady(imageReady || status?.tone === "error");
 
   useEffect(() => {
     void load();
@@ -120,7 +123,15 @@ export function Viewer() {
             onDoubleClick={() => zoom.fit()}
           >
             {imageUrl ? (
-              <img ref={imageRef} className="viewer-image" src={imageUrl} alt="" draggable={false} />
+              <img
+                ref={imageRef}
+                className="viewer-image"
+                src={imageUrl}
+                alt=""
+                draggable={false}
+                onLoad={() => setImageReady(true)}
+                onError={() => useViewer.setState({ status: { tone: "error", text: t("viewer.loadFailed") } })}
+              />
             ) : (
               <span className="viewer-placeholder">{t("viewer.loading")}</span>
             )}

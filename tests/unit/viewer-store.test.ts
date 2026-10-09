@@ -11,13 +11,13 @@ describe("viewer store", () => {
 
   it("records the saved path after saving", async () => {
     mockIPC((cmd) => {
-      if (cmd === "save_shot") return "C:/Pictures/MinimaShot/a.png";
+      if (cmd === "save_shot") return "C:/Pictures/MinimalShot/a.png";
     });
     useViewer.setState({ info: { id: 1, width: 10, height: 10, savedPath: null } });
 
     await useViewer.getState().save();
 
-    expect(useViewer.getState().info?.savedPath).toBe("C:/Pictures/MinimaShot/a.png");
+    expect(useViewer.getState().info?.savedPath).toBe("C:/Pictures/MinimalShot/a.png");
     expect(useViewer.getState().status).toEqual({ tone: "info", text: "保存しました" });
   });
 

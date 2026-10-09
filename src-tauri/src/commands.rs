@@ -1,6 +1,6 @@
 use serde::Serialize;
 use tauri::ipc::Response;
-use tauri::{AppHandle, Manager, State, WebviewWindow};
+use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 
 use crate::actions;
 use crate::capture::Captured;
@@ -9,7 +9,7 @@ use crate::error::{AppError, AppResult};
 use crate::hotkeys;
 use crate::imaging;
 use crate::state::{AppState, CaptureKind};
-use crate::windows::VIEWER_PREFIX;
+use crate::windows::{REGION_LABEL, VIEWER_PREFIX};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -59,7 +59,9 @@ pub fn save_config(app: AppHandle, config: Config) -> AppResult<()> {
 
 #[tauri::command]
 pub async fn capture(app: AppHandle, kind: CaptureKind) -> AppResult<()> {
-    actions::start_capture(&app, kind)
+    tauri::async_runtime::spawn_blocking(move || actions::start_capture(&app, kind))
+        .await
+        .map_err(|e| AppError::msg(e.to_string()))?
 }
 
 #[tauri::command]
@@ -79,11 +81,17 @@ pub fn shot_info(window: WebviewWindow, state: State<'_, AppState>) -> AppResult
 }
 
 #[tauri::command]
-pub fn shot_png(window: WebviewWindow, state: State<'_, AppState>) -> AppResult<Response> {
+pub async fn shot_png(window: WebviewWindow, state: State<'_, AppState>) -> AppResult<Response> {
     let id = shot_id(&window)?;
-    let bytes = state
-        .shots
-        .with(id, |shot| imaging::encode_png(&shot.image))?;
+    let image = state.shots.with(id, |shot| Ok(shot.image.clone()))?;
+    preview_png(image).await
+}
+
+async fn preview_png(image: image::RgbaImage) -> AppResult<Response> {
+    // PNG 変換中にメインスレッドや ShotStore のロックを占有しない。
+    let bytes = tauri::async_runtime::spawn_blocking(move || imaging::encode_png(&image))
+        .await
+        .map_err(|e| AppError::msg(e.to_string()))??;
     Ok(Response::new(bytes))
 }
 
@@ -141,12 +149,47 @@ pub async fn open_settings(app: AppHandle) -> AppResult<()> {
 }
 
 #[tauri::command]
-pub fn region_png(state: State<'_, AppState>) -> AppResult<Response> {
-    let pending = state.pending_region.lock().unwrap();
-    let captured = pending
+pub fn region_session(state: State<'_, AppState>) -> Option<u32> {
+    state
+        .pending_region
+        .lock()
+        .unwrap()
         .as_ref()
-        .ok_or_else(|| AppError::msg("領域選択中ではありません"))?;
-    Ok(Response::new(imaging::encode_png(&captured.image)?))
+        .map(|pending| pending.id)
+}
+
+#[tauri::command]
+pub async fn region_png(state: State<'_, AppState>, session: u32) -> AppResult<Response> {
+    let image = {
+        let pending = state.pending_region.lock().unwrap();
+        let pending = pending
+            .as_ref()
+            .filter(|p| p.id == session)
+            .ok_or_else(|| AppError::msg("領域選択中ではありません"))?;
+        pending.captured.image.clone()
+    };
+    preview_png(image).await
+}
+
+/// フロントエンドの描画完了後に呼ぶ。中止済みの領域選択は遅れて完了しても出さない。
+#[tauri::command]
+pub fn show_window(
+    window: WebviewWindow,
+    state: State<'_, AppState>,
+    session: Option<u32>,
+) -> AppResult<()> {
+    if window.label() == REGION_LABEL {
+        let pending = state.pending_region.lock().unwrap();
+        if pending.as_ref().map(|p| p.id) != session || session.is_none() {
+            return Ok(());
+        }
+        window.show()?;
+        window.set_focus()?;
+    } else if !window.is_visible()? {
+        window.show()?;
+        window.set_focus()?;
+    }
+    Ok(())
 }
 
 #[derive(serde::Deserialize)]
@@ -158,34 +201,46 @@ pub struct Rect {
 }
 
 #[tauri::command]
-pub async fn finish_region(app: AppHandle, window: WebviewWindow, rect: Rect) -> AppResult<()> {
-    let pending = app
-        .state::<AppState>()
-        .pending_region
-        .lock()
-        .unwrap()
-        .take();
-    window.close()?;
-    let captured = pending.ok_or_else(|| AppError::msg("領域選択中ではありません"))?;
+pub async fn finish_region(
+    app: AppHandle,
+    window: WebviewWindow,
+    rect: Rect,
+    session: u32,
+) -> AppResult<()> {
+    let captured = {
+        let state = app.state::<AppState>();
+        let mut pending = state.pending_region.lock().unwrap();
+        if pending.as_ref().map(|p| p.id) != Some(session) {
+            return Err(AppError::msg("領域選択中ではありません"));
+        }
+        pending.take().unwrap().captured
+    };
+    window.hide()?;
+    window.emit("region-reset", ())?;
     let image = imaging::crop(&captured.image, rect.x, rect.y, rect.width, rect.height)?;
     let origin = (
         captured.monitor.x + rect.x as i32,
         captured.monitor.y + rect.y as i32,
     );
-    actions::finish_capture(
-        &app,
-        Captured {
-            image,
-            monitor: captured.monitor,
-        },
-        Some(origin),
-    )
+    tauri::async_runtime::spawn_blocking(move || {
+        actions::finish_capture(
+            &app,
+            Captured {
+                image,
+                monitor: captured.monitor,
+            },
+            Some(origin),
+        )
+    })
+    .await
+    .map_err(|e| AppError::msg(e.to_string()))?
 }
 
 #[tauri::command]
 pub fn cancel_region(window: WebviewWindow, state: State<'_, AppState>) -> AppResult<()> {
     state.pending_region.lock().unwrap().take();
-    window.close()?;
+    window.hide()?;
+    window.emit("region-reset", ())?;
     Ok(())
 }
 

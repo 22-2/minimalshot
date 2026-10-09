@@ -5,6 +5,7 @@ type MockOptions = {
   config?: Record<string, unknown>;
   /** 指定したコマンドを、この文言で失敗させる。 */
   failures?: Record<string, string>;
+  delays?: Record<string, number>;
 };
 
 export type Call = { cmd: string; args: Record<string, unknown> };
@@ -16,8 +17,19 @@ export type Call = { cmd: string; args: Record<string, unknown> };
 export async function installTauriMock(page: Page, options: MockOptions) {
   await page.addInitScript((opts: MockOptions) => {
     const calls: Call[] = [];
+    const presentations: { session: unknown; imagesReady: boolean; settingsReady: boolean }[] = [];
     let savedPath: string | null = null;
     let pinned = false;
+    let regionSession: number | null = 1;
+    let nextId = 0;
+    const callbacks = new Map<number, (event: unknown) => void>();
+    const listeners = new Map<number, { event: string; handler: number }>();
+    const emit = (event: string, payload?: unknown) => {
+      if (event === "region-load") regionSession = payload as number;
+      for (const [id, listener] of listeners) {
+        if (listener.event === event) callbacks.get(listener.handler)?.({ event, id, payload });
+      }
+    };
     const config = {
       hotkeys: { region: "Ctrl+PrintScreen", window: "Alt+PrintScreen", fullscreen: "Shift+PrintScreen" },
       capture: { auto_save: false, auto_copy: "image" },
@@ -50,7 +62,7 @@ export async function installTauriMock(page: Page, options: MockOptions) {
       save_config: () => undefined,
       shot_info: () => ({ id: 1, width: 640, height: 360, savedPath }),
       shot_png: () => png(640, 360),
-      save_shot: () => (savedPath = "C:\\Users\\me\\Pictures\\MinimaShot\\2026-10\\2026-10-09_12-00-00.png"),
+      save_shot: () => (savedPath = "C:\\Users\\me\\Pictures\\MinimalShot\\2026-10\\2026-10-09_12-00-00.png"),
       copy_shot_image: () => undefined,
       copy_shot_path: () => undefined,
       open_shot_with: (args) => {
@@ -63,9 +75,24 @@ export async function installTauriMock(page: Page, options: MockOptions) {
         savedPath = null;
       },
       open_settings: () => undefined,
+      show_window: (args) => {
+        const images = Array.from(document.querySelectorAll<HTMLImageElement>(".viewer-image, .region-image"));
+        presentations.push({
+          session: args.session,
+          imagesReady: images.length > 0 && images.every((image) => image.complete && image.naturalWidth > 0),
+          settingsReady: document.querySelector(".settings-section input") !== null,
+        });
+      },
+      region_session: () => regionSession,
       region_png: () => png(window.innerWidth, window.innerHeight),
-      finish_region: () => undefined,
-      cancel_region: () => undefined,
+      finish_region: () => { regionSession = null; emit("region-reset"); },
+      cancel_region: () => { regionSession = null; emit("region-reset"); },
+      "plugin:event|listen": (args) => {
+        const id = ++nextId;
+        listeners.set(id, { event: args.event as string, handler: args.handler as number });
+        return id;
+      },
+      "plugin:event|unlisten": (args) => listeners.delete(args.eventId as number),
       "plugin:window|is_always_on_top": () => pinned,
       "plugin:window|set_always_on_top": (args) => {
         pinned = Boolean(args.value);
@@ -74,18 +101,27 @@ export async function installTauriMock(page: Page, options: MockOptions) {
 
     Object.assign(window, {
       __calls: calls,
+      __presentations: presentations,
+      __emit: emit,
+      __TAURI_EVENT_PLUGIN_INTERNALS__: { unregisterListener: () => undefined },
       __TAURI_INTERNALS__: {
         metadata: {
           currentWindow: { label: opts.label },
           currentWebview: { windowLabel: opts.label, label: opts.label },
         },
-        transformCallback: () => Math.floor(Math.random() * 1e9),
-        unregisterCallback: () => undefined,
+        transformCallback: (callback: (event: unknown) => void) => {
+          const id = ++nextId;
+          callbacks.set(id, callback);
+          return id;
+        },
+        unregisterCallback: (id: number) => callbacks.delete(id),
         convertFileSrc: (path: string) => path,
         invoke: async (cmd: string, args: Record<string, unknown> = {}) => {
           calls.push({ cmd, args });
           const failure = opts.failures?.[cmd];
           if (failure) throw failure;
+          const delay = opts.delays?.[cmd];
+          if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
           return handlers[cmd]?.(args);
         },
       },

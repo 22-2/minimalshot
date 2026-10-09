@@ -1,4 +1,5 @@
-import { useEffect, useId, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
+import { listen } from "@tauri-apps/api/event";
 import * as RadioGroup from "@radix-ui/react-radio-group";
 import * as Switch from "@radix-ui/react-switch";
 
@@ -7,6 +8,7 @@ import { Plus, Trash2 } from "lucide-react";
 
 import type { AutoCopy, ExternalTool } from "../lib/api";
 import { useSettings } from "../stores/settings";
+import { useWindowReady } from "../lib/useWindowReady";
 import { t } from "../i18n";
 
 function Field({ label, note, children }: { label: string; note?: string; children: (id: string) => ReactNode }) {
@@ -122,9 +124,21 @@ const autoCopyOptions: { value: AutoCopy; label: string }[] = [
 export function Settings() {
   const { draft, status, saving, load, update, save } = useSettings();
   const autoCopyLabel = useId();
+  const [presentation, setPresentation] = useState(0);
+  useWindowReady(presentation > 0, presentation);
 
   useEffect(() => {
-    void load();
+    let disposed = false;
+    const reload = async () => {
+      await load();
+      if (!disposed) setPresentation((value) => value + 1);
+    };
+    const unlisten = listen("settings-open", () => void reload());
+    void reload();
+    return () => {
+      disposed = true;
+      void unlisten.then((stop) => stop());
+    };
   }, [load]);
 
   return (
