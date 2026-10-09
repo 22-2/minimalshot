@@ -122,3 +122,18 @@ pub fn run() {
         }
     });
 }
+
+#[cfg(test)]
+mod config_tests {
+    /// CSP で IPC プロトコルを許可しないと postMessage に落ち、画像のバイナリが壊れて届く。
+    #[test]
+    fn csp_allows_ipc_protocol() {
+        let conf: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        let csp = conf["app"]["security"]["csp"].as_str().unwrap();
+        assert!(
+            csp.contains("connect-src ipc: http://ipc.localhost"),
+            "{csp}"
+        );
+    }
+}

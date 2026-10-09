@@ -15,8 +15,13 @@ concurrency:
 
 jobs:
   frontend:
-    name: Frontend (typecheck, Vitest, Playwright)
-    runs-on: ubuntu-latest
+    name: Frontend (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # 実際の利用環境である Windows（WebView2 と同じ Chromium 系）でも画面を検証する
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -33,7 +38,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.os }}
           path: |
             playwright-report
             test-results
@@ -59,3 +64,5 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --locked -- -D warnings
       - run: cargo test --locked
+      # ランナーの実デスクトップを撮り、真っ黒（透明）にならないことを確かめる
+      - run: cargo test --locked -- --ignored
