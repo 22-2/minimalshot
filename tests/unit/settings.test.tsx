@@ -38,6 +38,10 @@ describe("Settings", () => {
     await user.type(names[1], "GIMP");
     await user.type(screen.getAllByLabelText("コマンド")[1], "gimp.exe");
     await user.click(screen.getByRole("switch", { name: "自動で保存する" }));
+    // 出力をコピーするツールは、コンソール非表示が強制される
+    await user.click(screen.getAllByRole("switch", { name: "標準出力をコピー" })[1]);
+    expect(screen.getAllByRole("switch", { name: "コンソールを表示しない" })[1]).toBeDisabled();
+    expect(screen.getAllByRole("switch", { name: "コンソールを表示しない" })[1]).toBeChecked();
     await user.click(screen.getByRole("radio", { name: "パス（保存時のみ）" }));
     await user.click(screen.getByRole("button", { name: "設定を保存" }));
 
@@ -47,8 +51,8 @@ describe("Settings", () => {
       capture: { auto_save: true, auto_copy: "path" },
       external: {
         tools: [
-          { name: "ペイント", command: "paint.net", args: '"${file}"' },
-          { name: "GIMP", command: "gimp.exe", args: '"${file}"' },
+          { name: "ペイント", command: "paint.net", args: '"${file}"', hide_console: false, copy_stdout: false },
+          { name: "GIMP", command: "gimp.exe", args: '"${file}"', hide_console: false, copy_stdout: true },
         ],
       },
     });

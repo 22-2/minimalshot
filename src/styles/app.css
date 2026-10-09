@@ -56,9 +56,9 @@ button {
   display: flex;
   align-items: center;
   height: var(--size-titlebar);
-  padding-inline-start: var(--space-2);
+  padding-inline-start: var(--space-3);
   background: var(--color-surface);
-  font-size: var(--font-size-small);
+  font-size: var(--font-size-menu);
   color: var(--color-text-muted);
 }
 
@@ -77,12 +77,12 @@ button {
   gap: var(--space-1);
   height: var(--size-titlebar-action);
   margin-inline-end: var(--space-2);
-  padding-inline: var(--space-2) var(--space-1);
+  padding-inline: var(--space-3) var(--space-2);
   border: 0;
   border-radius: var(--radius-small);
   background: var(--color-surface-raised);
   color: var(--color-text);
-  font-size: var(--font-size-small);
+  font-size: var(--font-size-menu);
   white-space: nowrap;
   transition: background-color var(--duration-quick) var(--easing-standard);
 }
@@ -98,6 +98,12 @@ button {
   color: var(--color-text-muted);
 }
 
+.titlebar-button svg {
+  width: var(--size-titlebar-icon);
+  height: var(--size-titlebar-icon);
+  stroke-width: var(--stroke-icon);
+}
+
 .titlebar-buttons {
   display: flex;
   height: 100%;
@@ -106,7 +112,7 @@ button {
 .titlebar-button {
   display: grid;
   place-items: center;
-  width: 36px;
+  width: var(--size-titlebar-button);
   height: 100%;
   border: 0;
   background: transparent;

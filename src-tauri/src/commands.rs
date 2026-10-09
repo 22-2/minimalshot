@@ -103,9 +103,17 @@ pub fn copy_shot_path(app: AppHandle, window: WebviewWindow) -> AppResult<()> {
     actions::copy_path(&app, shot_id(&window)?)
 }
 
+/// 出力をコピーする CLI は終了まで待つので、UI を止めないよう別スレッドで動かす
 #[tauri::command]
-pub fn open_shot_with(app: AppHandle, window: WebviewWindow, tool: usize) -> AppResult<()> {
-    actions::open_with(&app, shot_id(&window)?, tool)
+pub async fn open_shot_with(
+    app: AppHandle,
+    window: WebviewWindow,
+    tool: usize,
+) -> AppResult<actions::ToolOutcome> {
+    let id = shot_id(&window)?;
+    tauri::async_runtime::spawn_blocking(move || actions::open_with(&app, id, tool))
+        .await
+        .map_err(|e| AppError::msg(e.to_string()))?
 }
 
 #[tauri::command]

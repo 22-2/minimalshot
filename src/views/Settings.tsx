@@ -36,11 +36,22 @@ function TextField(props: { label: string; note?: string; value: string; onChang
   );
 }
 
-function SwitchField(props: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
+function SwitchField(props: {
+  label: string;
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (checked: boolean) => void;
+}) {
   return (
     <Field label={props.label}>
       {(id) => (
-        <Switch.Root id={id} className="switch" checked={props.checked} onCheckedChange={props.onChange}>
+        <Switch.Root
+          id={id}
+          className="switch"
+          checked={props.checked}
+          disabled={props.disabled}
+          onCheckedChange={props.onChange}
+        >
           <Switch.Thumb className="switch-thumb" />
         </Switch.Root>
       )}
@@ -65,6 +76,17 @@ function ToolList({ tools, onChange }: { tools: ExternalTool[]; onChange: (tools
               onChange={(command) => edit(index, { command })}
             />
             <TextField label={t("settings.toolArgs")} value={tool.args} onChange={(args) => edit(index, { args })} />
+            <SwitchField
+              label={t("settings.toolHideConsole")}
+              checked={tool.hide_console || tool.copy_stdout}
+              disabled={tool.copy_stdout}
+              onChange={(hide_console) => edit(index, { hide_console })}
+            />
+            <SwitchField
+              label={t("settings.toolCopyStdout")}
+              checked={tool.copy_stdout}
+              onChange={(copy_stdout) => edit(index, { copy_stdout })}
+            />
             <button
               type="button"
               className="button tool-remove"
@@ -80,7 +102,9 @@ function ToolList({ tools, onChange }: { tools: ExternalTool[]; onChange: (tools
       <button
         type="button"
         className="button"
-        onClick={() => onChange([...tools, { name: "", command: "", args: '"${file}"' }])}
+        onClick={() =>
+          onChange([...tools, { name: "", command: "", args: '"${file}"', hide_console: false, copy_stdout: false }])
+        }
       >
         <Plus size={14} aria-hidden />
         {t("settings.addTool")}

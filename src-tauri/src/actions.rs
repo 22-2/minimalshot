@@ -1,5 +1,5 @@
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 use arboard::{Clipboard, ImageData};
 use tauri::{AppHandle, Manager};
@@ -124,7 +124,15 @@ fn path_for_tool(app: &AppHandle, id: u32) -> AppResult<PathBuf> {
     })
 }
 
-pub fn open_with(app: &AppHandle, id: u32, tool_index: usize) -> AppResult<()> {
+/// 外部ツールを起動した結果。フロントエンドの通知文を切り替えるために返す。
+#[derive(serde::Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ToolOutcome {
+    Launched,
+    Copied,
+}
+
+pub fn open_with(app: &AppHandle, id: u32, tool_index: usize) -> AppResult<ToolOutcome> {
     let tool = app
         .state::<AppState>()
         .config()
@@ -134,12 +142,52 @@ pub fn open_with(app: &AppHandle, id: u32, tool_index: usize) -> AppResult<()> {
         .cloned()
         .ok_or_else(|| AppError::msg("外部ツールが見つかりません"))?;
     let path = path_for_tool(app, id)?;
-    Command::new(tool.command.trim())
-        .args(external::build_args(&tool.args, &path)?)
-        .spawn()
-        .map_err(|e| AppError::msg(format!("{} を起動できません: {e}", tool.name)))?;
-    Ok(())
+    let mut command = Command::new(tool.command.trim());
+    command.args(external::build_args(&tool.args, &path)?);
+    // 出力を受け取る CLI にコンソールを出しても空の黒い窓が一瞬見えるだけなので、まとめて隠す
+    if tool.hide_console || tool.copy_stdout {
+        hide_console(&mut command);
+    }
+    let cannot_start =
+        |e: std::io::Error| AppError::msg(format!("{} を起動できません: {e}", tool.name));
+
+    if !tool.copy_stdout {
+        command.spawn().map_err(cannot_start)?;
+        return Ok(ToolOutcome::Launched);
+    }
+
+    let output = command
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .map_err(cannot_start)?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(AppError::msg(format!(
+            "{} が失敗しました（{}）: {}",
+            tool.name,
+            output.status,
+            stderr.trim()
+        )));
+    }
+    let text = external::stdout_text(&output.stdout);
+    if text.is_empty() {
+        return Err(AppError::msg(format!("{} の出力が空でした", tool.name)));
+    }
+    Clipboard::new()?.set_text(text)?;
+    Ok(ToolOutcome::Copied)
 }
+
+#[cfg(windows)]
+fn hide_console(command: &mut Command) {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    command.creation_flags(CREATE_NO_WINDOW);
+}
+
+#[cfg(not(windows))]
+fn hide_console(_command: &mut Command) {}
 
 fn saved_path(app: &AppHandle, id: u32) -> AppResult<PathBuf> {
     app.state::<AppState>().shots.with(id, |shot| {

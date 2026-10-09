@@ -25,8 +25,8 @@ export async function installTauriMock(page: Page, options: MockOptions) {
       viewer: { always_on_top: false, confirm_on_close: false },
       external: {
         tools: [
-          { name: "ペイント", command: "mspaint.exe", args: '"${file}"' },
-          { name: "GIMP", command: "gimp.exe", args: '"${file}"' },
+          { name: "ペイント", command: "mspaint.exe", args: '"${file}"', hide_console: false, copy_stdout: false },
+          { name: "GIMP", command: "gimp.exe", args: '"${file}"', hide_console: false, copy_stdout: false },
         ],
       },
       ...opts.config,
@@ -53,7 +53,10 @@ export async function installTauriMock(page: Page, options: MockOptions) {
       save_shot: () => (savedPath = "C:\\Users\\me\\Pictures\\MinimaShot\\2026-10\\2026-10-09_12-00-00.png"),
       copy_shot_image: () => undefined,
       copy_shot_path: () => undefined,
-      open_shot_with: () => undefined,
+      open_shot_with: (args) => {
+        const tools = (config.external as { tools: { copy_stdout: boolean }[] }).tools;
+        return tools[args.tool as number]?.copy_stdout ? "copied" : "launched";
+      },
       reveal_shot: () => undefined,
       save_shot_as: () => (savedPath = "D:\\shots\\named.png"),
       delete_saved_shot: () => {

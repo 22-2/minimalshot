@@ -30,7 +30,7 @@ export function TitleBar({ title, onClose, actions }: Props) {
           title={t("titlebar.minimize")}
           onClick={() => void appWindow.minimize()}
         >
-          <Minus size={12} aria-hidden />
+          <Minus aria-hidden />
         </button>
         <button
           type="button"
@@ -39,7 +39,7 @@ export function TitleBar({ title, onClose, actions }: Props) {
           title={t("titlebar.maximize")}
           onClick={() => void appWindow.toggleMaximize()}
         >
-          <Square size={10} aria-hidden />
+          <Square aria-hidden />
         </button>
         <button
           type="button"
@@ -49,7 +49,7 @@ export function TitleBar({ title, onClose, actions }: Props) {
           title={t("titlebar.close")}
           onClick={close}
         >
-          <X size={12} aria-hidden />
+          <X aria-hidden />
         </button>
       </div>
     </header>
