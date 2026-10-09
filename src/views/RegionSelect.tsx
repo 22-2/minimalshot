@@ -13,8 +13,9 @@ export function RegionSelect() {
   const [end, setEnd] = useState<Point | null>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const [session, setSession] = useState<number | null>(null);
-  const [imageReady, setImageReady] = useState(false);
+  const [loadedImageUrl, setLoadedImageUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const imageReady = imageUrl !== null && loadedImageUrl === imageUrl;
   useWindowReady(session !== null && (imageReady || error !== null), session ?? 0, session ?? undefined);
 
   useEffect(() => {
@@ -29,7 +30,7 @@ export function RegionSelect() {
       url = null;
       setImageUrl(null);
       setSession(null);
-      setImageReady(false);
+      setLoadedImageUrl(null);
       setError(null);
       setStart(null);
       setEnd(null);
@@ -146,7 +147,7 @@ export function RegionSelect() {
           src={imageUrl}
           alt=""
           draggable={false}
-          onLoad={() => setImageReady(true)}
+          onLoad={(event) => setLoadedImageUrl(event.currentTarget.src)}
           onError={() => setError(t("viewer.loadFailed"))}
         />
       )}

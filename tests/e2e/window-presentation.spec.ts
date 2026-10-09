@@ -100,12 +100,15 @@ test("settings reloads saved values when its reused window opens again", async (
 });
 
 test("region window discards canceled loads and shows the next capture", async ({ page }) => {
-  await installTauriMock(page, { label: "region", delays: { region_png: 300 } });
+  await installTauriMock(page, { label: "region", holdFirst: ["region_png"] });
   await page.goto("/");
   await expect.poll(() => commandNames(page)).toContain("region_png");
   await page.keyboard.press("Escape");
   await expect.poll(() => commandNames(page)).toContain("cancel_region");
   await emit(page, "region-load", 2);
+  await page.evaluate(() => {
+    (window as unknown as { __release: (cmd: string) => void }).__release("region_png");
+  });
   await expect.poll(() => presentations(page)).toContainEqual({ session: 2, imagesReady: true, settingsReady: false });
   expect((await presentations(page)).some((frame) => frame.session === 1)).toBe(false);
   await page.mouse.move(10, 10);

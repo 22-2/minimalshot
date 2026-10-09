@@ -6,6 +6,7 @@ type MockOptions = {
   /** 指定したコマンドを、この文言で失敗させる。 */
   failures?: Record<string, string>;
   delays?: Record<string, number>;
+  holdFirst?: string[];
   viewerSession?: number | null;
   regionSession?: number | null;
 };
@@ -27,6 +28,8 @@ export async function installTauriMock(page: Page, options: MockOptions) {
     let nextId = 0;
     const callbacks = new Map<number, (event: unknown) => void>();
     const listeners = new Map<number, { event: string; handler: number }>();
+    const held = new Map<string, () => void>();
+    const callCounts = new Map<string, number>();
     const emit = (event: string, payload?: unknown) => {
       if (event === "region-load") regionSession = payload as number;
       if (event === "viewer-load") viewerSession = payload as number;
@@ -113,6 +116,7 @@ export async function installTauriMock(page: Page, options: MockOptions) {
       __calls: calls,
       __presentations: presentations,
       __emit: emit,
+      __release: (cmd: string) => held.get(cmd)?.(),
       __TAURI_EVENT_PLUGIN_INTERNALS__: { unregisterListener: () => undefined },
       __TAURI_INTERNALS__: {
         metadata: {
@@ -128,6 +132,12 @@ export async function installTauriMock(page: Page, options: MockOptions) {
         convertFileSrc: (path: string) => path,
         invoke: async (cmd: string, args: Record<string, unknown> = {}) => {
           calls.push({ cmd, args });
+          const count = (callCounts.get(cmd) ?? 0) + 1;
+          callCounts.set(cmd, count);
+          if (count === 1 && opts.holdFirst?.includes(cmd)) {
+            await new Promise<void>((resolve) => held.set(cmd, resolve));
+            held.delete(cmd);
+          }
           const failure = opts.failures?.[cmd];
           if (failure) throw failure;
           const delay = opts.delays?.[cmd];
