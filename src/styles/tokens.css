@@ -39,7 +39,8 @@
   --size-control: 28px;
   /* メニューは画像の上に一時的に重なるだけなので、操作部品より一回り小さくする */
   --size-menu-item: 20px;
-  --size-menu-icon: 11px;
+  --size-menu-icon: 14px;
+  --size-titlebar-action-icon: 11px;
   --space-menu-inset: 3px;
   --space-menu-gap: 6px;
   --size-menu-min-width: 144px;

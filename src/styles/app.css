@@ -93,8 +93,8 @@ button {
 }
 
 .titlebar-action svg {
-  width: var(--size-menu-icon);
-  height: var(--size-menu-icon);
+  width: var(--size-titlebar-action-icon);
+  height: var(--size-titlebar-action-icon);
   color: var(--color-text-muted);
 }
 
