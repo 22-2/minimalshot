@@ -149,6 +149,25 @@ test.describe("viewer", () => {
     await expect.poll(() => commandNames(page)).toContain("open_settings");
   });
 
+  test("pans a little into the empty space even when not zoomed", async ({ page }) => {
+    await page.setViewportSize({ width: 800, height: 500 });
+    await openViewer(page);
+    const image = page.locator(".viewer-image");
+    const before = (await image.boundingBox())!;
+    const box = (await page.locator(".viewer-stage").boundingBox())!;
+
+    await page.mouse.move(box.x + 100, box.y + 100);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 1000, box.y + 100, { steps: 5 });
+    await page.mouse.up();
+
+    // 余白はステージ幅の 25% まで。それ以上は止まる
+    const after = (await image.boundingBox())!;
+    expect(after.x - before.x).toBeGreaterThan(100);
+    expect(after.x - before.x).toBeLessThanOrEqual(box.width * 0.25 + 1);
+  });
+
+
   test("drag on the image never moves the window", async ({ page }) => {
     await openViewer(page);
     const box = (await page.locator(".viewer-stage").boundingBox())!;
