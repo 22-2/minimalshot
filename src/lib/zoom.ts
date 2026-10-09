@@ -33,15 +33,20 @@ export function zoomAt(view: View, factor: number, at: Point): View {
   };
 }
 
+/** 画像の外側へはみ出してパンできる量。ステージの大きさに対する割合。 */
+export const OVERSCROLL_RATIO = 0.25;
+
 /**
- * 画像がステージより小さい軸は中央へ寄せ、大きい軸は端に隙間ができないよう押し戻す。
- * 拡大中にパンしすぎて画像を見失わないようにするため。
+ * 画像の外側の余白へも少しだけパンできるようにしつつ、画像を見失わない範囲に収める。
+ * 画像がステージより小さい軸は中央を基準に、大きい軸は端を基準に、それぞれ余白の分だけ動ける。
  */
 export function clampView(view: View, image: Size, stage: Size): View {
   const clampAxis = (offset: number, imageLength: number, stageLength: number) => {
     const length = imageLength * view.scale;
-    if (length <= stageLength) return (stageLength - length) / 2;
-    return Math.min(0, Math.max(stageLength - length, offset));
+    const margin = stageLength * OVERSCROLL_RATIO;
+    const low = Math.min(stageLength - length, (stageLength - length) / 2);
+    const high = Math.max(0, (stageLength - length) / 2);
+    return Math.min(high + margin, Math.max(low - margin, offset));
   };
   return {
     scale: view.scale,

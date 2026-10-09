@@ -35,9 +35,23 @@ describe("zoomAt", () => {
 });
 
 describe("clampView", () => {
-  it("centers an axis that fits and stops gaps on one that overflows", () => {
-    const view = clampView({ scale: 2, x: 50, y: 999 }, { width: 400, height: 100 }, stage);
-    expect(view).toEqual({ scale: 2, x: 0, y: 50 });
+  const image = { width: 400, height: 100 };
+
+  it("leaves views inside the allowed range untouched", () => {
+    const view = { scale: 2, x: -200, y: 60 };
+    expect(clampView(view, image, stage)).toEqual(view);
+  });
+
+  it("lets an overflowing axis pan a little past the image edge", () => {
+    // 幅 800 の画像を幅 400 のステージで見ている。余白は 400 * 0.25 = 100
+    expect(clampView({ scale: 2, x: 999, y: 50 }, image, stage).x).toBe(100);
+    expect(clampView({ scale: 2, x: -999, y: 50 }, image, stage).x).toBe(-500);
+  });
+
+  it("lets a fitting axis move around its centered position", () => {
+    // 高さ 200 の画像を高さ 300 のステージで見ている。中央は 50、余白は 75
+    expect(clampView({ scale: 2, x: 0, y: 999 }, image, stage).y).toBe(125);
+    expect(clampView({ scale: 2, x: 0, y: -999 }, image, stage).y).toBe(-25);
   });
 });
 

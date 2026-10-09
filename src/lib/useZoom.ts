@@ -98,19 +98,11 @@ export function useZoom(stageRef: RefObject<HTMLElement | null>, imageRef: RefOb
     return () => stage.removeEventListener("wheel", onWheel);
   }, [image, setTarget, stageRef, stageSize]);
 
-  /** 拡大して画像がはみ出しているときだけ true。はみ出していなければウィンドウを動かす。 */
-  const canPan = () => {
-    const view = target.current;
-    if (!view || !image || !stageRef.current) return false;
-    const stage = stageSize();
-    return image.width * view.scale > stage.width + 0.5 || image.height * view.scale > stage.height + 0.5;
-  };
-
   const panBy = (dx: number, dy: number) => {
     if (!target.current || !image) return;
     fitted.current = false;
     setTarget(clampView({ ...target.current, x: target.current.x + dx, y: target.current.y + dy }, image, stageSize()), true);
   };
 
-  return { scale, fit, canPan, panBy };
+  return { scale, fit, panBy };
 }
