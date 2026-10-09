@@ -77,6 +77,7 @@ pub fn open_viewer(
             .visible(false)
             .focused(false)
             .background_color(BACKGROUND)
+            .min_inner_size(MIN_WIDTH, MIN_HEIGHT)
             .build()?;
     window.set_size(PhysicalSize::new(size.0, size.1))?;
     window.set_position(PhysicalPosition::new(position.0, position.1))?;
@@ -128,7 +129,8 @@ pub fn open_settings(app: &AppHandle) -> AppResult<()> {
         .focused(false)
         .background_color(BACKGROUND)
         .inner_size(560.0, 640.0)
-        .min_inner_size(420.0, 360.0)
+        .min_inner_size(MIN_WIDTH, MIN_HEIGHT)
+        .prevent_overflow()
         .center()
         .build()?;
     Ok(())
