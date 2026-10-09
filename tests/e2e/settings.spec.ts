@@ -70,11 +70,14 @@ test.describe("settings", () => {
 
     await expect(page.getByText("バージョン 0.0.9")).toBeVisible();
     const buildAt = process.env.VITE_DEV_BUILD_AT;
-    if (buildAt) {
-      await expect(page.locator(".about-body time")).toHaveAttribute("datetime", buildAt);
-      await expect(page.locator(".about-body time")).toHaveText(new Date(buildAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", hour12: false }));
+    const buildTime = page.locator(".about-body time");
+    if (buildAt || process.env.VERSION === "v0.0.0-dev") {
+      const stampedAt = await buildTime.getAttribute("datetime");
+      expect(stampedAt).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{3})?Z$/);
+      if (buildAt) expect(stampedAt).toBe(buildAt);
+      await expect(buildTime).toHaveText(new Date(stampedAt!).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", hour12: false }));
     } else {
-      await expect(page.locator(".about-body time")).toHaveCount(0);
+      await expect(buildTime).toHaveCount(0);
     }
     await expect(page.locator(".titlebar-title")).toHaveAttribute("data-tauri-drag-region");
     await page.getByRole("button", { name: "閉じる" }).click();

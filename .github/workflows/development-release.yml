@@ -44,9 +44,6 @@ jobs:
           workspaces: src-tauri
           shared-key: release
       - run: pnpm install --frozen-lockfile
-      - name: Stamp development build time
-        shell: bash
-        run: echo "VITE_DEV_BUILD_AT=$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
       - run: pnpm tauri build --no-bundle
       - name: Update development release
         shell: bash
