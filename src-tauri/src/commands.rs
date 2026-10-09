@@ -125,8 +125,10 @@ pub fn delete_saved_shot(app: AppHandle, window: WebviewWindow) -> AppResult<()>
     actions::delete_saved(&app, shot_id(&window)?)
 }
 
+/// ウィンドウを作るコマンドは必ず async にする。Windows では同期コマンドがメインスレッドで動き、
+/// その中で WebView を作ると互いに待ち合って固まる（真っ白で閉じられないウィンドウになる）
 #[tauri::command]
-pub fn open_settings(app: AppHandle) -> AppResult<()> {
+pub async fn open_settings(app: AppHandle) -> AppResult<()> {
     crate::windows::open_settings(&app)
 }
 
@@ -177,4 +179,19 @@ pub fn cancel_region(window: WebviewWindow, state: State<'_, AppState>) -> AppRe
     state.pending_region.lock().unwrap().take();
     window.close()?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    /// ウィンドウを作るコマンドが同期に戻ると、Windows で固まる不具合が再発する
+    #[test]
+    fn window_creating_commands_are_async() {
+        let source = include_str!("commands.rs");
+        for name in ["capture", "finish_region", "open_settings", "save_shot_as"] {
+            assert!(
+                source.contains(&format!("pub async fn {name}(")),
+                "{name} must be an async command"
+            );
+        }
+    }
 }
