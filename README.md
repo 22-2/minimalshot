@@ -65,7 +65,7 @@ UI の文言は `src/locales/ja.json` にまとめ、Rust 側（トレイメニ�
 
 ## リリース
 
-`v` で始まるタグを push すると、CI を通したうえで Windows 用インストーラーを GitHub Releases に公開します。
+`v` で始まるタグを push するか、Release ワークフローを `version` 付きで手動実行すると、Windows 用の単体 exe を GitHub Releases に公開します。CI は main へのマージ時に済んでいる前提で、リリースではビルドと公開だけを行います。
 
 ## ロードマップ
 
