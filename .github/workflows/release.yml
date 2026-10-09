@@ -3,6 +3,12 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  # タグを push できない環境からでもリリースできるよう、手動実行ではタグを作成する
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Tag to release (e.g. v0.0.1)"
+        required: true
 
 jobs:
   ci:
@@ -30,8 +36,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: MinimaShot ${{ github.ref_name }}
+          tagName: ${{ inputs.version || github.ref_name }}
+          releaseName: MinimaShot ${{ inputs.version || github.ref_name }}
           releaseBody: Windows 用インストーラー（NSIS / MSI）です。
           releaseDraft: false
           prerelease: true
