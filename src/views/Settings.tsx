@@ -1,12 +1,14 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { Fragment, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { listen } from "@tauri-apps/api/event";
 import {
+  Copy,
   FolderOpen,
   HardDrive,
   Image,
   Info,
-  Keyboard,
+  Link,
   Plus,
+  Save,
   SquareTerminal,
   Trash2,
   Zap,
@@ -17,12 +19,12 @@ import { TitleBar } from "../components/TitleBar";
 import { HotkeyInput } from "../components/HotkeyInput";
 import { Dropdown, SettingDisclosure, SettingGroup, SettingItem, SettingNotice, SettingPage, TextInput, Toggle } from "../components/Setting";
 import type { AutoCopy, CaptureActions, CaptureKind, Config, ExternalTool, ViewerLayout } from "../lib/api";
-import { duplicatedHotkeys } from "../lib/hotkey";
+import { duplicatedHotkeys, formatHotkey, hotkeyIdentity } from "../lib/hotkey";
 import { useSettings } from "../stores/settings";
 import { useWindowReady } from "../lib/useWindowReady";
 import { t } from "../i18n";
 
-type TabId = "hotkeys" | "actions" | "storage" | "viewer" | "tools";
+type TabId = "actions" | "storage" | "viewer" | "tools";
 type Tab = { id: TabId; label: string; icon: LucideIcon };
 
 const captureModes: { kind: CaptureKind; action: string }[] = [
@@ -33,10 +35,7 @@ const captureModes: { kind: CaptureKind; action: string }[] = [
 
 // 見出しは置かず、余白だけでまとまりを分ける
 const tabGroups: Tab[][] = [
-  [
-    { id: "hotkeys", label: t("settings.hotkeys"), icon: Keyboard },
-    { id: "actions", label: t("settings.actions"), icon: Zap },
-  ],
+  [{ id: "actions", label: t("settings.actions"), icon: Zap }],
   [
     { id: "storage", label: t("settings.storage"), icon: HardDrive },
     { id: "viewer", label: t("settings.viewer"), icon: Image },
@@ -118,31 +117,6 @@ function SettingsTabs(props: { selected: TabId; onSelect: (id: TabId) => void; o
 
 type Update = ReturnType<typeof useSettings.getState>["update"];
 
-function HotkeysPage({ draft, update }: { draft: Config; update: Update }) {
-  const conflicts = duplicatedHotkeys(captureModes.map(({ kind }) => draft.hotkeys[kind]));
-  return (
-    <SettingPage title={t("settings.hotkeys")} description={t("settings.hotkeyNote")}>
-      <SettingGroup>
-        {captureModes.map(({ kind, action }) => (
-          <div className="setting-item" key={kind}>
-            <div className="setting-info">
-              <span className="setting-name">{action}</span>
-            </div>
-            <div className="setting-control">
-              <HotkeyInput
-                label={action}
-                values={draft.hotkeys[kind]}
-                conflicts={conflicts}
-                onChange={(values) => update("hotkeys", kind, values)}
-              />
-            </div>
-          </div>
-        ))}
-      </SettingGroup>
-    </SettingPage>
-  );
-}
-
 /** モードごとの上書きが無ければ、共通の既定値で動く。 */
 function effectiveActions(draft: Config, kind: CaptureKind): CaptureActions {
   const override = draft.capture[kind];
@@ -152,23 +126,73 @@ function effectiveActions(draft: Config, kind: CaptureKind): CaptureActions {
   };
 }
 
-/** 閉じたままでも分かるよう、撮影直後に起きることを短く並べる。 */
-function actionsSummary(actions: CaptureActions): string {
-  const parts = [
-    { none: null, image: t("settings.summaryCopyImage"), path: t("settings.summaryCopyPath") }[actions.auto_copy],
-    actions.auto_save ? t("settings.summarySave") : null,
-  ].filter((part) => part !== null);
-  return parts.length > 0 ? parts.join("・") : t("settings.summaryNothing");
+/** 撮影直後の処理を、ビューアのメニューと同じアイコンで表す。 */
+function actionEffects(actions: CaptureActions): { label: string; icon: LucideIcon }[] {
+  const copy = {
+    none: null,
+    image: { label: t("settings.summaryCopyImage"), icon: Copy },
+    path: { label: t("settings.summaryCopyPath"), icon: Link },
+  }[actions.auto_copy];
+  const save = actions.auto_save ? { label: t("settings.summarySave"), icon: Save } : null;
+  return [copy, save].filter((effect) => effect !== null);
 }
 
-function ModeActions(props: { draft: Config; kind: CaptureKind; title: string; update: Update }) {
+/** 閉じたままでも、どのキーで撮り、撮った後に何が起きるかを見分けられるようにする。 */
+function ModeSummary(props: { hotkeys: string[]; conflicts: Set<string>; actions: CaptureActions }) {
+  const [first, ...rest] = props.hotkeys.filter((value) => value.trim());
+  return (
+    <>
+      {first
+        ? (
+          // 2つ目以降は数だけをチップの中に添え、モードどうしでチップの右端を揃える
+          <span className="hotkey-chip" data-conflict={props.conflicts.has(hotkeyIdentity(first)) || undefined}>
+            <kbd>{formatHotkey(first)}</kbd>
+            {rest.length > 0 && <>{" "}<span className="mode-summary-more">+{rest.length}</span></>}
+          </span>
+        )
+        : <span className="hotkey-chip" data-empty>{t("settings.noHotkey")}</span>}
+      {/* 読み上げで語がつながらないよう空白を挟む。flex の中なので見た目には影響しない */}
+      {" "}
+      <span className="mode-summary-effects">
+        {actionEffects(props.actions).map((effect) => (
+          <Fragment key={effect.label}>
+            {" "}
+            <span title={effect.label}>
+              <effect.icon aria-hidden />
+              <span className="visually-hidden">{effect.label}</span>
+            </span>
+          </Fragment>
+        ))}
+      </span>
+    </>
+  );
+}
+
+function CaptureModeSettings(props: { draft: Config; kind: CaptureKind; title: string; conflicts: Set<string>; update: Update }) {
   const actions = effectiveActions(props.draft, props.kind);
+  const hotkeys = props.draft.hotkeys[props.kind];
   // 画面には実際に適用される値を出し、触ったモードだけをモード別の設定として書き出す
   const change = <K extends keyof CaptureActions>(key: K, value: CaptureActions[K]) =>
     props.update("capture", props.kind, { ...actions, [key]: value });
 
   return (
-    <SettingDisclosure title={props.title} summary={actionsSummary(actions)}>
+    <SettingDisclosure
+      title={props.title}
+      summary={<ModeSummary hotkeys={hotkeys} conflicts={props.conflicts} actions={actions} />}
+    >
+      <div className="setting-item">
+        <div className="setting-info">
+          <span className="setting-name">{t("settings.hotkeys")}</span>
+        </div>
+        <div className="setting-control">
+          <HotkeyInput
+            label={props.title}
+            values={hotkeys}
+            conflicts={props.conflicts}
+            onChange={(values) => props.update("hotkeys", props.kind, values)}
+          />
+        </div>
+      </div>
       <SettingItem name={t("settings.autoCopy")}>
         {(ids) => <Dropdown {...ids} value={actions.auto_copy} options={autoCopyOptions} onChange={(v) => change("auto_copy", v)} />}
       </SettingItem>
@@ -180,11 +204,12 @@ function ModeActions(props: { draft: Config; kind: CaptureKind; title: string; u
 }
 
 function ActionsPage({ draft, update }: { draft: Config; update: Update }) {
+  const conflicts = duplicatedHotkeys(captureModes.map(({ kind }) => draft.hotkeys[kind]));
   return (
-    <SettingPage title={t("settings.actions")} description={t("settings.actionsNote")}>
+    <SettingPage title={t("settings.actions")} description={`${t("settings.actionsNote")}${t("settings.hotkeyNote")}`}>
       <div className="setting-disclosure-list">
         {captureModes.map(({ kind, action }) => (
-          <ModeActions key={kind} draft={draft} kind={kind} title={action} update={update} />
+          <CaptureModeSettings key={kind} draft={draft} kind={kind} title={action} conflicts={conflicts} update={update} />
         ))}
       </div>
     </SettingPage>
@@ -303,7 +328,7 @@ function ToolsPage({ tools, onChange }: { tools: ExternalTool[]; onChange: (tool
 export function Settings() {
   const { draft, status, saving, load, openConfigFolder, openAbout, update, save } = useSettings();
   const [presentation, setPresentation] = useState(0);
-  const [tab, setTab] = useState<TabId>("hotkeys");
+  const [tab, setTab] = useState<TabId>("actions");
   const content = useRef<HTMLFormElement>(null);
   useWindowReady(presentation > 0, presentation);
 
@@ -347,7 +372,6 @@ export function Settings() {
         >
           {/* 各ページは同じ領域に描くので、パネルの id は選択中のタブに合わせて付け替える */}
           <div id={panelId(tab)} className="settings-panel" role="tabpanel" aria-labelledby={tabId(tab)}>
-            {draft && tab === "hotkeys" && <HotkeysPage draft={draft} update={update} />}
             {draft && tab === "actions" && <ActionsPage draft={draft} update={update} />}
             {draft && tab === "storage" && <StoragePage draft={draft} update={update} />}
             {draft && tab === "viewer" && <ViewerPage draft={draft} update={update} />}

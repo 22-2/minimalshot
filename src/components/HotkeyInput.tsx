@@ -1,7 +1,7 @@
 import { useState, type KeyboardEvent } from "react";
 import { Plus, X } from "lucide-react";
 
-import { hotkeyFromEvent, hotkeyIdentity } from "../lib/hotkey";
+import { formatHotkey, hotkeyFromEvent, hotkeyIdentity } from "../lib/hotkey";
 import { t } from "../i18n";
 
 function HotkeyRecorder(props: { onRecord: (hotkey: string) => void; onCancel: () => void }) {
@@ -59,7 +59,7 @@ export function HotkeyInput(props: {
             data-conflict={conflict || undefined}
             title={conflict ? t("settings.hotkeyConflict") : undefined}
           >
-            <kbd>{value.split("+").map((part) => part.trim()).join(" + ")}</kbd>
+            <kbd>{formatHotkey(value)}</kbd>
             <button
               type="button"
               className="hotkey-chip-remove"

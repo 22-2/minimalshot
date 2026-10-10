@@ -31,6 +31,12 @@ describe("Settings", () => {
     await user.click(await screen.findByRole("tab", { name }));
   };
 
+  // 撮影モードの見出しは「モード名 キー 処理」と読まれる。「モード名: 〜」の操作ボタンとは区別する
+  const openMode = async (user: ReturnType<typeof userEvent.setup>, name: string) => {
+    await user.click(await screen.findByRole("button", { name: new RegExp(`^${name} `), expanded: false }));
+    return screen.getByRole("region", { name });
+  };
+
   it("edits external tools and saves them", async () => {
     const user = userEvent.setup();
     render(<Settings />);
@@ -64,16 +70,14 @@ describe("Settings", () => {
   it("stores actions for one capture mode without touching the others", async () => {
     const user = userEvent.setup();
     render(<Settings />);
-    await openTab(user, "アクション");
-    const trigger = screen.getByRole("button", { name: "領域をキャプチャ 画像をコピー" });
-    expect(trigger).toHaveAttribute("aria-expanded", "false");
-    await user.click(trigger);
-    const region = screen.getByRole("region", { name: "領域をキャプチャ" });
+    // 閉じていても、キーと撮影後の処理を見出しで読める
+    const trigger = await screen.findByRole("button", { name: "領域をキャプチャ Ctrl + PrintScreen 画像をコピー" });
+    const region = await openMode(user, "領域をキャプチャ");
 
     await user.click(within(region).getByRole("combobox", { name: "クリップボードへコピー" }));
     await user.click(await screen.findByRole("option", { name: "パス（保存時のみ）" }));
     await user.click(within(region).getByRole("switch", { name: "自動で画像を保存する" }));
-    expect(trigger).toHaveAccessibleName("領域をキャプチャ パスをコピー・保存");
+    expect(trigger).toHaveAccessibleName("領域をキャプチャ Ctrl + PrintScreen パスをコピー 画像を保存");
     await user.click(screen.getByRole("button", { name: "設定を保存" }));
 
     await screen.findByText("設定を保存しました");
@@ -86,7 +90,8 @@ describe("Settings", () => {
   it("records shortcuts from key presses and removes them", async () => {
     const user = userEvent.setup();
     render(<Settings />);
-    await screen.findByText("Ctrl + PrintScreen");
+    await openMode(user, "領域をキャプチャ");
+    const fullscreen = await openMode(user, "全画面をキャプチャ");
 
     await user.click(screen.getByRole("button", { name: "領域をキャプチャ: ショートカットを追加" }));
     // 修飾キーを伴わない入力は無視して、記録を続ける
@@ -94,7 +99,7 @@ describe("Settings", () => {
     await user.keyboard("{Control>}{Shift>}z{/Shift}{/Control}");
     expect(screen.getByText("Ctrl + Shift + Z")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "全画面をキャプチャ: ショートカットを削除 Shift+PrintScreen" }));
-    expect(screen.getByText("未設定")).toBeInTheDocument();
+    expect(within(fullscreen).getByText("未設定")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "設定を保存" }));
 
     await screen.findByText("設定を保存しました");
@@ -106,7 +111,8 @@ describe("Settings", () => {
   it("cancels recording with Escape and marks duplicated shortcuts", async () => {
     const user = userEvent.setup();
     render(<Settings />);
-    await screen.findByText("Ctrl + PrintScreen");
+    await openMode(user, "ウィンドウをキャプチャ");
+    await openMode(user, "全画面をキャプチャ");
 
     await user.click(screen.getByRole("button", { name: "ウィンドウをキャプチャ: ショートカットを追加" }));
     await user.keyboard("{Escape}");
@@ -135,7 +141,7 @@ describe("Settings", () => {
   it("shows validation errors from the backend", async () => {
     const user = userEvent.setup();
     render(<Settings />);
-    await screen.findByText("Ctrl + PrintScreen");
+    await openMode(user, "領域をキャプチャ");
 
     await user.click(screen.getByRole("button", { name: "領域をキャプチャ: ショートカットを追加" }));
     await user.keyboard("{Control>}{Alt>}p{/Alt}{/Control}");

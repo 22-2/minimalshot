@@ -763,17 +763,49 @@ button {
 }
 
 .setting-disclosure-summary {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
   min-width: 0;
   margin-inline-start: auto;
   overflow: hidden;
   color: var(--color-text-muted);
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .setting-disclosure-summary code {
+  min-width: 0;
+  overflow: hidden;
   font-family: var(--font-code);
   font-size: var(--font-size-menu);
+  text-overflow: ellipsis;
+}
+
+/* 見出しのキーは操作できない表示なので、削除ボタンの分の余白を持たない */
+.setting-disclosure-summary .hotkey-chip {
+  flex: none;
+  padding-inline: var(--space-2);
+}
+
+.mode-summary-more {
+  color: var(--color-text-muted);
+}
+
+/* アイコン2つ分の幅を取り、処理の数が違ってもキーの位置を揃える */
+.mode-summary-effects {
+  display: flex;
+  flex: none;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  min-width: calc(var(--size-icon) * 2 + var(--space-1));
+}
+
+.mode-summary-effects svg {
+  display: block;
+  width: var(--size-icon);
+  height: var(--size-icon);
+  stroke-width: var(--stroke-icon);
 }
 
 .setting-disclosure-panel {
