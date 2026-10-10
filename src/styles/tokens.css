@@ -9,6 +9,8 @@
   --color-canvas: #16171a;
   --color-surface: #1e1f23;
   --color-surface-raised: #26282d;
+  /* 開いたまとまりの中身。見出しより一段暗くして、どこからが中身か分かるようにする */
+  --color-surface-sunken: #212227;
   --color-surface-hover: #2f3238;
   --color-menu: #24262b;
   --color-hairline: rgb(255 255 255 / 0.08);
@@ -24,6 +26,7 @@
   --color-accent-contrast: #0e1726;
   --color-danger: #ff7b72;
   --color-danger-surface: rgb(255 123 114 / 0.14);
+  --color-danger-contrast: #2a0d0b;
   --color-selection-fill: rgb(127 184 255 / 0.12);
   --color-scrim: rgb(0 0 0 / 0.45);
 

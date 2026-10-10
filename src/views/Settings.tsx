@@ -1,7 +1,10 @@
 import { Fragment, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
+  ClipboardType,
   Copy,
+  EyeOff,
   FolderOpen,
   HardDrive,
   Image,
@@ -126,8 +129,31 @@ function effectiveActions(draft: Config, kind: CaptureKind): CaptureActions {
   };
 }
 
+type Effect = { label: string; icon: LucideIcon };
+
+/** 見出しの右端に、有効な処理をアイコンで並べる。名前はツールチップと読み上げで伝える。 */
+function SummaryEffects({ effects }: { effects: Effect[] }) {
+  return (
+    <>
+      {/* 読み上げで語がつながらないよう空白を挟む。flex の中なので見た目には影響しない */}
+      {" "}
+      <span className="summary-effects">
+        {effects.map((effect) => (
+          <Fragment key={effect.label}>
+            {" "}
+            <span title={effect.label}>
+              <effect.icon aria-hidden />
+              <span className="visually-hidden">{effect.label}</span>
+            </span>
+          </Fragment>
+        ))}
+      </span>
+    </>
+  );
+}
+
 /** 撮影直後の処理を、ビューアのメニューと同じアイコンで表す。 */
-function actionEffects(actions: CaptureActions): { label: string; icon: LucideIcon }[] {
+function actionEffects(actions: CaptureActions): Effect[] {
   const copy = {
     none: null,
     image: { label: t("settings.summaryCopyImage"), icon: Copy },
@@ -145,25 +171,13 @@ function ModeSummary(props: { hotkeys: string[]; conflicts: Set<string>; actions
       {first
         ? (
           // 2つ目以降は数だけをチップの中に添え、モードどうしでチップの右端を揃える
-          <span className="hotkey-chip" data-conflict={props.conflicts.has(hotkeyIdentity(first)) || undefined}>
+          <span className="summary-chip" data-conflict={props.conflicts.has(hotkeyIdentity(first)) || undefined}>
             <kbd>{formatHotkey(first)}</kbd>
             {rest.length > 0 && <>{" "}<span className="mode-summary-more">+{rest.length}</span></>}
           </span>
         )
-        : <span className="hotkey-chip" data-empty>{t("settings.noHotkey")}</span>}
-      {/* 読み上げで語がつながらないよう空白を挟む。flex の中なので見た目には影響しない */}
-      {" "}
-      <span className="mode-summary-effects">
-        {actionEffects(props.actions).map((effect) => (
-          <Fragment key={effect.label}>
-            {" "}
-            <span title={effect.label}>
-              <effect.icon aria-hidden />
-              <span className="visually-hidden">{effect.label}</span>
-            </span>
-          </Fragment>
-        ))}
-      </span>
+        : <span className="summary-chip" data-empty>{t("settings.noHotkey")}</span>}
+      <SummaryEffects effects={actionEffects(props.actions)} />
     </>
   );
 }
@@ -251,6 +265,30 @@ function ViewerPage({ draft, update }: { draft: Config; update: Update }) {
   );
 }
 
+function toolEffects(tool: ExternalTool): Effect[] {
+  // 出力をコピーするツールは、設定に関わらずコンソールを出さずに起動する
+  const hidden = tool.hide_console || tool.copy_stdout;
+  return [
+    hidden ? { label: t("settings.toolHideConsole"), icon: EyeOff } : null,
+    tool.copy_stdout ? { label: t("settings.toolCopyStdout"), icon: ClipboardType } : null,
+  ].filter((effect) => effect !== null);
+}
+
+/** 撮影モードと同じく、チップに起動するコマンド、右端に有効な動作を並べる。 */
+function ToolSummary({ tool }: { tool: ExternalTool }) {
+  const command = tool.command.trim();
+  // フルパスは長く、見分けるのに要るのはファイル名なので末尾だけを出す
+  const program = command.split(/[\\/]/).pop();
+  return (
+    <>
+      {program
+        ? <code className="summary-chip" title={command}>{program}</code>
+        : <span className="summary-chip" data-empty>{t("settings.noCommand")}</span>}
+      <SummaryEffects effects={toolEffects(tool)} />
+    </>
+  );
+}
+
 function ToolsPage({ tools, onChange }: { tools: ExternalTool[]; onChange: (tools: ExternalTool[]) => void }) {
   const edit = (index: number, patch: Partial<ExternalTool>) =>
     onChange(tools.map((tool, i) => (i === index ? { ...tool, ...patch } : tool)));
@@ -269,7 +307,7 @@ function ToolsPage({ tools, onChange }: { tools: ExternalTool[]; onChange: (tool
               <SettingDisclosure
                 key={index}
                 title={tool.name || `${t("settings.untitledTool")} ${index + 1}`}
-                summary={tool.command && <code>{tool.command}</code>}
+                summary={<ToolSummary tool={tool} />}
                 // 追加したばかりの空のツールは、すぐ入力できるよう開いておく
                 defaultOpen={!tool.name && !tool.command}
               >
@@ -326,10 +364,10 @@ function ToolsPage({ tools, onChange }: { tools: ExternalTool[]; onChange: (tool
 }
 
 export function Settings() {
-  const { draft, status, saving, load, openConfigFolder, openAbout, update, save } = useSettings();
+  const { draft, status, load, openConfigFolder, openAbout, update, flush } = useSettings();
   const [presentation, setPresentation] = useState(0);
   const [tab, setTab] = useState<TabId>("actions");
-  const content = useRef<HTMLFormElement>(null);
+  const content = useRef<HTMLDivElement>(null);
   useWindowReady(presentation > 0, presentation);
 
   const selectTab = (id: TabId) => {
@@ -353,7 +391,11 @@ export function Settings() {
 
   return (
     <div className="frame">
-      <TitleBar title={`${t("app.name")} - ${t("settings.title")}`} />
+      <TitleBar
+        title={`${t("app.name")} - ${t("settings.title")}`}
+        // 窓は隠すだけで残るが、待ち中の変更を書き出してから閉じる
+        onClose={() => void flush().then(() => getCurrentWindow().close())}
+      />
       <div className="settings-body">
         <SettingsTabs
           selected={tab}
@@ -361,15 +403,7 @@ export function Settings() {
           onOpenConfigFolder={() => void openConfigFolder()}
           onOpenAbout={() => void openAbout()}
         />
-        <form
-          ref={content}
-          className="settings-content"
-          id="settings-form"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void save();
-          }}
-        >
+        <div ref={content} className="settings-content">
           {/* 各ページは同じ領域に描くので、パネルの id は選択中のタブに合わせて付け替える */}
           <div id={panelId(tab)} className="settings-panel" role="tabpanel" aria-labelledby={tabId(tab)}>
             {draft && tab === "actions" && <ActionsPage draft={draft} update={update} />}
@@ -377,21 +411,12 @@ export function Settings() {
             {draft && tab === "viewer" && <ViewerPage draft={draft} update={update} />}
             {draft && tab === "tools" && <ToolsPage tools={draft.external.tools} onChange={(tools) => update("external", "tools", tools)} />}
           </div>
-        </form>
+        </div>
       </div>
       <footer className="settings-footer">
         <output className="toolbar-status" data-tone={status?.tone}>
-          {status?.text ?? ""}
+          {status?.text ?? t("settings.autoSaveNote")}
         </output>
-        <button
-          type="submit"
-          form="settings-form"
-          className="button"
-          data-variant="primary"
-          disabled={!draft || saving}
-        >
-          {t("settings.save")}
-        </button>
       </footer>
     </div>
   );

@@ -152,7 +152,7 @@ export function Viewer() {
   };
   const menu = viewerMenu({ saved, pinned, tools }, actions);
   const title = info
-    ? `${t("app.name")}  ${info.width} × ${info.height}  ${Math.round(zoom.scale * 100)}%`
+    ? `${t("app.name")} (${info.width} × ${info.height}, ${Math.round(zoom.scale * 100)}%)`
     : t("app.name");
 
   return (

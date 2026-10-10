@@ -44,11 +44,10 @@ test.describe("settings", () => {
     await page.getByRole("button", { name: /^ウィンドウをキャプチャ / }).click();
     await page.getByRole("region", { name: "ウィンドウをキャプチャ" }).getByRole("combobox", { name: "クリップボードへコピー" }).click();
     await page.getByRole("option", { name: "しない" }).click();
-    await page.getByRole("button", { name: "設定を保存" }).click();
 
+    // 保存ボタンは無く、変更が止まると自動で保存する
     await expect(page.getByText("設定を保存しました")).toBeVisible();
-    const save = (await calls(page)).find((c) => c.cmd === "save_config");
-    expect(save?.args.config).toMatchObject({
+    await expect.poll(async () => (await calls(page)).filter((c) => c.cmd === "save_config").at(-1)?.args.config).toMatchObject({
       storage: { format: "%Y/%m%d-%H%M%S.png" },
       viewer: { always_on_top: true, layout: "framed" },
       capture: { auto_copy: "image", window: { auto_copy: "none" } },
@@ -64,11 +63,8 @@ test.describe("settings", () => {
     await page.keyboard.press("Control+Shift+KeyZ");
     await expect(page.getByText("Ctrl + Shift + Z")).toBeVisible();
     await page.getByRole("region", { name: "領域をキャプチャ" }).getByRole("switch", { name: "自動で画像を保存する" }).click();
-    await page.getByRole("button", { name: "設定を保存" }).click();
 
-    await expect(page.getByText("設定を保存しました")).toBeVisible();
-    const save = (await calls(page)).find((c) => c.cmd === "save_config");
-    expect(save?.args.config).toMatchObject({
+    await expect.poll(async () => (await calls(page)).filter((c) => c.cmd === "save_config").at(-1)?.args.config).toMatchObject({
       hotkeys: { region: ["Ctrl+PrintScreen", "Ctrl+Shift+Z"] },
       capture: { region: { auto_save: true } },
     });

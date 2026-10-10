@@ -89,13 +89,11 @@ for (const size of sizes) {
       scroll: element.scrollWidth,
     }));
     expect(bodyDimensions.scroll).toBeLessThanOrEqual(bodyDimensions.client);
-    const save = page.getByRole("button", { name: "設定を保存", exact: true });
-    await insideViewport(page, save);
-    await save.click();
-    await expect.poll(async () => (await calls(page)).find((call) => call.cmd === "save_config")?.args.config)
+    await page.getByLabel("名前", { exact: true }).last().fill("Tool");
+    await expect.poll(async () => (await calls(page)).filter((call) => call.cmd === "save_config").at(-1)?.args.config)
       .toMatchObject({ storage: { format: "%Y/%m/%d.png" } });
-    // 保存結果の通知が出ても保存ボタンを押し出さない。
-    await insideViewport(page, save);
+    // 保存結果の通知が出ても横にはみ出さない。
+    await insideViewport(page, page.locator(".toolbar-status"));
     await noHorizontalOverflow(page);
   });
 }

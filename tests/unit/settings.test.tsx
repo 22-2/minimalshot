@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 
@@ -15,7 +15,7 @@ describe("Settings", () => {
 
   beforeEach(() => {
     saved = [];
-    useSettings.setState({ draft: null, status: null, saving: false });
+    useSettings.setState({ draft: null, status: null });
     mockWindows("settings");
     mockIPC((cmd, args) => {
       if (cmd === "get_config") return defaultConfig();
@@ -30,6 +30,9 @@ describe("Settings", () => {
   const openTab = async (user: ReturnType<typeof userEvent.setup>, name: string) => {
     await user.click(await screen.findByRole("tab", { name }));
   };
+
+  // 保存ボタンは無く、変更が止まると自動で保存される
+  const expectSaved = (expected: object) => waitFor(() => expect(saved.at(-1)).toMatchObject(expected));
 
   // 撮影モードの見出しは「モード名 キー 処理」と読まれる。「モード名: 〜」の操作ボタンとは区別する
   const openMode = async (user: ReturnType<typeof userEvent.setup>, name: string) => {
@@ -48,16 +51,17 @@ describe("Settings", () => {
     await user.clear(command);
     await user.type(command, "paint.net");
     await user.click(screen.getByRole("button", { name: "ツールを追加" }));
+    // 名前とコマンドが揃うまでは、検証エラーにせず保存を待つ
+    expect(await screen.findByText("外部ツールの名前とコマンドを入力すると保存します")).toBeInTheDocument();
     await user.type(screen.getAllByLabelText("名前")[1], "GIMP");
     await user.type(screen.getAllByLabelText("コマンド")[1], "gimp.exe");
     // 出力をコピーするツールは、コンソール非表示が強制される
     await user.click(screen.getAllByRole("switch", { name: "標準出力をコピー" })[1]);
     expect(screen.getAllByRole("switch", { name: "コンソールを表示しない" })[1]).toBeDisabled();
     expect(screen.getAllByRole("switch", { name: "コンソールを表示しない" })[1]).toBeChecked();
-    await user.click(screen.getByRole("button", { name: "設定を保存" }));
 
     expect(await screen.findByText("設定を保存しました")).toBeInTheDocument();
-    expect(saved[0]).toMatchObject({
+    await expectSaved({
       external: {
         tools: [
           { name: "ペイント", command: "paint.net", args: '"${file}"', hide_console: false, copy_stdout: false },
@@ -78,10 +82,9 @@ describe("Settings", () => {
     await user.click(await screen.findByRole("option", { name: "パス（保存時のみ）" }));
     await user.click(within(region).getByRole("switch", { name: "自動で画像を保存する" }));
     expect(trigger).toHaveAccessibleName("領域をキャプチャ Ctrl + PrintScreen パスをコピー 画像を保存");
-    await user.click(screen.getByRole("button", { name: "設定を保存" }));
 
-    await screen.findByText("設定を保存しました");
-    const config = saved[0] as ReturnType<typeof defaultConfig>;
+    await expectSaved({ capture: { region: { auto_save: true, auto_copy: "path" } } });
+    const config = saved.at(-1) as ReturnType<typeof defaultConfig>;
     expect(config.capture.region).toEqual({ auto_save: true, auto_copy: "path" });
     expect(config.capture.window).toBeUndefined();
     expect(config.capture).toMatchObject({ auto_save: false, auto_copy: "image" });
@@ -100,10 +103,8 @@ describe("Settings", () => {
     expect(screen.getByText("Ctrl + Shift + Z")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "全画面をキャプチャ: ショートカットを削除 Shift+PrintScreen" }));
     expect(within(fullscreen).getByText("未設定")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "設定を保存" }));
 
-    await screen.findByText("設定を保存しました");
-    expect(saved[0]).toMatchObject({
+    await expectSaved({
       hotkeys: { region: ["Ctrl+PrintScreen", "Ctrl+Shift+Z"], fullscreen: [] },
     });
   });
@@ -130,12 +131,22 @@ describe("Settings", () => {
 
     // 閉じていても名前とコマンドは見出しで読める
     await user.click(screen.getByRole("button", { name: "ペイント mspaint.exe" }));
+    expect(screen.queryByRole("button", { name: "設定を保存" })).not.toBeInTheDocument();
     await user.click(within(screen.getByRole("region", { name: "ペイント" })).getByRole("button", { name: "このツールを削除" }));
     expect(screen.getByText("ツールが登録されていません。")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "設定を保存" }));
 
-    await screen.findByText("設定を保存しました");
-    expect(saved[0]).toMatchObject({ external: { tools: [] } });
+    await expectSaved({ external: { tools: [] } });
+  });
+
+  it("writes pending changes before the window closes", async () => {
+    const user = userEvent.setup();
+    render(<Settings />);
+    await openTab(user, "ビューア");
+
+    await user.click(screen.getByRole("switch", { name: "常に最前面に表示" }));
+    await user.click(screen.getByRole("button", { name: "閉じる" }));
+    // 自動保存を待たずに書き出す
+    expect(saved.at(-1)).toMatchObject({ viewer: { always_on_top: true } });
   });
 
   it("shows validation errors from the backend", async () => {
@@ -145,7 +156,6 @@ describe("Settings", () => {
 
     await user.click(screen.getByRole("button", { name: "領域をキャプチャ: ショートカットを追加" }));
     await user.keyboard("{Control>}{Alt>}p{/Alt}{/Control}");
-    await user.click(screen.getByRole("button", { name: "設定を保存" }));
 
     expect(await screen.findByText(/他のアプリが使用中です/)).toBeInTheDocument();
     expect(saved).toHaveLength(0);

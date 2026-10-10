@@ -184,9 +184,9 @@ button {
   max-width: calc(100% - var(--space-4));
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-small);
-  background: var(--color-surface-raised);
+  background: var(--color-accent);
   box-shadow: var(--shadow-popover);
-  color: var(--color-text);
+  color: var(--color-accent-contrast);
   font-size: var(--font-size-small);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -194,15 +194,15 @@ button {
   pointer-events: none;
 }
 
+/* 操作の結果はどれも同じ青で知らせ、失敗だけを赤で見分けられるようにする */
 .viewer-toast[data-tone="error"] {
-  color: var(--color-danger);
+  background: var(--color-danger);
+  color: var(--color-danger-contrast);
 }
 
 .viewer-action-toast {
   inset-block-start: var(--space-2);
   inset-block-end: auto;
-  background: var(--color-accent);
-  color: var(--color-accent-contrast);
 }
 
 .viewer-placeholder {
@@ -774,26 +774,49 @@ button {
   white-space: nowrap;
 }
 
-.setting-disclosure-summary code {
+/* 見出しの値はショートカットのチップと同じ形にそろえ、操作できない表示なので削除ボタンの余白は持たない */
+.summary-chip {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 1 auto;
   min-width: 0;
+  height: var(--size-hotkey-chip);
+  padding-inline: var(--space-2);
   overflow: hidden;
-  font-family: var(--font-code);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-small);
+  background: var(--color-canvas);
+  color: var(--color-text);
+  font-family: inherit;
   font-size: var(--font-size-menu);
+  font-weight: var(--font-weight-medium);
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* 見出しのキーは操作できない表示なので、削除ボタンの分の余白を持たない */
-.setting-disclosure-summary .hotkey-chip {
-  flex: none;
-  padding-inline: var(--space-2);
+.summary-chip kbd {
+  font: inherit;
+}
+
+.summary-chip[data-empty] {
+  border-style: dashed;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-regular);
+}
+
+.summary-chip[data-conflict] {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
 }
 
 .mode-summary-more {
+  margin-inline-start: var(--space-1);
   color: var(--color-text-muted);
 }
 
-/* アイコン2つ分の幅を取り、処理の数が違ってもキーの位置を揃える */
-.mode-summary-effects {
+/* アイコン2つ分の幅を取り、処理の数が違ってもチップの位置を揃える */
+.summary-effects {
   display: flex;
   flex: none;
   justify-content: flex-end;
@@ -801,15 +824,19 @@ button {
   min-width: calc(var(--size-icon) * 2 + var(--space-1));
 }
 
-.mode-summary-effects svg {
+.summary-effects svg {
   display: block;
   width: var(--size-icon);
   height: var(--size-icon);
   stroke-width: var(--stroke-icon);
 }
 
+/* 見出しと中身を見分けられるよう、中身は一段沈めた面にする */
 .setting-disclosure-panel {
   border-block-start: var(--border-width) solid var(--color-hairline);
+  border-end-start-radius: var(--radius-medium);
+  border-end-end-radius: var(--radius-medium);
+  background: var(--color-surface-sunken);
 }
 
 /* 削除などの取り消しにくい操作は、まとまりの最後に離して置く */

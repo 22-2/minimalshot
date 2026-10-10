@@ -24,7 +24,7 @@ test.describe("viewer", () => {
   test("shows the capture under a thin custom title bar with no bottom bar", async ({ page }) => {
     await openViewer(page);
 
-    await expect(page.locator(".titlebar")).toContainText("640 × 360");
+    await expect(page.locator(".titlebar-title")).toHaveText("MinimalShot (640 × 360, 100%)");
     await expect(page.locator(".titlebar")).toHaveCSS("height", "32px");
     for (const name of ["最小化", "最大化", "閉じる"]) {
       await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
@@ -62,6 +62,8 @@ test.describe("viewer", () => {
     await expect(page.getByRole("menuitem", { name: "パスのコピー" })).toHaveAttribute("data-disabled", "");
     await page.getByRole("menuitem", { name: "画像をコピー" }).click();
     await expect(toast(page)).toHaveText("画像をコピーしました");
+    // 操作の通知は、自動処理の通知と同じ青で出す
+    await expect(toast(page)).toHaveCSS("background-color", "rgb(127, 184, 255)");
 
     await choose(page, "既定の場所に保存");
     await expect(toast(page)).toHaveText("保存しました");
