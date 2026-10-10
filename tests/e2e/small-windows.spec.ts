@@ -63,6 +63,8 @@ for (const size of sizes) {
     await insideViewport(page, page.getByRole("menu"));
     await page.getByRole("menuitem", { name: "設定", exact: true }).click();
     await expect.poll(() => commandNames(page)).toContain("open_settings");
+    await page.locator(".viewer-stage").click({ button: "right", position: { x: size.width - 20, y: 20 } });
+    await insideViewport(page, page.getByRole("menu"));
   });
 
   test(`settings can edit and save without horizontal scrolling at ${size.width}×${size.height}`, async ({ page }) => {
@@ -125,7 +127,7 @@ test("long external tool names fit a narrow dropdown and remain selectable", asy
 
 test("close confirmation fits a narrow, short viewer and can be confirmed", async ({ page }) => {
   await page.setViewportSize({ width: 240, height: 160 });
-  await installTauriMock(page, { label: "viewer-1", config: { viewer: { confirm_on_close: true, always_on_top: false } } });
+  await installTauriMock(page, { label: "viewer-1", config: { viewer: { confirm_on_close: true, always_on_top: false, layout: "source" } } });
   await page.goto("/");
   await page.getByRole("button", { name: "閉じる", exact: true }).click();
   const dialog = page.getByRole("alertdialog");

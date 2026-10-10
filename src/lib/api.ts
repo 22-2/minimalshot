@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
 export type AutoCopy = "none" | "image" | "path";
+export type ViewerLayout = "source" | "framed";
 export type CaptureKind = "region" | "window" | "fullscreen";
 export type CaptureActions = { auto_save: boolean; auto_copy: AutoCopy; auto_tools: string[] };
 export type CaptureOverride = Partial<CaptureActions>;
@@ -10,7 +11,7 @@ export type Config = {
   hotkeys: Record<CaptureKind, string[]>;
   capture: CaptureActions & Partial<Record<CaptureKind, CaptureOverride>>;
   storage: { directory: string; format: string };
-  viewer: { always_on_top: boolean; confirm_on_close: boolean };
+  viewer: { always_on_top: boolean; confirm_on_close: boolean; layout: ViewerLayout };
   external: { tools: ExternalTool[] };
 };
 

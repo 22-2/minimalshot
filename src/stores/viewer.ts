@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import { api, errorMessage, pngUrl, type ExternalTool, type ShotInfo } from "../lib/api";
+import { api, errorMessage, pngUrl, type ExternalTool, type ShotInfo, type ViewerLayout } from "../lib/api";
 import { t, type MessageKey } from "../i18n";
 
 type Status = { tone: "info" | "error"; text: string } | null;
@@ -10,6 +10,7 @@ type ViewerState = {
   imageUrl: string | null;
   tools: ExternalTool[];
   confirmOnClose: boolean;
+  layout: ViewerLayout;
   status: Status;
   load: () => Promise<void>;
   setSavedPath: (path: string | null) => void;
@@ -45,6 +46,7 @@ export const useViewer = create<ViewerState>((set, get) => {
     imageUrl: null,
     tools: [],
     confirmOnClose: false,
+    layout: "source",
     status: null,
     setSavedPath,
 
@@ -59,6 +61,7 @@ export const useViewer = create<ViewerState>((set, get) => {
           imageUrl: pngUrl(png),
           tools: config.external.tools,
           confirmOnClose: config.viewer.confirm_on_close,
+          layout: config.viewer.layout,
         });
       } catch (error) {
         set({ status: { tone: "error", text: errorMessage(error) } });

@@ -24,7 +24,7 @@ function completedActionLabels(actions: CompletedActions): string[] {
 
 export function Viewer() {
   const viewer = useViewer();
-  const { info, imageUrl, status, tools, confirmOnClose, load } = viewer;
+  const { info, imageUrl, status, tools, confirmOnClose, layout, load } = viewer;
   const [pinned, setPinned] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [imageReady, setImageReady] = useState(false);
@@ -37,7 +37,7 @@ export function Viewer() {
   const imageRef = useRef<HTMLImageElement>(null);
   const panFrom = useRef<{ x: number; y: number } | null>(null);
   const imageSize = useMemo(() => (info ? { width: info.width, height: info.height } : null), [info?.width, info?.height]);
-  const zoom = useZoom(stageRef, imageRef, imageSize);
+  const zoom = useZoom(stageRef, imageRef, imageSize, layout);
   useWindowReady(session !== null && (imageReady || status?.tone === "error"));
 
   useEffect(() => {
@@ -138,15 +138,16 @@ export function Viewer() {
 
   const saved = info?.savedPath != null;
   const actions = {
-      copyPath: () => void viewer.copyPath(),
-      copyImage: () => void viewer.copyImage(),
-      save: () => void viewer.save(),
-      saveAs: () => void viewer.saveAs(),
-      deleteSaved: () => void viewer.deleteSaved(),
-      openWith: (tool: number) => void viewer.openWith(tool),
-      reveal: () => void viewer.reveal(),
-      openSettings: () => void viewer.openSettings(),
-      setPinned: (next: boolean) => void changePinned(next),
+    copyPath: () => void viewer.copyPath(),
+    copyImage: () => void viewer.copyImage(),
+    save: () => void viewer.save(),
+    saveAs: () => void viewer.saveAs(),
+    deleteSaved: () => void viewer.deleteSaved(),
+    openWith: (tool: number) => void viewer.openWith(tool),
+    reveal: () => void viewer.reveal(),
+    openSettings: () => void viewer.openSettings(),
+    setPinned: (next: boolean) => void changePinned(next),
+    actualSize: () => zoom.actualSize(),
   };
   const menu = viewerMenu({ saved, pinned, tools }, actions);
   const title = info

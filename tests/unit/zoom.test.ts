@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { approach, clampView, fitView, isSettled, MAX_SCALE, wheelFactor, zoomAt } from "../../src/lib/zoom";
+import { actualSizeView, approach, clampView, fitView, initialView, isSettled, MAX_SCALE, wheelFactor, zoomAt } from "../../src/lib/zoom";
 
 const stage = { width: 400, height: 300 };
 
@@ -11,6 +11,18 @@ describe("fitView", () => {
 
   it("shrinks large images to fit", () => {
     expect(fitView({ width: 800, height: 300 }, stage)).toEqual({ scale: 0.5, x: 0, y: 75 });
+  });
+});
+
+describe("initial and actual size", () => {
+  it("opens an image at 66% with space around it", () => {
+    expect(initialView({ width: 200, height: 100 }, stage)).toEqual({ scale: 0.66, x: 134, y: 117 });
+  });
+
+  it("fits large captures initially but restores 100% on request", () => {
+    const image = { width: 800, height: 300 };
+    expect(initialView(image, stage)).toEqual({ scale: 0.45, x: 20, y: 82.5 });
+    expect(actualSizeView(image, stage)).toEqual({ scale: 1, x: -200, y: 0 });
   });
 });
 

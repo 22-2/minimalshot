@@ -5,6 +5,7 @@ use tauri::{
 };
 
 use crate::capture::MonitorGeometry;
+use crate::config::ViewerLayout;
 use crate::error::AppResult;
 use crate::i18n::t;
 use crate::state::AppState;
@@ -16,6 +17,8 @@ pub const VIEWER_PREFIX: &str = "viewer-";
 // src/styles/tokens.css の --color-canvas。WebView の最初のフレームも白くしない。
 const BACKGROUND: Color = Color(22, 23, 26, 255);
 
+const VIEWER_WIDTH: f64 = 960.0;
+const VIEWER_HEIGHT: f64 = 540.0;
 /// タイトルバー32px（論理ピクセル）。CSS の --size-titlebar と揃える。
 const CHROME_HEIGHT: f64 = 32.0;
 /// ウィンドウ枠の線（左右・上下とも1px）。足さないと画像が等倍に収まらず 99% になる。
@@ -94,16 +97,28 @@ pub fn prepare_region(app: &AppHandle) -> AppResult<()> {
     Ok(())
 }
 
-/// ビューアの物理サイズ。画像を等倍で見せつつ、モニターの9割を超えないようにする。
-pub fn viewer_size(image: (u32, u32), monitor: &MonitorGeometry) -> (u32, u32) {
-    let chrome = (CHROME_HEIGHT + FRAME_BORDER) * monitor.scale;
-    let width = (f64::from(image.0) + FRAME_BORDER * monitor.scale)
-        .max(MIN_WIDTH * monitor.scale)
-        .min(f64::from(monitor.width) * 0.9);
-    let height = (f64::from(image.1) + chrome)
-        .max(MIN_HEIGHT * monitor.scale)
-        .min(f64::from(monitor.height) * 0.9);
-    (width.round() as u32, height.round() as u32)
+/// 撮影元に重なる既定の窓と、余白付きの16:9の窓を切り替える。
+pub fn viewer_size(
+    image: (u32, u32),
+    monitor: &MonitorGeometry,
+    layout: ViewerLayout,
+) -> (u32, u32) {
+    if layout == ViewerLayout::Source {
+        let chrome = (CHROME_HEIGHT + FRAME_BORDER) * monitor.scale;
+        let width = (f64::from(image.0) + FRAME_BORDER * monitor.scale)
+            .max(MIN_WIDTH * monitor.scale)
+            .min(f64::from(monitor.width) * 0.9);
+        let height = (f64::from(image.1) + chrome)
+            .max(MIN_HEIGHT * monitor.scale)
+            .min(f64::from(monitor.height) * 0.9);
+        return (width.round() as u32, height.round() as u32);
+    }
+    let width = VIEWER_WIDTH * monitor.scale;
+    let height = VIEWER_HEIGHT * monitor.scale;
+    let fit = 1.0_f64
+        .min(f64::from(monitor.width) * 0.9 / width)
+        .min(f64::from(monitor.height) * 0.9 / height);
+    ((width * fit).round() as u32, (height * fit).round() as u32)
 }
 
 /// 指定位置に置きたいが、モニターからはみ出す場合は内側へ寄せる。
@@ -127,16 +142,26 @@ pub fn open_viewer(
     monitor: &MonitorGeometry,
     origin: Option<(i32, i32)>,
     always_on_top: bool,
+    layout: ViewerLayout,
 ) -> AppResult<()> {
-    let size = viewer_size(image, monitor);
+    let size = viewer_size(image, monitor, layout);
     let centered = (
         monitor.x + (monitor.width as i32 - size.0 as i32) / 2,
         monitor.y + (monitor.height as i32 - size.1 as i32) / 2,
     );
-    // 領域キャプチャでは、画像が元の場所にそのまま浮いて見えるようタイトルバー分だけ上へずらす
-    let desired = origin.map_or(centered, |(x, y)| {
-        (x, y - (CHROME_HEIGHT * monitor.scale).round() as i32)
-    });
+    let desired = match layout {
+        ViewerLayout::Source => origin.map_or(centered, |(x, y)| {
+            // 領域キャプチャは、タイトルバーを撮影範囲の上に置いて元の場所に重ねる。
+            (x, y - (CHROME_HEIGHT * monitor.scale).round() as i32)
+        }),
+        ViewerLayout::Framed => origin.map_or(centered, |(x, y)| {
+            // 固定サイズの窓は選択範囲の中心付近に置く。
+            (
+                x + image.0 as i32 / 2 - size.0 as i32 / 2,
+                y + image.1 as i32 / 2 - size.1 as i32 / 2,
+            )
+        }),
+    };
     let position = clamp_position(desired, size, monitor);
 
     let state = app.state::<AppState>();
@@ -251,29 +276,71 @@ mod tests {
     };
 
     #[test]
-    fn viewer_fits_small_images_with_chrome() {
-        assert_eq!(viewer_size((400, 300), &MONITOR), (402, 334));
+    fn source_viewer_follows_image_size() {
+        assert_eq!(
+            viewer_size((400, 300), &MONITOR, ViewerLayout::Source),
+            (402, 334)
+        );
+        assert_eq!(
+            viewer_size((10, 10), &MONITOR, ViewerLayout::Source),
+            (240, 160)
+        );
+        assert_eq!(
+            viewer_size((4000, 3000), &MONITOR, ViewerLayout::Source),
+            (1728, 972)
+        );
     }
 
     #[test]
-    fn viewer_has_minimum_size() {
-        assert_eq!(viewer_size((10, 10), &MONITOR), (240, 160));
+    fn framed_viewer_uses_fixed_sixteen_by_nine_size() {
+        assert_eq!(
+            viewer_size((400, 300), &MONITOR, ViewerLayout::Framed),
+            (960, 540)
+        );
+    }
+
+    #[test]
+    fn viewer_shrinks_proportionally_on_small_monitors() {
+        let small = MonitorGeometry {
+            width: 800,
+            height: 600,
+            ..MONITOR
+        };
+        assert_eq!(
+            viewer_size((400, 300), &small, ViewerLayout::Framed),
+            (720, 405)
+        );
     }
 
     #[test]
     fn viewer_never_exceeds_monitor() {
-        assert_eq!(viewer_size((4000, 3000), &MONITOR), (1728, 972));
+        let small = MonitorGeometry {
+            width: 640,
+            height: 360,
+            ..MONITOR
+        };
+        assert_eq!(
+            viewer_size((400, 300), &small, ViewerLayout::Framed),
+            (576, 324)
+        );
     }
 
     #[test]
-    fn viewer_chrome_scales_with_dpi() {
+    fn viewer_size_scales_with_dpi() {
         let hidpi = MonitorGeometry {
             scale: 2.0,
             width: 3840,
             height: 2160,
             ..MONITOR
         };
-        assert_eq!(viewer_size((800, 600), &hidpi), (804, 668));
+        assert_eq!(
+            viewer_size((800, 600), &hidpi, ViewerLayout::Framed),
+            (1920, 1080)
+        );
+        assert_eq!(
+            viewer_size((800, 600), &hidpi, ViewerLayout::Source),
+            (804, 668)
+        );
     }
 
     #[test]

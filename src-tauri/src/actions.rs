@@ -78,6 +78,7 @@ pub fn finish_capture(
         &captured.monitor,
         origin,
         config.viewer.always_on_top,
+        config.viewer.layout,
     ) {
         state.pending_captures.lock().unwrap().remove(&id);
         state.shots.remove(id);

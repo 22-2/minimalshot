@@ -12,6 +12,7 @@ const actions = (): ViewerActions => ({
   reveal: vi.fn(),
   openSettings: vi.fn(),
   setPinned: vi.fn(),
+  actualSize: vi.fn(),
 });
 
 const ids = (entries: MenuEntry[]) => entries.map((e) => e.id);
@@ -20,40 +21,47 @@ const subEntries = (menu: MenuEntry[]) => {
   const sub = menu.find((e) => e.id === "open-with");
   return sub?.type === "sub" ? sub.entries : [];
 };
+const quickActions = (menu: MenuEntry[]) => {
+  const row = menu.find((entry) => entry.id === "quick-actions");
+  return row?.type === "icon-row" ? row.entries : [];
+};
 
 describe("viewerMenu", () => {
   it("hides saved-only actions until the shot is saved", () => {
     const menu = viewerMenu({ saved: false, pinned: false, tools }, actions());
     expect(ids(menu)).toEqual([
-      "copy-path",
-      "copy-image",
+      "quick-actions",
+      "sep-quick",
       "save",
       "save-as",
-      "sep-open",
       "open-with",
-      "sep-window",
+      "sep-view",
+      "actual-size",
       "pin",
       "settings",
     ]);
-    expect(menu[0]).toMatchObject({ id: "copy-path", disabled: true });
+    expect(quickActions(menu)).toMatchObject([
+      { id: "copy-image" },
+      { id: "copy-path", disabled: true },
+      { id: "delete", disabled: true },
+    ]);
   });
 
   it("adds delete and reveal once saved", () => {
     const menu = viewerMenu({ saved: true, pinned: false, tools }, actions());
     expect(ids(menu)).toEqual([
-      "copy-path",
-      "copy-image",
+      "quick-actions",
+      "sep-quick",
       "save",
       "save-as",
-      "delete",
-      "sep-open",
       "open-with",
       "reveal",
-      "sep-window",
+      "sep-view",
+      "actual-size",
       "pin",
       "settings",
     ]);
-    expect(menu.find((e) => e.id === "delete")).toMatchObject({ danger: true });
+    expect(quickActions(menu)[2]).toMatchObject({ danger: true, disabled: false });
   });
 
   it("reflects and toggles always-on-top", () => {
@@ -62,6 +70,13 @@ describe("viewerMenu", () => {
     expect(pin).toMatchObject({ type: "check", checked: true });
     if (pin?.type === "check") pin.onCheckedChange(false);
     expect(handlers.setPinned).toHaveBeenCalledWith(false);
+  });
+
+  it("returns to the source image size", () => {
+    const handlers = actions();
+    const actualSize = viewerMenu({ saved: false, pinned: false, tools }, handlers).find((entry) => entry.id === "actual-size");
+    if (actualSize?.type === "item") actualSize.onSelect();
+    expect(handlers.actualSize).toHaveBeenCalled();
   });
 
   it("lists registered tools in the submenu", () => {

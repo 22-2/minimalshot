@@ -35,6 +35,7 @@ test.describe("settings", () => {
     await expect(page.getByLabel("ファイル名")).toHaveValue("%Y-%m/%Y-%m-%d_%H-%M-%S.png");
     await page.getByLabel("ファイル名").fill("%Y/%m%d-%H%M%S.png");
     await page.getByRole("switch", { name: "常に最前面に表示" }).click();
+    await page.getByRole("radio", { name: "16:9 の窓に余白付きで開く" }).click();
     await page.getByRole("radio", { name: "しない" }).click();
     await page.getByRole("button", { name: "設定を保存" }).click();
 
@@ -42,7 +43,7 @@ test.describe("settings", () => {
     const save = (await calls(page)).find((c) => c.cmd === "save_config");
     expect(save?.args.config).toMatchObject({
       storage: { format: "%Y/%m%d-%H%M%S.png" },
-      viewer: { always_on_top: true },
+      viewer: { always_on_top: true, layout: "framed" },
       capture: { auto_copy: "none" },
     });
   });

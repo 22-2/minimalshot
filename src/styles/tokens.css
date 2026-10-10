@@ -18,7 +18,7 @@
   --color-text-muted: #9a9ea8;
   --color-text-disabled: #5d616b;
 
-  /* アクセントは選択範囲・フォーカス・有効状態だけに使う */
+  /* アクセントは選択範囲・フォーカス・通知など、注目する状態に使う */
   --color-accent: #7fb8ff;
   --color-accent-strong: #a9cfff;
   --color-accent-contrast: #0e1726;
@@ -50,6 +50,9 @@
   --space-menu-inset: 4px;
   --space-menu-gap: 10px;
   --size-menu-min-width: 144px;
+  --size-context-menu-width: 276px;
+  --size-menu-quick-action: 56px;
+  --size-menu-quick-icon: 18px;
   --size-settings-label: 11rem;
   --size-dialog-max-width: 320px;
 

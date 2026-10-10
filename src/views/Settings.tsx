@@ -6,7 +6,7 @@ import * as Switch from "@radix-ui/react-switch";
 import { TitleBar } from "../components/TitleBar";
 import { FolderOpen, Info, Plus, Trash2 } from "lucide-react";
 
-import type { AutoCopy, CaptureActions, CaptureKind, ExternalTool } from "../lib/api";
+import type { AutoCopy, CaptureActions, CaptureKind, ExternalTool, ViewerLayout } from "../lib/api";
 import { useSettings } from "../stores/settings";
 import { useWindowReady } from "../lib/useWindowReady";
 import { t } from "../i18n";
@@ -202,6 +202,7 @@ function CaptureActionFields(props: {
 export function Settings() {
   const { draft, status, saving, load, openConfigFolder, openAbout, update, save } = useSettings();
   const [presentation, setPresentation] = useState(0);
+  const viewerLayoutLabel = useId();
   useWindowReady(presentation > 0, presentation);
 
   const changeTools = (tools: ExternalTool[]) => {
@@ -322,6 +323,24 @@ export function Settings() {
 
             <section className="settings-section">
               <h2 className="settings-heading">{t("settings.viewer")}</h2>
+              <div className="field" role="group" aria-labelledby={viewerLayoutLabel}>
+                <span id={viewerLayoutLabel}>{t("settings.viewerLayout")}</span>
+                <RadioGroup.Root className="radio-group" aria-labelledby={viewerLayoutLabel} value={draft.viewer.layout} onValueChange={(value) => update("viewer", "layout", value as ViewerLayout)}>
+                  <label className="radio-option">
+                    <RadioGroup.Item className="radio" value="source">
+                      <RadioGroup.Indicator className="radio-indicator" />
+                    </RadioGroup.Item>
+                    {t("settings.viewerLayoutSource")}
+                  </label>
+                  <label className="radio-option">
+                    <RadioGroup.Item className="radio" value="framed">
+                      <RadioGroup.Indicator className="radio-indicator" />
+                    </RadioGroup.Item>
+                    {t("settings.viewerLayoutFramed")}
+                  </label>
+                </RadioGroup.Root>
+                <p className="field-note">{t("settings.viewerLayoutNote")}</p>
+              </div>
               <SwitchField
                 label={t("settings.alwaysOnTop")}
                 checked={draft.viewer.always_on_top}

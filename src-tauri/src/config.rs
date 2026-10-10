@@ -121,6 +121,15 @@ pub struct Storage {
 pub struct Viewer {
     pub always_on_top: bool,
     pub confirm_on_close: bool,
+    pub layout: ViewerLayout,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum ViewerLayout {
+    #[default]
+    Source,
+    Framed,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -276,6 +285,14 @@ args = '"${file}"'
         assert_eq!(config.capture.auto_copy, AutoCopy::Path);
         assert!(!config.capture.auto_save);
         assert_eq!(config.external, External::default());
+        assert_eq!(config.viewer.layout, ViewerLayout::Source);
+    }
+
+    #[test]
+    fn framed_viewer_layout_round_trips() {
+        let config = Config::parse("[viewer]\nlayout = \"framed\"\n").unwrap();
+        assert_eq!(config.viewer.layout, ViewerLayout::Framed);
+        assert_eq!(Config::parse(&config.to_toml().unwrap()).unwrap(), config);
     }
 
     #[test]

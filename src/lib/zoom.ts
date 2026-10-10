@@ -5,17 +5,36 @@ export type Point = { x: number; y: number };
 
 export const MIN_SCALE = 0.05;
 export const MAX_SCALE = 32;
+export const INITIAL_SCALE = 0.66;
+const INITIAL_STAGE_FILL = 0.9;
 /** ホイール1ノッチ（deltaY=100）で約1.2倍。指数にしておくと拡大と縮小が対称になる。 */
 const WHEEL_SENSITIVITY = 0.0018;
 
-/** 等倍を上限に、ステージへ収まる倍率で中央に置く。 */
-export function fitView(image: Size, stage: Size): View {
-  const scale = Math.min(1, stage.width / image.width, stage.height / image.height);
+function centeredView(image: Size, stage: Size, scale: number): View {
   return {
     scale,
     x: (stage.width - image.width * scale) / 2,
     y: (stage.height - image.height * scale) / 2,
   };
+}
+
+/** 等倍を上限に、ステージへ収まる倍率で中央に置く。 */
+export function fitView(image: Size, stage: Size): View {
+  return centeredView(image, stage, Math.min(1, stage.width / image.width, stage.height / image.height));
+}
+
+/** 初回は最大66%で開き、大きな画像でもステージの端に張り付かない余白を残す。 */
+export function initialView(image: Size, stage: Size): View {
+  return centeredView(image, stage, Math.min(
+    INITIAL_SCALE,
+    stage.width * INITIAL_STAGE_FILL / image.width,
+    stage.height * INITIAL_STAGE_FILL / image.height,
+  ));
+}
+
+/** 撮影元の画素と1対1で表示する。ウィンドウより大きな画像はパンして見られる。 */
+export function actualSizeView(image: Size, stage: Size): View {
+  return centeredView(image, stage, 1);
 }
 
 export function wheelFactor(deltaY: number): number {

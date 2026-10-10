@@ -201,6 +201,8 @@ button {
 .viewer-action-toast {
   inset-block-start: var(--space-2);
   inset-block-end: auto;
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
 }
 
 .viewer-placeholder {
@@ -322,6 +324,55 @@ button {
   user-select: none;
 }
 
+.menu-context {
+  width: min(var(--size-context-menu-width), calc(100vw - var(--space-6)));
+}
+
+.menu-icon-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-1);
+}
+
+.menu-icon-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-width: 0;
+  height: var(--size-menu-quick-action);
+  border-radius: var(--radius-small);
+  color: var(--color-text);
+  font-size: var(--font-size-small);
+  outline: none;
+  cursor: default;
+}
+
+.menu-icon-item svg {
+  width: var(--size-menu-quick-icon);
+  height: var(--size-menu-quick-icon);
+  stroke-width: var(--stroke-icon);
+}
+
+.menu-icon-item[data-highlighted] {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+.menu-icon-item[data-disabled] {
+  color: var(--color-text-disabled);
+}
+
+.menu-icon-item[data-danger] {
+  color: var(--color-danger);
+}
+
+.menu-icon-item[data-danger][data-highlighted] {
+  background: var(--color-danger);
+  color: var(--color-accent-contrast);
+}
+
 .menu-item {
   display: flex;
   align-items: center;
@@ -391,6 +442,17 @@ button {
   display: flex;
   flex: none;
   margin-inline-start: var(--space-2);
+}
+
+.menu-hint {
+  flex: none;
+  margin-inline-start: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-small);
+}
+
+.menu-item[data-highlighted] .menu-hint {
+  color: var(--color-accent-contrast);
 }
 
 .menu-separator {

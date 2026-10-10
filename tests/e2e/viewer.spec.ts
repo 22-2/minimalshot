@@ -32,19 +32,24 @@ test.describe("viewer", () => {
     await expect(page.locator("footer")).toHaveCount(0);
   });
 
-  test("right-click menu lists every action in order", async ({ page }) => {
+  test("right-click menu puts copy and delete in an icon row above the other actions", async ({ page }) => {
     await openViewer(page);
 
     await page.locator(".viewer-stage").click({ button: "right" });
     const menu = page.getByRole("menu");
-    await expect(menu.getByRole("menuitem")).toHaveText([
-      "パスのコピー",
-      "画像をコピー",
-      "既定の場所に保存",
-      "名前を付けて保存",
-      "外部ツールで開く",
-      "設定",
-    ]);
+    const quickActions = menu.locator(".menu-icon-row [role=menuitem]");
+    await expect(quickActions).toHaveCount(3);
+    await expect(quickActions.nth(0)).toHaveAttribute("aria-label", "画像をコピー");
+    await expect(quickActions.nth(1)).toHaveAttribute("aria-label", "パスのコピー");
+    await expect(quickActions.nth(2)).toHaveAttribute("aria-label", "保存したファイルを削除");
+    const quickBoxes = await Promise.all([0, 1, 2].map(async (index) => quickActions.nth(index).boundingBox()));
+    expect(quickBoxes[0]!.y).toBe(quickBoxes[1]!.y);
+    expect(quickBoxes[1]!.y).toBe(quickBoxes[2]!.y);
+    expect(quickBoxes[0]!.x).toBeLessThan(quickBoxes[1]!.x);
+    expect(quickBoxes[1]!.x).toBeLessThan(quickBoxes[2]!.x);
+    await expect(menu.getByRole("menuitem", { name: "既定の場所に保存" })).toBeVisible();
+    await expect(menu.getByRole("menuitem", { name: "名前を付けて保存" })).toBeVisible();
+    await expect(menu.getByRole("menuitem", { name: "撮影元画面とフィット" })).toBeVisible();
     await expect(menu.getByRole("menuitemcheckbox")).toHaveText("常に最前面に表示");
     await expect(menu.getByRole("separator")).toHaveCount(2);
     await expect(menu).toHaveCSS("font-size", "12px");
@@ -81,6 +86,8 @@ test.describe("viewer", () => {
 
     await emitActions({ saved: true, copied: null, tools: [] });
     await expect(page.locator(".viewer-action-toast")).toHaveText("自動処理: 保存");
+    await expect(page.locator(".viewer-action-toast")).toHaveCSS("background-color", "rgb(127, 184, 255)");
+    await expect(page.locator(".viewer-action-toast")).toHaveCSS("color", "rgb(14, 23, 38)");
     await emitActions({ saved: true, copied: "image", tools: ["OCR"] });
     await expect(page.locator(".viewer-action-toast")).toHaveText("自動処理: 保存・画像コピー・OCR");
     await expect(page.locator(".viewer-action-toast")).toBeHidden({ timeout: 4000 });
@@ -163,7 +170,7 @@ test.describe("viewer", () => {
     await remove.click();
     await expect(toast(page)).toHaveText("ごみ箱に移動しました");
     await page.locator(".viewer-stage").click({ button: "right" });
-    await expect(page.getByRole("menuitem", { name: "保存したファイルを削除" })).toHaveCount(0);
+    await expect(page.getByRole("menuitem", { name: "保存したファイルを削除" })).toHaveAttribute("data-disabled", "");
   });
 
   test("toggles always-on-top from the menu", async ({ page }) => {
@@ -240,7 +247,7 @@ test.describe("viewer", () => {
   });
 
   test("asks before closing when configured", async ({ page }) => {
-    await openViewer(page, { label: "viewer-1", config: { viewer: { always_on_top: false, confirm_on_close: true } } });
+    await openViewer(page, { label: "viewer-1", config: { viewer: { always_on_top: false, confirm_on_close: true, layout: "source" } } });
     await page.waitForTimeout(200);
 
     await page.getByRole("button", { name: "閉じる", exact: true }).click();
@@ -269,9 +276,9 @@ test.describe("viewer", () => {
     const stage = page.locator(".viewer-stage");
     const box = (await stage.boundingBox())!;
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-    await page.mouse.wheel(0, -300);
+    await page.mouse.wheel(0, -600);
     await expect(title).not.toContainText(" 100%");
-    await expect.poll(async () => (await page.locator(".viewer-image").boundingBox())!.width).toBeGreaterThan(640 * 1.5);
+    await expect.poll(async () => (await page.locator(".viewer-image").boundingBox())!.width).toBeGreaterThan(1800);
 
     const before = (await page.locator(".viewer-image").boundingBox())!.x;
     await page.mouse.down();
@@ -281,6 +288,16 @@ test.describe("viewer", () => {
 
     await stage.dblclick();
     await expect(title).toContainText("100%");
+    await expect.poll(async () => Math.round((await page.locator(".viewer-image").boundingBox())!.width)).toBe(640);
+  });
+
+  test("restores the source image to 100% from the context menu", async ({ page }) => {
+    await page.setViewportSize({ width: 800, height: 500 });
+    await openViewer(page, { label: "viewer-1", config: { viewer: { always_on_top: false, confirm_on_close: false, layout: "framed" } } });
+    await expect(page.locator(".titlebar")).toContainText("66%");
+
+    await choose(page, "撮影元画面とフィット");
+    await expect(page.locator(".titlebar")).toContainText("100%");
     await expect.poll(async () => Math.round((await page.locator(".viewer-image").boundingBox())!.width)).toBe(640);
   });
 });

@@ -16,6 +16,25 @@ function Entries({ entries, kit: M }: { entries: MenuEntry[]; kit: Kit }) {
     switch (entry.type) {
       case "separator":
         return <M.Separator key={entry.id} className="menu-separator" />;
+      case "icon-row":
+        return (
+          <div key={entry.id} className="menu-icon-row">
+            {entry.entries.map((item) => (
+              <M.Item
+                key={item.id}
+                className="menu-icon-item"
+                aria-label={item.label}
+                title={item.label}
+                data-danger={item.danger || undefined}
+                disabled={item.disabled}
+                onSelect={item.onSelect}
+              >
+                <item.icon aria-hidden />
+                <span>{item.caption ?? item.label}</span>
+              </M.Item>
+            ))}
+          </div>
+        );
       case "sub":
         return (
           <M.Sub key={entry.id}>
@@ -51,12 +70,14 @@ function Entries({ entries, kit: M }: { entries: MenuEntry[]; kit: Kit }) {
           <M.Item
             key={entry.id}
             className="menu-item"
+            aria-label={entry.label}
             data-danger={entry.danger || undefined}
             disabled={entry.disabled}
             onSelect={entry.onSelect}
           >
             <entry.icon aria-hidden />
             <span className="menu-label">{entry.label}</span>
+            {entry.hint && <span className="menu-hint" aria-hidden>{entry.hint}</span>}
           </M.Item>
         );
     }
@@ -68,7 +89,7 @@ export function ContextMenuArea({ entries, children }: { entries: MenuEntry[]; c
     <ContextMenu.Root>
       <ContextMenu.Trigger asChild>{children}</ContextMenu.Trigger>
       <ContextMenu.Portal>
-        <ContextMenu.Content className="menu">
+        <ContextMenu.Content className="menu menu-context" collisionPadding={8}>
           <Entries entries={entries} kit={ContextMenu as unknown as Kit} />
         </ContextMenu.Content>
       </ContextMenu.Portal>
