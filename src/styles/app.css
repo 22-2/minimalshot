@@ -732,8 +732,46 @@ button {
   color: var(--color-text-muted);
 }
 
-.setting-notice .button {
+.chip-select {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-1);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--size-hotkey-chip);
+  padding-inline: var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-small);
+  background: var(--color-canvas);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-menu);
+  white-space: nowrap;
+}
+
+.chip:hover:not(:disabled) {
+  border-color: var(--color-text-disabled);
   color: var(--color-text);
+}
+
+.chip svg {
+  width: var(--size-titlebar-action-icon);
+  height: var(--size-titlebar-action-icon);
+  stroke-width: 2;
+}
+
+.chip[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  background: var(--color-selection-fill);
+  color: var(--color-accent-strong);
+}
+
+.chip:disabled {
+  color: var(--color-text-disabled);
 }
 
 .text-input {

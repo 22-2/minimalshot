@@ -1,42 +1,42 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { listen } from "@tauri-apps/api/event";
 import {
-  AppWindow,
   FolderOpen,
   HardDrive,
   Image,
   Info,
   Keyboard,
-  Monitor,
   Plus,
-  SquareDashed,
   SquareTerminal,
   Trash2,
+  Zap,
   type LucideIcon,
 } from "lucide-react";
 
 import { TitleBar } from "../components/TitleBar";
 import { HotkeyInput } from "../components/HotkeyInput";
-import { Dropdown, SettingGroup, SettingItem, SettingNotice, SettingPage, TextInput, Toggle } from "../components/Setting";
+import { ChipSelect, Dropdown, SettingGroup, SettingItem, SettingNotice, SettingPage, TextInput, Toggle } from "../components/Setting";
 import type { AutoCopy, CaptureActions, CaptureKind, Config, ExternalTool, ViewerLayout } from "../lib/api";
 import { duplicatedHotkeys } from "../lib/hotkey";
 import { useSettings } from "../stores/settings";
 import { useWindowReady } from "../lib/useWindowReady";
 import { t } from "../i18n";
 
-type TabId = "hotkeys" | CaptureKind | "storage" | "viewer" | "tools";
+type TabId = "hotkeys" | "actions" | "storage" | "viewer" | "tools";
 type Tab = { id: TabId; label: string; icon: LucideIcon };
 
-const captureModes: { kind: CaptureKind; label: string; action: string; icon: LucideIcon }[] = [
-  { kind: "region", label: t("settings.hotkeyRegion"), action: t("tray.region"), icon: SquareDashed },
-  { kind: "window", label: t("settings.hotkeyWindow"), action: t("tray.window"), icon: AppWindow },
-  { kind: "fullscreen", label: t("settings.hotkeyFullscreen"), action: t("tray.fullscreen"), icon: Monitor },
+const captureModes: { kind: CaptureKind; action: string }[] = [
+  { kind: "region", action: t("tray.region") },
+  { kind: "window", action: t("tray.window") },
+  { kind: "fullscreen", action: t("tray.fullscreen") },
 ];
 
 // 見出しは置かず、余白だけでまとまりを分ける
 const tabGroups: Tab[][] = [
-  [{ id: "hotkeys", label: t("settings.hotkeys"), icon: Keyboard }],
-  captureModes.map(({ kind, label, icon }) => ({ id: kind, label, icon })),
+  [
+    { id: "hotkeys", label: t("settings.hotkeys"), icon: Keyboard },
+    { id: "actions", label: t("settings.actions"), icon: Zap },
+  ],
   [
     { id: "storage", label: t("settings.storage"), icon: HardDrive },
     { id: "viewer", label: t("settings.viewer"), icon: Image },
@@ -153,7 +153,7 @@ function effectiveActions(draft: Config, kind: CaptureKind): CaptureActions {
   };
 }
 
-function ModePage(props: { draft: Config; kind: CaptureKind; title: string; update: Update; onOpenTools: () => void }) {
+function ModeActions(props: { draft: Config; kind: CaptureKind; title: string; update: Update; onOpenTools: () => void }) {
   const { draft, kind } = props;
   const actions = effectiveActions(draft, kind);
   const tools = draft.external.tools;
@@ -162,41 +162,45 @@ function ModePage(props: { draft: Config; kind: CaptureKind; title: string; upda
     props.update("capture", kind, { ...actions, [key]: value });
 
   return (
-    <SettingPage title={props.title} description={t("settings.modeNote")}>
-      <SettingGroup>
-        <SettingItem name={t("settings.autoSave")}>
-          {(ids) => <Toggle {...ids} checked={actions.auto_save} onChange={(v) => change("auto_save", v)} />}
-        </SettingItem>
-        <SettingItem name={t("settings.autoCopy")}>
-          {(ids) => <Dropdown {...ids} value={actions.auto_copy} options={autoCopyOptions} onChange={(v) => change("auto_copy", v)} />}
-        </SettingItem>
-      </SettingGroup>
-      <SettingGroup title={t("settings.autoTools")} description={t("settings.autoToolsNote")}>
-        {tools.length === 0 && (
-          <SettingNotice>
-            <span>{t("settings.noTools")}</span>
+    <SettingGroup title={props.title}>
+      <SettingItem name={t("settings.autoSave")}>
+        {(ids) => <Toggle {...ids} checked={actions.auto_save} onChange={(v) => change("auto_save", v)} />}
+      </SettingItem>
+      <SettingItem name={t("settings.autoCopy")}>
+        {(ids) => <Dropdown {...ids} value={actions.auto_copy} options={autoCopyOptions} onChange={(v) => change("auto_copy", v)} />}
+      </SettingItem>
+      <SettingItem name={t("settings.autoTools")}>
+        {(ids) => tools.length === 0
+          ? (
             <button type="button" className="button" onClick={props.onOpenTools}>
               <SquareTerminal size={14} aria-hidden />
               {t("settings.registerTools")}
             </button>
-          </SettingNotice>
-        )}
-        {tools.map((tool, index) => (
-          <SettingItem key={index} name={tool.name || `${t("settings.untitledTool")} ${index + 1}`} description={tool.command || undefined}>
-            {(ids) => (
-              <Toggle
-                {...ids}
-                // 名前で選ぶので、名前の無いツールは選べない
-                disabled={!tool.name.trim()}
-                checked={actions.auto_tools.includes(tool.name)}
-                onChange={(checked) => change("auto_tools", checked
-                  ? [...actions.auto_tools, tool.name]
-                  : actions.auto_tools.filter((name) => name !== tool.name))}
-              />
-            )}
-          </SettingItem>
-        ))}
-      </SettingGroup>
+          )
+          : (
+            <ChipSelect
+              {...ids}
+              // 名前で選ぶので、名前の無いツールは選べない
+              options={tools.map((tool, index) => ({
+                value: tool.name,
+                label: tool.name || `${t("settings.untitledTool")} ${index + 1}`,
+                disabled: !tool.name.trim(),
+              }))}
+              selected={actions.auto_tools}
+              onChange={(selected) => change("auto_tools", selected)}
+            />
+          )}
+      </SettingItem>
+    </SettingGroup>
+  );
+}
+
+function ActionsPage(props: { draft: Config; update: Update; onOpenTools: () => void }) {
+  return (
+    <SettingPage title={t("settings.actions")} description={`${t("settings.actionsNote")}${t("settings.autoToolsNote")}`}>
+      {captureModes.map(({ kind, action }) => (
+        <ModeActions key={kind} draft={props.draft} kind={kind} title={action} update={props.update} onOpenTools={props.onOpenTools} />
+      ))}
     </SettingPage>
   );
 }
@@ -350,8 +354,6 @@ export function Settings() {
     };
   }, [load]);
 
-  const mode = captureModes.find(({ kind }) => kind === tab);
-
   return (
     <div className="frame">
       <TitleBar title={`${t("app.name")} - ${t("settings.title")}`} />
@@ -374,9 +376,7 @@ export function Settings() {
           {/* 各ページは同じ領域に描くので、パネルの id は選択中のタブに合わせて付け替える */}
           <div id={panelId(tab)} className="settings-panel" role="tabpanel" aria-labelledby={tabId(tab)}>
             {draft && tab === "hotkeys" && <HotkeysPage draft={draft} update={update} />}
-            {draft && mode && (
-              <ModePage draft={draft} kind={mode.kind} title={mode.label} update={update} onOpenTools={() => selectTab("tools")} />
-            )}
+            {draft && tab === "actions" && <ActionsPage draft={draft} update={update} onOpenTools={() => selectTab("tools")} />}
             {draft && tab === "storage" && <StoragePage draft={draft} update={update} />}
             {draft && tab === "viewer" && <ViewerPage draft={draft} update={update} />}
             {draft && tab === "tools" && <ToolsPage tools={draft.external.tools} onChange={changeTools} />}

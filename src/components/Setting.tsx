@@ -18,11 +18,13 @@ export function SettingPage(props: { title: string; description?: ReactNode; chi
 
 /** 関連する設定行をひとつの面にまとめる。見出しの右には削除などの操作を置ける。 */
 export function SettingGroup(props: { title?: string; description?: ReactNode; actions?: ReactNode; children: ReactNode }) {
+  const titleId = useId();
   return (
-    <section className="setting-group">
+    // 見出しで名前を付け、同じ名前の行が並ぶグループどうしを読み上げでも区別できるようにする
+    <section className="setting-group" aria-labelledby={props.title ? titleId : undefined}>
       {(props.title || props.actions) && (
         <header className="setting-group-header">
-          {props.title && <h3>{props.title}</h3>}
+          {props.title && <h3 id={titleId}>{props.title}</h3>}
           {props.actions}
         </header>
       )}
@@ -32,7 +34,7 @@ export function SettingGroup(props: { title?: string; description?: ReactNode; a
   );
 }
 
-type ControlIds = { id: string; descriptionId?: string };
+type ControlIds = { id: string; labelId?: string; descriptionId?: string };
 
 /**
  * 名前と説明を左、操作を右に置く設定行。
@@ -46,12 +48,13 @@ export function SettingItem(props: {
   children: (ids: ControlIds) => ReactNode;
 }) {
   const id = useId();
+  const labelId = useId();
   const descriptionId = useId();
-  const ids = { id, descriptionId: props.description ? descriptionId : undefined };
+  const ids = { id, labelId, descriptionId: props.description ? descriptionId : undefined };
   return (
     <div className="setting-item" data-stacked={props.stacked || undefined}>
       <div className="setting-info">
-        <label className="setting-name" htmlFor={id}>{props.name}</label>
+        <label className="setting-name" id={labelId} htmlFor={id}>{props.name}</label>
         {props.description && <p className="setting-description" id={descriptionId}>{props.description}</p>}
       </div>
       <div className="setting-control">{props.children(ids)}</div>
@@ -121,5 +124,35 @@ export function Dropdown<T extends string>(props: ControlIds & {
         </Select.Content>
       </Select.Portal>
     </Select.Root>
+  );
+}
+
+/** 複数を同時に選べる短い選択肢。押すたびに選択を切り替える。 */
+export function ChipSelect(props: ControlIds & {
+  options: { value: string; label: string; disabled?: boolean }[];
+  selected: string[];
+  onChange: (selected: string[]) => void;
+}) {
+  return (
+    <div className="chip-select" role="group" aria-labelledby={props.labelId} aria-describedby={props.descriptionId}>
+      {props.options.map((option) => {
+        const pressed = props.selected.includes(option.value);
+        return (
+          <button
+            key={option.value}
+            type="button"
+            className="chip"
+            aria-pressed={pressed}
+            disabled={option.disabled}
+            onClick={() => props.onChange(pressed
+              ? props.selected.filter((value) => value !== option.value)
+              : [...props.selected, option.value])}
+          >
+            {pressed && <Check aria-hidden />}
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 
@@ -63,12 +63,14 @@ describe("Settings", () => {
   it("stores actions for one capture mode without touching the others", async () => {
     const user = userEvent.setup();
     render(<Settings />);
-    await openTab(user, "領域");
+    await openTab(user, "アクション");
+    const region = screen.getByRole("region", { name: "領域をキャプチャ" });
 
-    await user.click(screen.getByRole("switch", { name: "自動で保存する" }));
-    await user.click(screen.getByRole("combobox", { name: "クリップボードへコピー" }));
+    await user.click(within(region).getByRole("switch", { name: "自動で保存する" }));
+    await user.click(within(region).getByRole("combobox", { name: "クリップボードへコピー" }));
     await user.click(await screen.findByRole("option", { name: "パス（保存時のみ）" }));
-    await user.click(screen.getByRole("switch", { name: "ペイント" }));
+    await user.click(within(region).getByRole("button", { name: "ペイント" }));
+    expect(within(region).getByRole("button", { name: "ペイント" })).toHaveAttribute("aria-pressed", "true");
     await user.click(screen.getByRole("button", { name: "設定を保存" }));
 
     await screen.findByText("設定を保存しました");
@@ -115,8 +117,8 @@ describe("Settings", () => {
   it("keeps an automatic tool selected when its name changes", async () => {
     const user = userEvent.setup();
     render(<Settings />);
-    await openTab(user, "領域");
-    await user.click(screen.getByRole("switch", { name: "ペイント" }));
+    await openTab(user, "アクション");
+    await user.click(within(screen.getByRole("region", { name: "領域をキャプチャ" })).getByRole("button", { name: "ペイント" }));
 
     await openTab(user, "外部ツール");
     const name = screen.getByLabelText("名前");
@@ -128,15 +130,15 @@ describe("Settings", () => {
     expect(saved[0]).toMatchObject({ capture: { region: { auto_tools: ["OCR"] } } });
   });
 
-  it("removes a tool and offers to register one from a mode page", async () => {
+  it("removes a tool and offers to register one from the actions page", async () => {
     const user = userEvent.setup();
     render(<Settings />);
     await openTab(user, "外部ツール");
 
     await user.click(screen.getByRole("button", { name: "このツールを削除" }));
     expect(screen.getByText("ツールが登録されていません。")).toBeInTheDocument();
-    await openTab(user, "全画面");
-    await user.click(screen.getByRole("button", { name: "外部ツールを登録" }));
+    await openTab(user, "アクション");
+    await user.click(within(screen.getByRole("region", { name: "全画面をキャプチャ" })).getByRole("button", { name: "外部ツールを登録" }));
     expect(screen.getByRole("tab", { name: "外部ツール" })).toHaveAttribute("aria-selected", "true");
     await user.click(screen.getByRole("button", { name: "設定を保存" }));
 

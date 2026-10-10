@@ -40,8 +40,8 @@ test.describe("settings", () => {
     await page.getByRole("switch", { name: "常に最前面に表示" }).click();
     await page.getByRole("combobox", { name: "初期表示" }).click();
     await page.getByRole("option", { name: "16:9 の窓に余白付きで開く" }).click();
-    await page.getByRole("tab", { name: "アクティブウィンドウ" }).click();
-    await page.getByRole("combobox", { name: "クリップボードへコピー" }).click();
+    await page.getByRole("tab", { name: "アクション" }).click();
+    await page.getByRole("region", { name: "ウィンドウをキャプチャ" }).getByRole("combobox", { name: "クリップボードへコピー" }).click();
     await page.getByRole("option", { name: "しない" }).click();
     await page.getByRole("button", { name: "設定を保存" }).click();
 
@@ -61,8 +61,8 @@ test.describe("settings", () => {
     await page.getByRole("button", { name: "領域をキャプチャ: ショートカットを追加" }).click();
     await page.keyboard.press("Control+Shift+KeyZ");
     await expect(page.getByText("Ctrl + Shift + Z")).toBeVisible();
-    await page.getByRole("tab", { name: "領域" }).click();
-    await page.getByRole("switch", { name: "ペイント" }).click();
+    await page.getByRole("tab", { name: "アクション" }).click();
+    await page.getByRole("region", { name: "領域をキャプチャ" }).getByRole("button", { name: "ペイント" }).click();
     await page.getByRole("button", { name: "設定を保存" }).click();
 
     await expect(page.getByText("設定を保存しました")).toBeVisible();
