@@ -7,6 +7,7 @@ test.describe("settings", () => {
     await installTauriMock(page, { label: "settings" });
     await page.goto("/");
 
+    await page.getByRole("tab", { name: "保存先" }).click();
     await page.getByLabel("ファイル名").fill("unsaved.png");
     await page.getByRole("button", { name: "設定フォルダを開く" }).click();
 
@@ -32,11 +33,16 @@ test.describe("settings", () => {
     await installTauriMock(page, { label: "settings" });
     await page.goto("/");
 
+    await page.getByRole("tab", { name: "保存先" }).click();
     await expect(page.getByLabel("ファイル名")).toHaveValue("%Y-%m/%Y-%m-%d_%H-%M-%S.png");
     await page.getByLabel("ファイル名").fill("%Y/%m%d-%H%M%S.png");
+    await page.getByRole("tab", { name: "ビューア" }).click();
     await page.getByRole("switch", { name: "常に最前面に表示" }).click();
-    await page.getByRole("radio", { name: "16:9 の窓に余白付きで開く" }).click();
-    await page.getByRole("radio", { name: "しない" }).click();
+    await page.getByRole("combobox", { name: "初期表示" }).click();
+    await page.getByRole("option", { name: "16:9 の窓に余白付きで開く" }).click();
+    await page.getByRole("tab", { name: "アクティブウィンドウ" }).click();
+    await page.getByRole("combobox", { name: "クリップボードへコピー" }).click();
+    await page.getByRole("option", { name: "しない" }).click();
     await page.getByRole("button", { name: "設定を保存" }).click();
 
     await expect(page.getByText("設定を保存しました")).toBeVisible();
@@ -44,23 +50,25 @@ test.describe("settings", () => {
     expect(save?.args.config).toMatchObject({
       storage: { format: "%Y/%m%d-%H%M%S.png" },
       viewer: { always_on_top: true, layout: "framed" },
-      capture: { auto_copy: "none" },
+      capture: { auto_copy: "image", window: { auto_copy: "none" } },
     });
   });
 
-  test("assigns multiple shortcuts and an automatic tool to one capture mode", async ({ page }) => {
+  test("records a shortcut and assigns an automatic tool to one capture mode", async ({ page }) => {
     await installTauriMock(page, { label: "settings" });
     await page.goto("/");
 
-    await page.getByRole("button", { name: "領域: ショートカットを追加" }).click();
-    await page.getByLabel("領域 2").fill("win+shift+z");
-    await page.getByRole("switch", { name: "既定動作を使う" }).first().click();
-    await page.getByRole("checkbox", { name: "ペイント" }).last().check();
+    await page.getByRole("button", { name: "領域をキャプチャ: ショートカットを追加" }).click();
+    await page.keyboard.press("Control+Shift+KeyZ");
+    await expect(page.getByText("Ctrl + Shift + Z")).toBeVisible();
+    await page.getByRole("tab", { name: "領域" }).click();
+    await page.getByRole("switch", { name: "ペイント" }).click();
     await page.getByRole("button", { name: "設定を保存" }).click();
 
+    await expect(page.getByText("設定を保存しました")).toBeVisible();
     const save = (await calls(page)).find((c) => c.cmd === "save_config");
     expect(save?.args.config).toMatchObject({
-      hotkeys: { region: ["Ctrl+PrintScreen", "win+shift+z"] },
+      hotkeys: { region: ["Ctrl+PrintScreen", "Ctrl+Shift+Z"] },
       capture: { region: { auto_tools: ["ペイント"] } },
     });
   });

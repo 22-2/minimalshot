@@ -92,7 +92,7 @@ export async function installTauriMock(page: Page, options: MockOptions) {
         presentations.push({
           session: args.session,
           imagesReady: images.length > 0 && images.every((image) => image.complete && image.naturalWidth > 0),
-          settingsReady: document.querySelector(".settings-section input") !== null,
+          settingsReady: document.querySelector(".setting-page") !== null,
         });
       },
       region_session: () => regionSession,

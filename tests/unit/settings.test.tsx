@@ -21,37 +21,36 @@ describe("Settings", () => {
       if (cmd === "get_config") return defaultConfig();
       if (cmd === "save_config") {
         const config = (args as { config: ReturnType<typeof defaultConfig> }).config;
-        if (config.hotkeys.region.includes("PrintScreen")) throw "ショートカット「PrintScreen」には修飾キーが必要です";
+        if (config.hotkeys.region.includes("Ctrl+Alt+P")) throw "Ctrl+Alt+P を登録できません: 他のアプリが使用中です";
         saved.push(config);
       }
     });
   });
 
-  it("loads the config and saves edits", async () => {
+  const openTab = async (user: ReturnType<typeof userEvent.setup>, name: string) => {
+    await user.click(await screen.findByRole("tab", { name }));
+  };
+
+  it("edits external tools and saves them", async () => {
     const user = userEvent.setup();
     render(<Settings />);
+    await openTab(user, "外部ツール");
 
-    const command = await screen.findByLabelText("コマンド");
+    const command = screen.getByLabelText("コマンド");
     expect(command).toHaveValue("mspaint.exe");
-
     await user.clear(command);
     await user.type(command, "paint.net");
     await user.click(screen.getByRole("button", { name: "ツールを追加" }));
-    const names = screen.getAllByLabelText("名前");
-    await user.type(names[1], "GIMP");
+    await user.type(screen.getAllByLabelText("名前")[1], "GIMP");
     await user.type(screen.getAllByLabelText("コマンド")[1], "gimp.exe");
-    await user.click(screen.getByRole("switch", { name: "自動で保存する" }));
     // 出力をコピーするツールは、コンソール非表示が強制される
     await user.click(screen.getAllByRole("switch", { name: "標準出力をコピー" })[1]);
     expect(screen.getAllByRole("switch", { name: "コンソールを表示しない" })[1]).toBeDisabled();
     expect(screen.getAllByRole("switch", { name: "コンソールを表示しない" })[1]).toBeChecked();
-    await user.click(screen.getByRole("radio", { name: "パス（保存時のみ）" }));
     await user.click(screen.getByRole("button", { name: "設定を保存" }));
 
     expect(await screen.findByText("設定を保存しました")).toBeInTheDocument();
-    expect(saved).toHaveLength(1);
     expect(saved[0]).toMatchObject({
-      capture: { auto_save: true, auto_copy: "path", auto_tools: [] },
       external: {
         tools: [
           { name: "ペイント", command: "paint.net", args: '"${file}"', hide_console: false, copy_stdout: false },
@@ -61,44 +60,86 @@ describe("Settings", () => {
     });
   });
 
-  it("edits mode actions, automatic tools, and multiple shortcuts", async () => {
+  it("stores actions for one capture mode without touching the others", async () => {
     const user = userEvent.setup();
     render(<Settings />);
-    await screen.findByLabelText("領域");
+    await openTab(user, "領域");
 
-    await user.click(screen.getByRole("button", { name: "領域: ショートカットを追加" }));
-    await user.type(screen.getByLabelText("領域 2"), "win+shift+z");
-    await user.click(screen.getAllByRole("switch", { name: "既定動作を使う" })[0]);
-    await user.click(screen.getAllByRole("checkbox", { name: "ペイント" })[1]);
+    await user.click(screen.getByRole("switch", { name: "自動で保存する" }));
+    await user.click(screen.getByRole("combobox", { name: "クリップボードへコピー" }));
+    await user.click(await screen.findByRole("option", { name: "パス（保存時のみ）" }));
+    await user.click(screen.getByRole("switch", { name: "ペイント" }));
     await user.click(screen.getByRole("button", { name: "設定を保存" }));
 
+    await screen.findByText("設定を保存しました");
+    const config = saved[0] as ReturnType<typeof defaultConfig>;
+    expect(config.capture.region).toEqual({ auto_save: true, auto_copy: "path", auto_tools: ["ペイント"] });
+    expect(config.capture.window).toBeUndefined();
+    expect(config.capture).toMatchObject({ auto_save: false, auto_copy: "image", auto_tools: [] });
+  });
+
+  it("records shortcuts from key presses and removes them", async () => {
+    const user = userEvent.setup();
+    render(<Settings />);
+    await screen.findByText("Ctrl + PrintScreen");
+
+    await user.click(screen.getByRole("button", { name: "領域をキャプチャ: ショートカットを追加" }));
+    // 修飾キーを伴わない入力は無視して、記録を続ける
+    await user.keyboard("z");
+    await user.keyboard("{Control>}{Shift>}z{/Shift}{/Control}");
+    expect(screen.getByText("Ctrl + Shift + Z")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "全画面をキャプチャ: ショートカットを削除 Shift+PrintScreen" }));
+    expect(screen.getByText("未設定")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "設定を保存" }));
+
+    await screen.findByText("設定を保存しました");
     expect(saved[0]).toMatchObject({
-      hotkeys: { region: ["Ctrl+PrintScreen", "win+shift+z"] },
-      capture: { region: { auto_tools: ["ペイント"] } },
+      hotkeys: { region: ["Ctrl+PrintScreen", "Ctrl+Shift+Z"], fullscreen: [] },
     });
+  });
+
+  it("cancels recording with Escape and marks duplicated shortcuts", async () => {
+    const user = userEvent.setup();
+    render(<Settings />);
+    await screen.findByText("Ctrl + PrintScreen");
+
+    await user.click(screen.getByRole("button", { name: "ウィンドウをキャプチャ: ショートカットを追加" }));
+    await user.keyboard("{Escape}");
+    expect(screen.queryByText("キーを押してください")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "ウィンドウをキャプチャ: ショートカットを追加" }));
+    await user.keyboard("{Shift>}[PrintScreen]{/Shift}");
+    expect(screen.getAllByTitle("他のショートカットと重複しています")).toHaveLength(2);
   });
 
   it("keeps an automatic tool selected when its name changes", async () => {
     const user = userEvent.setup();
     render(<Settings />);
-    await screen.findByLabelText("領域");
+    await openTab(user, "領域");
+    await user.click(screen.getByRole("switch", { name: "ペイント" }));
 
-    await user.click(screen.getByRole("checkbox", { name: "ペイント" }));
+    await openTab(user, "外部ツール");
     const name = screen.getByLabelText("名前");
     await user.clear(name);
     await user.type(name, "OCR");
     await user.click(screen.getByRole("button", { name: "設定を保存" }));
 
-    expect(saved[0]).toMatchObject({ capture: { auto_tools: ["OCR"] } });
+    await screen.findByText("設定を保存しました");
+    expect(saved[0]).toMatchObject({ capture: { region: { auto_tools: ["OCR"] } } });
   });
 
-  it("removes a tool", async () => {
+  it("removes a tool and offers to register one from a mode page", async () => {
     const user = userEvent.setup();
     render(<Settings />);
+    await openTab(user, "外部ツール");
 
-    await user.click(await screen.findByRole("button", { name: "このツールを削除" }));
+    await user.click(screen.getByRole("button", { name: "このツールを削除" }));
     expect(screen.getByText("ツールが登録されていません。")).toBeInTheDocument();
+    await openTab(user, "全画面");
+    await user.click(screen.getByRole("button", { name: "外部ツールを登録" }));
+    expect(screen.getByRole("tab", { name: "外部ツール" })).toHaveAttribute("aria-selected", "true");
     await user.click(screen.getByRole("button", { name: "設定を保存" }));
+
     await screen.findByText("設定を保存しました");
     expect(saved[0]).toMatchObject({ external: { tools: [] } });
   });
@@ -106,13 +147,13 @@ describe("Settings", () => {
   it("shows validation errors from the backend", async () => {
     const user = userEvent.setup();
     render(<Settings />);
+    await screen.findByText("Ctrl + PrintScreen");
 
-    const region = await screen.findByLabelText("領域");
-    await user.clear(region);
-    await user.type(region, "PrintScreen");
+    await user.click(screen.getByRole("button", { name: "領域をキャプチャ: ショートカットを追加" }));
+    await user.keyboard("{Control>}{Alt>}p{/Alt}{/Control}");
     await user.click(screen.getByRole("button", { name: "設定を保存" }));
 
-    expect(await screen.findByText(/修飾キーが必要です/)).toBeInTheDocument();
+    expect(await screen.findByText(/他のアプリが使用中です/)).toBeInTheDocument();
     expect(saved).toHaveLength(0);
   });
 });

@@ -301,6 +301,23 @@ button {
   background: var(--color-danger-surface);
 }
 
+.button[data-variant="quiet"] {
+  border-color: transparent;
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.button[data-variant="quiet"]:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.icon-button {
+  justify-content: center;
+  width: var(--size-control);
+  padding-inline: 0;
+}
+
 /* ---- メニュー（右クリック・ドロップダウン共通） ---- */
 
 .menu {
@@ -461,27 +478,6 @@ button {
   background: var(--color-hairline);
 }
 
-/* ---- 外部ツールの設定 ---- */
-
-.tool-list {
-  display: grid;
-  gap: var(--space-3);
-  margin: 0 0 var(--space-3);
-  padding: 0;
-  list-style: none;
-}
-
-.tool-card {
-  padding: var(--space-3) var(--space-3) var(--space-2);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-medium);
-}
-
-.tool-remove {
-  margin-inline-start: auto;
-  display: flex;
-}
-
 /* ---- 領域選択 ---- */
 
 .region {
@@ -545,105 +541,199 @@ button {
 /* ---- 設定 ---- */
 
 .settings-body {
+  display: grid;
+  grid-template-columns: var(--size-settings-nav) minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
-  overflow-y: auto;
-  padding: var(--space-4) var(--space-5) var(--space-5);
-  user-select: text;
 }
 
-.settings-section {
-  margin-block-end: var(--space-5);
-}
-
-.settings-section > .button + .button {
-  margin-inline-start: var(--space-2);
-}
-
-.hotkey-list,
-.capture-group {
-  margin-block-end: var(--space-4);
-}
-
-.hotkey-list h3,
-.capture-group h3,
-.capture-group h4 {
-  margin: 0 0 var(--space-2);
-  font-size: var(--font-size-body);
-}
-
-.hotkey-row {
+.settings-nav {
   display: flex;
-  gap: var(--space-2);
-  margin-block-end: var(--space-2);
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-3) var(--space-2);
+  border-inline-end: var(--border-width) solid var(--color-hairline);
+  background: var(--color-canvas);
 }
 
-.hotkey-row .text-input {
-  flex: 1;
-}
-
-.capture-group {
-  padding: var(--space-3);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-small);
-}
-
-.auto-tool-list {
+.settings-nav [role="tablist"] {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 
-.auto-tool-option {
+.settings-nav-group {
+  display: grid;
+  gap: var(--border-width);
+}
+
+.settings-nav-footer {
+  margin-block-start: auto;
+}
+
+.settings-nav-item {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  min-width: 0;
+  height: var(--size-settings-nav-item);
+  padding-inline: var(--space-2);
+  border: 0;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--color-text-muted);
+  text-align: start;
 }
 
-.auto-tool-option input {
-  accent-color: var(--color-accent);
+.settings-nav-item svg {
+  flex: none;
+  width: var(--size-settings-nav-icon);
+  height: var(--size-settings-nav-icon);
+  stroke-width: var(--stroke-icon);
 }
 
-.about-body {
+.settings-nav-item:hover {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.settings-nav-item[aria-selected="true"] {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.settings-nav-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-content {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
   padding: var(--space-5);
   user-select: text;
 }
 
-.about-body h1 {
-  margin: 0 0 var(--space-3);
-  font-size: var(--font-size-heading);
+.setting-page {
+  display: grid;
+  /* 列の最小幅を中身に引っ張らせず、狭い窓でも横にはみ出さない */
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+  max-width: var(--size-settings-page);
 }
 
-.settings-heading {
-  margin: 0 0 var(--space-3);
+.setting-page-header h2 {
+  margin: 0;
   font-size: var(--font-size-heading);
   font-weight: var(--font-weight-strong);
 }
 
-.field {
-  display: grid;
-  grid-template-columns: var(--size-settings-label) minmax(0, 1fr);
-  align-items: center;
-  gap: var(--space-1) var(--space-3);
-  margin-block-end: var(--space-3);
+.setting-page-header .setting-description {
+  margin-block-start: var(--space-1);
 }
 
-.field > * {
+.setting-page > .button {
+  justify-self: start;
+}
+
+.setting-group {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+}
+
+.setting-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
   min-width: 0;
 }
 
-.field-note {
-  grid-column: 2;
+.setting-group-header h3 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.setting-group-header .button {
+  flex: none;
+  margin-inline-end: calc(var(--space-2) * -1);
+}
+
+.setting-group-description {
+  margin-block-start: calc(var(--space-1) * -1);
+}
+
+/* 行の集まりだけを面で囲み、行どうしは細線で区切る */
+.setting-list {
+  border-radius: var(--radius-medium);
+  background: var(--color-surface-raised);
+}
+
+.setting-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+}
+
+.setting-item + .setting-item {
+  border-block-start: var(--border-width) solid var(--color-hairline);
+}
+
+.setting-info {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+
+.setting-name {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.setting-description {
   margin: 0;
   font-size: var(--font-size-small);
   color: var(--color-text-muted);
   overflow-wrap: anywhere;
 }
 
-.section-note {
-  margin: calc(var(--space-1) * -1) 0 var(--space-3);
-  font-size: var(--font-size-small);
+.setting-control {
+  display: flex;
+  flex: none;
+  align-items: center;
+  max-width: 100%;
+  margin-inline-start: auto;
+}
+
+/* 入力欄は名前の下に全幅で置き、パスや引数を折り返さずに読めるようにする */
+.setting-item[data-stacked] .setting-info,
+.setting-item[data-stacked] .setting-control {
+  flex-basis: 100%;
+}
+
+.setting-item:not([data-stacked]) .text-input {
+  width: var(--size-setting-input);
+}
+
+.setting-notice {
+  justify-content: space-between;
   color: var(--color-text-muted);
-  overflow-wrap: anywhere;
+}
+
+.setting-notice .button {
+  color: var(--color-text);
 }
 
 .text-input {
@@ -693,38 +783,128 @@ button {
   translate: 16px 0;
 }
 
-.radio-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
+.switch:disabled {
+  opacity: 0.5;
 }
 
-.radio-option {
+.select-trigger {
   display: inline-flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--space-2);
+  min-width: var(--size-select-min-width);
+  max-width: 100%;
+  height: var(--size-control);
+  padding-inline: var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-small);
+  background: var(--color-canvas);
+  color: var(--color-text);
 }
 
-.radio {
+.select-trigger > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.select-trigger:hover {
+  border-color: var(--color-text-disabled);
+}
+
+.select-icon {
+  display: flex;
+  color: var(--color-text-muted);
+}
+
+.select-icon svg {
+  width: var(--size-icon);
+  height: var(--size-icon);
+  stroke-width: var(--stroke-icon);
+}
+
+.select-content {
+  min-width: var(--radix-select-trigger-width);
+  max-height: min(calc(100dvh - var(--space-4)), var(--radix-select-content-available-height, 100dvh));
+}
+
+.select-content .menu-item > span:first-child {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- ショートカット ---- */
+
+.hotkey-input {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-1);
+}
+
+.hotkey-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--size-hotkey-chip);
+  padding-inline: var(--space-2) var(--space-1);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-small);
+  background: var(--color-canvas);
+  color: var(--color-text);
+  font-size: var(--font-size-menu);
+  white-space: nowrap;
+}
+
+.hotkey-chip kbd {
+  font: inherit;
+  font-weight: var(--font-weight-medium);
+}
+
+.hotkey-chip[data-empty] {
+  padding-inline-end: var(--space-2);
+  border-style: dashed;
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.hotkey-chip[data-recording] {
+  padding-inline-end: var(--space-2);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.hotkey-chip[data-conflict] {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.hotkey-chip-remove {
   display: grid;
   place-items: center;
-  width: 16px;
-  height: 16px;
+  width: var(--size-hotkey-remove);
+  height: var(--size-hotkey-remove);
   padding: 0;
-  border: var(--border-width) solid var(--color-border);
-  border-radius: 50%;
-  background: var(--color-canvas);
+  border: 0;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--color-text-muted);
 }
 
-.radio[data-state="checked"] {
-  border-color: var(--color-accent);
+.hotkey-chip-remove:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
 }
 
-.radio-indicator {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--color-accent);
+.hotkey-chip-remove svg {
+  width: var(--size-titlebar-action-icon);
+  height: var(--size-titlebar-action-icon);
+  stroke-width: var(--stroke-icon);
 }
 
 .settings-footer {
@@ -739,6 +919,16 @@ button {
 
 .settings-footer .button {
   flex: none;
+}
+
+.about-body {
+  padding: var(--space-5);
+  user-select: text;
+}
+
+.about-body h1 {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-heading);
 }
 
 /* 最小ウィンドウでも操作部品を残し、タイトルと入力欄を利用可能な幅へ収める。 */
@@ -761,16 +951,34 @@ button {
     display: none;
   }
 
+  /* タブはアイコンだけの細い列にし、名前は読み上げとツールチップに残す */
   .settings-body {
+    grid-template-columns: var(--size-settings-nav-compact) minmax(0, 1fr);
+  }
+
+  .settings-nav {
+    padding-inline: var(--space-1);
+  }
+
+  .settings-nav-item {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .settings-nav-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .settings-content {
     padding: var(--space-3);
   }
 
-  .field {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .field-note {
-    grid-column: 1;
+  .setting-item {
+    padding-inline: var(--space-3);
   }
 
   .settings-footer {

@@ -14,3 +14,8 @@ globalThis.ResizeObserver ??= class {
   unobserve() {}
   disconnect() {}
 };
+
+// jsdom には無いが、Radix の Select が開くときに呼ぶ
+Element.prototype.hasPointerCapture ??= () => false;
+Element.prototype.releasePointerCapture ??= () => {};
+Element.prototype.scrollIntoView ??= () => {};

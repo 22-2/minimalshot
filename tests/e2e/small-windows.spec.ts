@@ -71,17 +71,20 @@ for (const size of sizes) {
     await page.setViewportSize(size);
     await installTauriMock(page, { label: "settings" });
     await page.goto("/");
+    // 狭い窓ではタブがアイコンだけになるが、名前で選べる
+    await page.getByRole("tab", { name: "保存先" }).click();
     await expect(page.getByLabel("ファイル名")).toHaveValue("%Y-%m/%Y-%m-%d_%H-%M-%S.png");
     await noHorizontalOverflow(page);
     await insideViewport(page, page.getByRole("button", { name: "閉じる", exact: true }));
 
     await page.getByLabel("ファイル名").fill("%Y/%m/%d.png");
     await insideViewport(page, page.getByLabel("ファイル名"));
+    await page.getByRole("tab", { name: "外部ツール" }).click();
     await page.getByRole("button", { name: "ツールを追加", exact: true }).click();
     const command = page.getByLabel("コマンド", { exact: true }).last();
     await command.fill("C:\\Program Files\\Example\\tool.exe");
     await insideViewport(page, command);
-    const bodyDimensions = await page.locator(".settings-body").evaluate((element) => ({
+    const bodyDimensions = await page.locator(".settings-content").evaluate((element) => ({
       client: element.clientWidth,
       scroll: element.scrollWidth,
     }));

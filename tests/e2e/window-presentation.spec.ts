@@ -92,6 +92,7 @@ test("settings reloads saved values when its reused window opens again", async (
   await page.goto("/");
   await expect.poll(() => presentations(page)).toContainEqual({ session: null, imagesReady: false, settingsReady: true });
   const before = (await presentations(page)).length;
+  await page.getByRole("tab", { name: "保存先" }).click();
   await page.getByLabel("ファイル名").fill("unsaved.png");
   await emit(page, "settings-open");
   await expect(page.getByLabel("ファイル名")).toHaveValue("%Y-%m/%Y-%m-%d_%H-%M-%S.png");

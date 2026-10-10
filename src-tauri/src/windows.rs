@@ -234,7 +234,7 @@ pub fn open_settings(app: &AppHandle) -> AppResult<()> {
         .visible(false)
         .focused(false)
         .background_color(BACKGROUND)
-        .inner_size(560.0, 640.0)
+        .inner_size(760.0, 600.0)
         .min_inner_size(MIN_WIDTH, MIN_HEIGHT)
         .prevent_overflow()
         .center()

@@ -1,106 +1,293 @@
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { listen } from "@tauri-apps/api/event";
-import * as RadioGroup from "@radix-ui/react-radio-group";
-import * as Switch from "@radix-ui/react-switch";
+import {
+  AppWindow,
+  FolderOpen,
+  HardDrive,
+  Image,
+  Info,
+  Keyboard,
+  Monitor,
+  Plus,
+  SquareDashed,
+  SquareTerminal,
+  Trash2,
+  type LucideIcon,
+} from "lucide-react";
 
 import { TitleBar } from "../components/TitleBar";
-import { FolderOpen, Info, Plus, Trash2 } from "lucide-react";
-
-import type { AutoCopy, CaptureActions, CaptureKind, ExternalTool, ViewerLayout } from "../lib/api";
+import { HotkeyInput } from "../components/HotkeyInput";
+import { Dropdown, SettingGroup, SettingItem, SettingNotice, SettingPage, TextInput, Toggle } from "../components/Setting";
+import type { AutoCopy, CaptureActions, CaptureKind, Config, ExternalTool, ViewerLayout } from "../lib/api";
+import { duplicatedHotkeys } from "../lib/hotkey";
 import { useSettings } from "../stores/settings";
 import { useWindowReady } from "../lib/useWindowReady";
 import { t } from "../i18n";
 
-function Field({ label, note, children }: { label: string; note?: string; children: (id: string) => ReactNode }) {
-  const id = useId();
+type TabId = "hotkeys" | CaptureKind | "storage" | "viewer" | "tools";
+type Tab = { id: TabId; label: string; icon: LucideIcon };
+
+const captureModes: { kind: CaptureKind; label: string; action: string; icon: LucideIcon }[] = [
+  { kind: "region", label: t("settings.hotkeyRegion"), action: t("tray.region"), icon: SquareDashed },
+  { kind: "window", label: t("settings.hotkeyWindow"), action: t("tray.window"), icon: AppWindow },
+  { kind: "fullscreen", label: t("settings.hotkeyFullscreen"), action: t("tray.fullscreen"), icon: Monitor },
+];
+
+// 見出しは置かず、余白だけでまとまりを分ける
+const tabGroups: Tab[][] = [
+  [{ id: "hotkeys", label: t("settings.hotkeys"), icon: Keyboard }],
+  captureModes.map(({ kind, label, icon }) => ({ id: kind, label, icon })),
+  [
+    { id: "storage", label: t("settings.storage"), icon: HardDrive },
+    { id: "viewer", label: t("settings.viewer"), icon: Image },
+    { id: "tools", label: t("settings.external"), icon: SquareTerminal },
+  ],
+];
+const tabs = tabGroups.flat();
+
+const autoCopyOptions: { value: AutoCopy; label: string }[] = [
+  { value: "none", label: t("settings.autoCopyNone") },
+  { value: "image", label: t("settings.autoCopyImage") },
+  { value: "path", label: t("settings.autoCopyPath") },
+];
+
+const viewerLayoutOptions: { value: ViewerLayout; label: string }[] = [
+  { value: "source", label: t("settings.viewerLayoutSource") },
+  { value: "framed", label: t("settings.viewerLayoutFramed") },
+];
+
+const tabId = (id: TabId) => `settings-tab-${id}`;
+const panelId = (id: TabId) => `settings-panel-${id}`;
+
+function SettingsTabs(props: { selected: TabId; onSelect: (id: TabId) => void; onOpenConfigFolder: () => void; onOpenAbout: () => void }) {
+  const list = useRef<HTMLDivElement>(null);
+
+  // WAI-ARIA の縦タブにならい、上下キーで選択を移す
+  const move = (event: KeyboardEvent) => {
+    const step = { ArrowDown: 1, ArrowUp: -1 }[event.key];
+    if (!step) return;
+    event.preventDefault();
+    const index = tabs.findIndex((tab) => tab.id === props.selected);
+    const next = tabs[(index + step + tabs.length) % tabs.length];
+    props.onSelect(next.id);
+    list.current?.querySelector<HTMLElement>(`#${tabId(next.id)}`)?.focus();
+  };
+
   return (
-    <div className="field">
-      <label htmlFor={id}>{label}</label>
-      {children(id)}
-      {note && <p className="field-note">{note}</p>}
-    </div>
+    <nav className="settings-nav">
+      <div ref={list} role="tablist" aria-orientation="vertical" aria-label={t("settings.title")} onKeyDown={move}>
+        {tabGroups.map((group, index) => (
+          <div className="settings-nav-group" key={index}>
+            {group.map((tab) => {
+              const selected = tab.id === props.selected;
+              return (
+                <button
+                  key={tab.id}
+                  id={tabId(tab.id)}
+                  type="button"
+                  role="tab"
+                  className="settings-nav-item"
+                  aria-selected={selected}
+                  aria-controls={selected ? panelId(tab.id) : undefined}
+                  tabIndex={selected ? 0 : -1}
+                  title={tab.label}
+                  onClick={() => props.onSelect(tab.id)}
+                >
+                  <tab.icon aria-hidden />
+                  <span className="settings-nav-label">{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+      {/* めったに使わない操作なので、タブの流れから離して末尾に置く */}
+      <div className="settings-nav-group settings-nav-footer">
+        <button type="button" className="settings-nav-item" title={t("settings.openConfigFolder")} onClick={props.onOpenConfigFolder}>
+          <FolderOpen aria-hidden />
+          <span className="settings-nav-label">{t("settings.openConfigFolder")}</span>
+        </button>
+        <button type="button" className="settings-nav-item" title={t("about.menu")} onClick={props.onOpenAbout}>
+          <Info aria-hidden />
+          <span className="settings-nav-label">{t("about.menu")}</span>
+        </button>
+      </div>
+    </nav>
   );
 }
 
-function TextField(props: { label: string; note?: string; value: string; onChange: (value: string) => void }) {
+type Update = ReturnType<typeof useSettings.getState>["update"];
+
+function HotkeysPage({ draft, update }: { draft: Config; update: Update }) {
+  const conflicts = duplicatedHotkeys(captureModes.map(({ kind }) => draft.hotkeys[kind]));
   return (
-    <Field label={props.label} note={props.note}>
-      {(id) => (
-        <input
-          id={id}
-          className="text-input"
-          spellCheck={false}
-          value={props.value}
-          onChange={(event) => props.onChange(event.target.value)}
-        />
-      )}
-    </Field>
+    <SettingPage title={t("settings.hotkeys")} description={t("settings.hotkeyNote")}>
+      <SettingGroup>
+        {captureModes.map(({ kind, action }) => (
+          <div className="setting-item" key={kind}>
+            <div className="setting-info">
+              <span className="setting-name">{action}</span>
+            </div>
+            <div className="setting-control">
+              <HotkeyInput
+                label={action}
+                values={draft.hotkeys[kind]}
+                conflicts={conflicts}
+                onChange={(values) => update("hotkeys", kind, values)}
+              />
+            </div>
+          </div>
+        ))}
+      </SettingGroup>
+    </SettingPage>
   );
 }
 
-function SwitchField(props: {
-  label: string;
-  checked: boolean;
-  disabled?: boolean;
-  onChange: (checked: boolean) => void;
-}) {
+/** モードごとの上書きが無ければ、共通の既定値で動く。 */
+function effectiveActions(draft: Config, kind: CaptureKind): CaptureActions {
+  const override = draft.capture[kind];
+  return {
+    auto_save: override?.auto_save ?? draft.capture.auto_save,
+    auto_copy: override?.auto_copy ?? draft.capture.auto_copy,
+    auto_tools: override?.auto_tools ?? draft.capture.auto_tools,
+  };
+}
+
+function ModePage(props: { draft: Config; kind: CaptureKind; title: string; update: Update; onOpenTools: () => void }) {
+  const { draft, kind } = props;
+  const actions = effectiveActions(draft, kind);
+  const tools = draft.external.tools;
+  // 画面には実際に適用される値を出し、触ったモードだけをモード別の設定として書き出す
+  const change = <K extends keyof CaptureActions>(key: K, value: CaptureActions[K]) =>
+    props.update("capture", kind, { ...actions, [key]: value });
+
   return (
-    <Field label={props.label}>
-      {(id) => (
-        <Switch.Root
-          id={id}
-          className="switch"
-          checked={props.checked}
-          disabled={props.disabled}
-          onCheckedChange={props.onChange}
-        >
-          <Switch.Thumb className="switch-thumb" />
-        </Switch.Root>
-      )}
-    </Field>
+    <SettingPage title={props.title} description={t("settings.modeNote")}>
+      <SettingGroup>
+        <SettingItem name={t("settings.autoSave")}>
+          {(ids) => <Toggle {...ids} checked={actions.auto_save} onChange={(v) => change("auto_save", v)} />}
+        </SettingItem>
+        <SettingItem name={t("settings.autoCopy")}>
+          {(ids) => <Dropdown {...ids} value={actions.auto_copy} options={autoCopyOptions} onChange={(v) => change("auto_copy", v)} />}
+        </SettingItem>
+      </SettingGroup>
+      <SettingGroup title={t("settings.autoTools")} description={t("settings.autoToolsNote")}>
+        {tools.length === 0 && (
+          <SettingNotice>
+            <span>{t("settings.noTools")}</span>
+            <button type="button" className="button" onClick={props.onOpenTools}>
+              <SquareTerminal size={14} aria-hidden />
+              {t("settings.registerTools")}
+            </button>
+          </SettingNotice>
+        )}
+        {tools.map((tool, index) => (
+          <SettingItem key={index} name={tool.name || `${t("settings.untitledTool")} ${index + 1}`} description={tool.command || undefined}>
+            {(ids) => (
+              <Toggle
+                {...ids}
+                // 名前で選ぶので、名前の無いツールは選べない
+                disabled={!tool.name.trim()}
+                checked={actions.auto_tools.includes(tool.name)}
+                onChange={(checked) => change("auto_tools", checked
+                  ? [...actions.auto_tools, tool.name]
+                  : actions.auto_tools.filter((name) => name !== tool.name))}
+              />
+            )}
+          </SettingItem>
+        ))}
+      </SettingGroup>
+    </SettingPage>
   );
 }
 
-function ToolList({ tools, onChange }: { tools: ExternalTool[]; onChange: (tools: ExternalTool[]) => void }) {
+function StoragePage({ draft, update }: { draft: Config; update: Update }) {
+  return (
+    <SettingPage title={t("settings.storage")}>
+      <SettingGroup>
+        <SettingItem name={t("settings.directory")} description={t("settings.directoryNote")} stacked>
+          {(ids) => <TextInput {...ids} value={draft.storage.directory} onChange={(v) => update("storage", "directory", v)} />}
+        </SettingItem>
+        <SettingItem name={t("settings.format")} description={t("settings.formatNote")} stacked>
+          {(ids) => <TextInput {...ids} value={draft.storage.format} onChange={(v) => update("storage", "format", v)} />}
+        </SettingItem>
+      </SettingGroup>
+    </SettingPage>
+  );
+}
+
+function ViewerPage({ draft, update }: { draft: Config; update: Update }) {
+  return (
+    <SettingPage title={t("settings.viewer")}>
+      <SettingGroup>
+        <SettingItem name={t("settings.viewerLayout")} description={t("settings.viewerLayoutNote")}>
+          {(ids) => (
+            <Dropdown {...ids} value={draft.viewer.layout} options={viewerLayoutOptions} onChange={(v) => update("viewer", "layout", v)} />
+          )}
+        </SettingItem>
+        <SettingItem name={t("settings.alwaysOnTop")}>
+          {(ids) => <Toggle {...ids} checked={draft.viewer.always_on_top} onChange={(v) => update("viewer", "always_on_top", v)} />}
+        </SettingItem>
+        <SettingItem name={t("settings.confirmOnClose")}>
+          {(ids) => <Toggle {...ids} checked={draft.viewer.confirm_on_close} onChange={(v) => update("viewer", "confirm_on_close", v)} />}
+        </SettingItem>
+      </SettingGroup>
+    </SettingPage>
+  );
+}
+
+function ToolsPage({ tools, onChange }: { tools: ExternalTool[]; onChange: (tools: ExternalTool[]) => void }) {
   const edit = (index: number, patch: Partial<ExternalTool>) =>
     onChange(tools.map((tool, i) => (i === index ? { ...tool, ...patch } : tool)));
 
   return (
-    <>
-      {tools.length === 0 && <p className="section-note">{t("settings.noTools")}</p>}
-      <ul className="tool-list">
-        {tools.map((tool, index) => (
-          <li key={index} className="tool-card">
-            <TextField label={t("settings.toolName")} value={tool.name} onChange={(name) => edit(index, { name })} />
-            <TextField
-              label={t("settings.toolCommand")}
-              value={tool.command}
-              onChange={(command) => edit(index, { command })}
-            />
-            <TextField label={t("settings.toolArgs")} value={tool.args} onChange={(args) => edit(index, { args })} />
-            <SwitchField
-              label={t("settings.toolHideConsole")}
-              checked={tool.hide_console || tool.copy_stdout}
-              disabled={tool.copy_stdout}
-              onChange={(hide_console) => edit(index, { hide_console })}
-            />
-            <SwitchField
-              label={t("settings.toolCopyStdout")}
-              checked={tool.copy_stdout}
-              onChange={(copy_stdout) => edit(index, { copy_stdout })}
-            />
+    <SettingPage title={t("settings.external")} description={t("settings.externalNote")}>
+      {tools.length === 0 && (
+        <SettingGroup>
+          <SettingNotice>{t("settings.noTools")}</SettingNotice>
+        </SettingGroup>
+      )}
+      {tools.map((tool, index) => (
+        <SettingGroup
+          key={index}
+          title={tool.name || `${t("settings.untitledTool")} ${index + 1}`}
+          actions={
             <button
               type="button"
-              className="button tool-remove"
+              className="button"
               data-variant="danger"
               onClick={() => onChange(tools.filter((_, i) => i !== index))}
             >
               <Trash2 size={14} aria-hidden />
               {t("settings.removeTool")}
             </button>
-          </li>
-        ))}
-      </ul>
+          }
+        >
+          <SettingItem name={t("settings.toolName")}>
+            {(ids) => <TextInput {...ids} value={tool.name} onChange={(name) => edit(index, { name })} />}
+          </SettingItem>
+          <SettingItem name={t("settings.toolCommand")} stacked>
+            {(ids) => <TextInput {...ids} value={tool.command} onChange={(command) => edit(index, { command })} />}
+          </SettingItem>
+          <SettingItem name={t("settings.toolArgs")} stacked>
+            {(ids) => <TextInput {...ids} value={tool.args} onChange={(args) => edit(index, { args })} />}
+          </SettingItem>
+          <SettingItem name={t("settings.toolHideConsole")}>
+            {(ids) => (
+              <Toggle
+                {...ids}
+                // 出力を受け取るツールはコンソールを出さずに起動する
+                checked={tool.hide_console || tool.copy_stdout}
+                disabled={tool.copy_stdout}
+                onChange={(hide_console) => edit(index, { hide_console })}
+              />
+            )}
+          </SettingItem>
+          <SettingItem name={t("settings.toolCopyStdout")}>
+            {(ids) => <Toggle {...ids} checked={tool.copy_stdout} onChange={(copy_stdout) => edit(index, { copy_stdout })} />}
+          </SettingItem>
+        </SettingGroup>
+      ))}
       <button
         type="button"
         className="button"
@@ -111,99 +298,21 @@ function ToolList({ tools, onChange }: { tools: ExternalTool[]; onChange: (tools
         <Plus size={14} aria-hidden />
         {t("settings.addTool")}
       </button>
-    </>
-  );
-}
-
-const autoCopyOptions: { value: AutoCopy; label: string }[] = [
-  { value: "none", label: t("settings.autoCopyNone") },
-  { value: "image", label: t("settings.autoCopyImage") },
-  { value: "path", label: t("settings.autoCopyPath") },
-];
-
-const captureModes: { kind: CaptureKind; label: string }[] = [
-  { kind: "region", label: t("settings.hotkeyRegion") },
-  { kind: "window", label: t("settings.hotkeyWindow") },
-  { kind: "fullscreen", label: t("settings.hotkeyFullscreen") },
-];
-
-function HotkeyList(props: { label: string; values: string[]; onChange: (values: string[]) => void }) {
-  return (
-    <div className="hotkey-list">
-      <h3>{props.label}</h3>
-      {props.values.map((value, index) => (
-        <div className="hotkey-row" key={index}>
-          <input
-            className="text-input"
-            aria-label={index === 0 ? props.label : `${props.label} ${index + 1}`}
-            spellCheck={false}
-            value={value}
-            onChange={(event) => props.onChange(props.values.map((item, i) => i === index ? event.target.value : item))}
-          />
-          <button type="button" className="button" aria-label={`${props.label}: ${t("settings.removeHotkey")} ${index + 1}`} onClick={() => props.onChange(props.values.filter((_, i) => i !== index))}>
-            <Trash2 size={14} aria-hidden />
-          </button>
-        </div>
-      ))}
-      <button type="button" className="button" onClick={() => props.onChange([...props.values, ""])}>
-        <Plus size={14} aria-hidden />
-        {props.label}: {t("settings.addHotkey")}
-      </button>
-    </div>
-  );
-}
-
-function CaptureActionFields(props: {
-  actions: CaptureActions;
-  tools: ExternalTool[];
-  onChange: <K extends keyof CaptureActions>(key: K, value: CaptureActions[K]) => void;
-}) {
-  const autoCopyLabel = useId();
-  const autoToolsLabel = useId();
-  return (
-    <div className="capture-fields">
-      <SwitchField label={t("settings.autoSave")} checked={props.actions.auto_save} onChange={(v) => props.onChange("auto_save", v)} />
-      <div className="field" role="group" aria-labelledby={autoCopyLabel}>
-        <span id={autoCopyLabel}>{t("settings.autoCopy")}</span>
-        <RadioGroup.Root className="radio-group" aria-labelledby={autoCopyLabel} value={props.actions.auto_copy} onValueChange={(v) => props.onChange("auto_copy", v as AutoCopy)}>
-          {autoCopyOptions.map((option) => (
-            <label key={option.value} className="radio-option">
-              <RadioGroup.Item className="radio" value={option.value}>
-                <RadioGroup.Indicator className="radio-indicator" />
-              </RadioGroup.Item>
-              {option.label}
-            </label>
-          ))}
-        </RadioGroup.Root>
-      </div>
-      <div className="field" role="group" aria-labelledby={autoToolsLabel}>
-        <span id={autoToolsLabel}>{t("settings.autoTools")}</span>
-        <div className="auto-tool-list">
-          {props.tools.length === 0 && <span className="field-note">{t("settings.noAutoTools")}</span>}
-          {props.tools.map((tool, index) => (
-            <label className="auto-tool-option" key={index}>
-              <input
-                type="checkbox"
-                disabled={!tool.name.trim()}
-                checked={props.actions.auto_tools.includes(tool.name)}
-                onChange={(event) => props.onChange("auto_tools", event.target.checked
-                  ? [...props.actions.auto_tools, tool.name]
-                  : props.actions.auto_tools.filter((name) => name !== tool.name))}
-              />
-              {tool.name || `${t("settings.toolName")} ${index + 1}`}
-            </label>
-          ))}
-        </div>
-      </div>
-    </div>
+    </SettingPage>
   );
 }
 
 export function Settings() {
   const { draft, status, saving, load, openConfigFolder, openAbout, update, save } = useSettings();
   const [presentation, setPresentation] = useState(0);
-  const viewerLayoutLabel = useId();
+  const [tab, setTab] = useState<TabId>("hotkeys");
+  const content = useRef<HTMLFormElement>(null);
   useWindowReady(presentation > 0, presentation);
+
+  const selectTab = (id: TabId) => {
+    setTab(id);
+    if (content.current) content.current.scrollTop = 0;
+  };
 
   const changeTools = (tools: ExternalTool[]) => {
     if (!draft) return;
@@ -241,126 +350,39 @@ export function Settings() {
     };
   }, [load]);
 
+  const mode = captureModes.find(({ kind }) => kind === tab);
+
   return (
     <div className="frame">
       <TitleBar title={`${t("app.name")} - ${t("settings.title")}`} />
-      <form
-        className="settings-body"
-        id="settings-form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void save();
-        }}
-      >
-        <div className="settings-section">
-          <button type="button" className="button" onClick={() => void openConfigFolder()}>
-            <FolderOpen size={14} aria-hidden />
-            {t("settings.openConfigFolder")}
-          </button>
-          <button type="button" className="button" onClick={() => void openAbout()}>
-            <Info size={14} aria-hidden />
-            {t("about.menu")}
-          </button>
-        </div>
-        {draft && (
-          <>
-            <section className="settings-section">
-              <h2 className="settings-heading">{t("settings.hotkeys")}</h2>
-              <p className="section-note">{t("settings.hotkeyNote")}</p>
-              {captureModes.map(({ kind, label }) => (
-                <HotkeyList key={kind} label={label} values={draft.hotkeys[kind]} onChange={(values) => update("hotkeys", kind, values)} />
-              ))}
-            </section>
-
-            <section className="settings-section">
-              <h2 className="settings-heading">{t("settings.afterCapture")}</h2>
-              <p className="section-note">{t("settings.autoToolsNote")}</p>
-              <div className="capture-group">
-                <h3>{t("settings.defaultActions")}</h3>
-                <CaptureActionFields actions={draft.capture} tools={draft.external.tools} onChange={(key, value) => update("capture", key, value)} />
-              </div>
-              <h3>{t("settings.modeActions")}</h3>
-              {captureModes.map(({ kind, label }) => {
-                const override = draft.capture[kind];
-                const actions: CaptureActions = {
-                  auto_save: override?.auto_save ?? draft.capture.auto_save,
-                  auto_copy: override?.auto_copy ?? draft.capture.auto_copy,
-                  auto_tools: override?.auto_tools ?? draft.capture.auto_tools,
-                };
-                return (
-                  <div className="capture-group" key={kind}>
-                    <h4>{label}</h4>
-                    <SwitchField
-                      label={t("settings.inheritActions")}
-                      checked={!override}
-                      onChange={(inherit) => update("capture", kind, inherit ? undefined : { ...actions })}
-                    />
-                    {override && <CaptureActionFields
-                      actions={actions}
-                      tools={draft.external.tools}
-                      onChange={(key, value) => update("capture", kind, { ...override, [key]: value })}
-                    />}
-                  </div>
-                );
-              })}
-            </section>
-
-            <section className="settings-section">
-              <h2 className="settings-heading">{t("settings.storage")}</h2>
-              <TextField
-                label={t("settings.directory")}
-                note={t("settings.directoryNote")}
-                value={draft.storage.directory}
-                onChange={(v) => update("storage", "directory", v)}
-              />
-              <TextField
-                label={t("settings.format")}
-                note={t("settings.formatNote")}
-                value={draft.storage.format}
-                onChange={(v) => update("storage", "format", v)}
-              />
-            </section>
-
-            <section className="settings-section">
-              <h2 className="settings-heading">{t("settings.viewer")}</h2>
-              <div className="field" role="group" aria-labelledby={viewerLayoutLabel}>
-                <span id={viewerLayoutLabel}>{t("settings.viewerLayout")}</span>
-                <RadioGroup.Root className="radio-group" aria-labelledby={viewerLayoutLabel} value={draft.viewer.layout} onValueChange={(value) => update("viewer", "layout", value as ViewerLayout)}>
-                  <label className="radio-option">
-                    <RadioGroup.Item className="radio" value="source">
-                      <RadioGroup.Indicator className="radio-indicator" />
-                    </RadioGroup.Item>
-                    {t("settings.viewerLayoutSource")}
-                  </label>
-                  <label className="radio-option">
-                    <RadioGroup.Item className="radio" value="framed">
-                      <RadioGroup.Indicator className="radio-indicator" />
-                    </RadioGroup.Item>
-                    {t("settings.viewerLayoutFramed")}
-                  </label>
-                </RadioGroup.Root>
-                <p className="field-note">{t("settings.viewerLayoutNote")}</p>
-              </div>
-              <SwitchField
-                label={t("settings.alwaysOnTop")}
-                checked={draft.viewer.always_on_top}
-                onChange={(v) => update("viewer", "always_on_top", v)}
-              />
-              <SwitchField
-                label={t("settings.confirmOnClose")}
-                checked={draft.viewer.confirm_on_close}
-                onChange={(v) => update("viewer", "confirm_on_close", v)}
-              />
-            </section>
-
-            <section className="settings-section">
-              <h2 className="settings-heading">{t("settings.external")}</h2>
-              <p className="section-note">{t("settings.externalNote")}</p>
-              <ToolList tools={draft.external.tools} onChange={changeTools} />
-            </section>
-          </>
-        )}
-      </form>
+      <div className="settings-body">
+        <SettingsTabs
+          selected={tab}
+          onSelect={selectTab}
+          onOpenConfigFolder={() => void openConfigFolder()}
+          onOpenAbout={() => void openAbout()}
+        />
+        <form
+          ref={content}
+          className="settings-content"
+          id="settings-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void save();
+          }}
+        >
+          {/* 各ページは同じ領域に描くので、パネルの id は選択中のタブに合わせて付け替える */}
+          <div id={panelId(tab)} className="settings-panel" role="tabpanel" aria-labelledby={tabId(tab)}>
+            {draft && tab === "hotkeys" && <HotkeysPage draft={draft} update={update} />}
+            {draft && mode && (
+              <ModePage draft={draft} kind={mode.kind} title={mode.label} update={update} onOpenTools={() => selectTab("tools")} />
+            )}
+            {draft && tab === "storage" && <StoragePage draft={draft} update={update} />}
+            {draft && tab === "viewer" && <ViewerPage draft={draft} update={update} />}
+            {draft && tab === "tools" && <ToolsPage tools={draft.external.tools} onChange={changeTools} />}
+          </div>
+        </form>
+      </div>
       <footer className="settings-footer">
         <output className="toolbar-status" data-tone={status?.tone}>
           {status?.text ?? ""}
