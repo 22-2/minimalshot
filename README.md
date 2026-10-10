@@ -7,8 +7,10 @@
 | 操作 | 既定のショートカット |
 | --- | --- |
 | 領域をキャプチャ | `Ctrl+PrintScreen` |
-| アクティブウィンドウをキャプチャ | `Alt+PrintScreen` |
-| 全画面（カーソルのあるモニター）をキャプチャ | `Shift+PrintScreen` |
+| アクティブなウィンドウをキャプチャ | `Shift+PrintScreen` |
+| アクティブなディスプレイをキャプチャ | `Alt+PrintScreen` |
+
+アクティブなディスプレイは、カーソルのあるモニターを指します。既存の設定ファイルに保存されたショートカットはそのまま使われます。
 
 `PrintScreen` 単体は OS の動作を残すため上書きしません。撮った画像は枠の薄い独立ウィンドウに浮かび、複数枚を同時に並べられます。ウィンドウはどこを掴んでもドラッグできます。
 
@@ -36,8 +38,8 @@
 ```toml
 [hotkeys]
 region = ["Ctrl+PrintScreen", "Win+Shift+Z"]
-window = ["Alt+PrintScreen"]
-fullscreen = ["Shift+PrintScreen"]
+window = ["Shift+PrintScreen"]
+fullscreen = ["Alt+PrintScreen"]
 
 [capture]
 auto_save = false

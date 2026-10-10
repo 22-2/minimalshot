@@ -182,8 +182,8 @@ impl Default for Hotkeys {
         // PrintScreen 単体は OS 標準の動作を残すため割り当てない
         Self {
             region: vec!["Ctrl+PrintScreen".into()],
-            window: vec!["Alt+PrintScreen".into()],
-            fullscreen: vec!["Shift+PrintScreen".into()],
+            window: vec!["Shift+PrintScreen".into()],
+            fullscreen: vec!["Alt+PrintScreen".into()],
         }
     }
 }
@@ -248,8 +248,8 @@ mod tests {
         let text = r#"
 [hotkeys]
 region = "Ctrl+PrintScreen"
-window = "Alt+PrintScreen"
-fullscreen = "Shift+PrintScreen"
+window = "Shift+PrintScreen"
+fullscreen = "Alt+PrintScreen"
 
 [capture]
 auto_save = false

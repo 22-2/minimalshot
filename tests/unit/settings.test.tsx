@@ -94,14 +94,14 @@ describe("Settings", () => {
     const user = userEvent.setup();
     render(<Settings />);
     await openMode(user, "領域をキャプチャ");
-    const fullscreen = await openMode(user, "全画面をキャプチャ");
+    const fullscreen = await openMode(user, "アクティブなディスプレイをキャプチャ");
 
     await user.click(screen.getByRole("button", { name: "領域をキャプチャ: ショートカットを追加" }));
     // 修飾キーを伴わない入力は無視して、記録を続ける
     await user.keyboard("z");
     await user.keyboard("{Control>}{Shift>}z{/Shift}{/Control}");
     expect(screen.getByText("Ctrl + Shift + Z")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "全画面をキャプチャ: ショートカットを削除 Shift+PrintScreen" }));
+    await user.click(screen.getByRole("button", { name: "アクティブなディスプレイをキャプチャ: ショートカットを削除 Alt+PrintScreen" }));
     expect(within(fullscreen).getByText("未設定")).toBeInTheDocument();
 
     await expectSaved({
@@ -112,15 +112,15 @@ describe("Settings", () => {
   it("cancels recording with Escape and marks duplicated shortcuts", async () => {
     const user = userEvent.setup();
     render(<Settings />);
-    await openMode(user, "ウィンドウをキャプチャ");
-    await openMode(user, "全画面をキャプチャ");
+    await openMode(user, "アクティブなウィンドウをキャプチャ");
+    await openMode(user, "アクティブなディスプレイをキャプチャ");
 
-    await user.click(screen.getByRole("button", { name: "ウィンドウをキャプチャ: ショートカットを追加" }));
+    await user.click(screen.getByRole("button", { name: "アクティブなウィンドウをキャプチャ: ショートカットを追加" }));
     await user.keyboard("{Escape}");
     expect(screen.queryByText("キーを押してください")).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "ウィンドウをキャプチャ: ショートカットを追加" }));
-    await user.keyboard("{Shift>}[PrintScreen]{/Shift}");
+    await user.click(screen.getByRole("button", { name: "アクティブなウィンドウをキャプチャ: ショートカットを追加" }));
+    await user.keyboard("{Alt>}[PrintScreen]{/Alt}");
     expect(screen.getAllByTitle("他のショートカットと重複しています")).toHaveLength(2);
   });
 

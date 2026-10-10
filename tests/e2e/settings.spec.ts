@@ -41,8 +41,8 @@ test.describe("settings", () => {
     await page.getByRole("combobox", { name: "初期表示" }).click();
     await page.getByRole("option", { name: "16:9 の窓に余白付きで開く" }).click();
     await page.getByRole("tab", { name: "アクション" }).click();
-    await page.getByRole("button", { name: /^ウィンドウをキャプチャ / }).click();
-    await page.getByRole("region", { name: "ウィンドウをキャプチャ" }).getByRole("combobox", { name: "クリップボードへコピー" }).click();
+    await page.getByRole("button", { name: /^アクティブなウィンドウをキャプチャ / }).click();
+    await page.getByRole("region", { name: "アクティブなウィンドウをキャプチャ" }).getByRole("combobox", { name: "クリップボードへコピー" }).click();
     await page.getByRole("option", { name: "しない" }).click();
 
     // 保存ボタンは無く、変更が止まると自動で保存する
