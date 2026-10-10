@@ -35,6 +35,7 @@ describe("Settings", () => {
     const user = userEvent.setup();
     render(<Settings />);
     await openTab(user, "外部ツール");
+    await user.click(screen.getByRole("button", { name: "ペイント mspaint.exe" }));
 
     const command = screen.getByLabelText("コマンド");
     expect(command).toHaveValue("mspaint.exe");
@@ -64,20 +65,22 @@ describe("Settings", () => {
     const user = userEvent.setup();
     render(<Settings />);
     await openTab(user, "アクション");
+    const trigger = screen.getByRole("button", { name: "領域をキャプチャ 画像をコピー" });
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await user.click(trigger);
     const region = screen.getByRole("region", { name: "領域をキャプチャ" });
 
-    await user.click(within(region).getByRole("switch", { name: "自動で保存する" }));
     await user.click(within(region).getByRole("combobox", { name: "クリップボードへコピー" }));
     await user.click(await screen.findByRole("option", { name: "パス（保存時のみ）" }));
-    await user.click(within(region).getByRole("button", { name: "ペイント" }));
-    expect(within(region).getByRole("button", { name: "ペイント" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(within(region).getByRole("switch", { name: "自動で画像を保存する" }));
+    expect(trigger).toHaveAccessibleName("領域をキャプチャ パスをコピー・保存");
     await user.click(screen.getByRole("button", { name: "設定を保存" }));
 
     await screen.findByText("設定を保存しました");
     const config = saved[0] as ReturnType<typeof defaultConfig>;
-    expect(config.capture.region).toEqual({ auto_save: true, auto_copy: "path", auto_tools: ["ペイント"] });
+    expect(config.capture.region).toEqual({ auto_save: true, auto_copy: "path" });
     expect(config.capture.window).toBeUndefined();
-    expect(config.capture).toMatchObject({ auto_save: false, auto_copy: "image", auto_tools: [] });
+    expect(config.capture).toMatchObject({ auto_save: false, auto_copy: "image" });
   });
 
   it("records shortcuts from key presses and removes them", async () => {
@@ -114,32 +117,15 @@ describe("Settings", () => {
     expect(screen.getAllByTitle("他のショートカットと重複しています")).toHaveLength(2);
   });
 
-  it("keeps an automatic tool selected when its name changes", async () => {
-    const user = userEvent.setup();
-    render(<Settings />);
-    await openTab(user, "アクション");
-    await user.click(within(screen.getByRole("region", { name: "領域をキャプチャ" })).getByRole("button", { name: "ペイント" }));
-
-    await openTab(user, "外部ツール");
-    const name = screen.getByLabelText("名前");
-    await user.clear(name);
-    await user.type(name, "OCR");
-    await user.click(screen.getByRole("button", { name: "設定を保存" }));
-
-    await screen.findByText("設定を保存しました");
-    expect(saved[0]).toMatchObject({ capture: { region: { auto_tools: ["OCR"] } } });
-  });
-
-  it("removes a tool and offers to register one from the actions page", async () => {
+  it("removes a tool from inside its section", async () => {
     const user = userEvent.setup();
     render(<Settings />);
     await openTab(user, "外部ツール");
 
-    await user.click(screen.getByRole("button", { name: "このツールを削除" }));
+    // 閉じていても名前とコマンドは見出しで読める
+    await user.click(screen.getByRole("button", { name: "ペイント mspaint.exe" }));
+    await user.click(within(screen.getByRole("region", { name: "ペイント" })).getByRole("button", { name: "このツールを削除" }));
     expect(screen.getByText("ツールが登録されていません。")).toBeInTheDocument();
-    await openTab(user, "アクション");
-    await user.click(within(screen.getByRole("region", { name: "全画面をキャプチャ" })).getByRole("button", { name: "外部ツールを登録" }));
-    expect(screen.getByRole("tab", { name: "外部ツール" })).toHaveAttribute("aria-selected", "true");
     await user.click(screen.getByRole("button", { name: "設定を保存" }));
 
     await screen.findByText("設定を保存しました");

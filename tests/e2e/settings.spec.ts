@@ -41,6 +41,7 @@ test.describe("settings", () => {
     await page.getByRole("combobox", { name: "初期表示" }).click();
     await page.getByRole("option", { name: "16:9 の窓に余白付きで開く" }).click();
     await page.getByRole("tab", { name: "アクション" }).click();
+    await page.getByRole("button", { name: /^ウィンドウをキャプチャ/ }).click();
     await page.getByRole("region", { name: "ウィンドウをキャプチャ" }).getByRole("combobox", { name: "クリップボードへコピー" }).click();
     await page.getByRole("option", { name: "しない" }).click();
     await page.getByRole("button", { name: "設定を保存" }).click();
@@ -54,7 +55,7 @@ test.describe("settings", () => {
     });
   });
 
-  test("records a shortcut and assigns an automatic tool to one capture mode", async ({ page }) => {
+  test("records a shortcut and turns on saving for one capture mode", async ({ page }) => {
     await installTauriMock(page, { label: "settings" });
     await page.goto("/");
 
@@ -62,14 +63,15 @@ test.describe("settings", () => {
     await page.keyboard.press("Control+Shift+KeyZ");
     await expect(page.getByText("Ctrl + Shift + Z")).toBeVisible();
     await page.getByRole("tab", { name: "アクション" }).click();
-    await page.getByRole("region", { name: "領域をキャプチャ" }).getByRole("button", { name: "ペイント" }).click();
+    await page.getByRole("button", { name: /^領域をキャプチャ/ }).click();
+    await page.getByRole("region", { name: "領域をキャプチャ" }).getByRole("switch", { name: "自動で画像を保存する" }).click();
     await page.getByRole("button", { name: "設定を保存" }).click();
 
     await expect(page.getByText("設定を保存しました")).toBeVisible();
     const save = (await calls(page)).find((c) => c.cmd === "save_config");
     expect(save?.args.config).toMatchObject({
       hotkeys: { region: ["Ctrl+PrintScreen", "Ctrl+Shift+Z"] },
-      capture: { region: { auto_tools: ["ペイント"] } },
+      capture: { region: { auto_save: true } },
     });
   });
 

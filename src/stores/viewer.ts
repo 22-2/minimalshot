@@ -74,7 +74,6 @@ export const useViewer = create<ViewerState>((set, get) => {
     openWith: async (tool) => {
       try {
         const outcome = await api.openShotWith(tool);
-        if (outcome === "skipped") return;
         set({ status: { tone: "info", text: t(outcome === "copied" ? "viewer.copiedOutput" : "viewer.opened") } });
       } catch (error) {
         set({ status: { tone: "error", text: errorMessage(error) } });

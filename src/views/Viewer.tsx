@@ -19,7 +19,7 @@ function completedActionLabels(actions: CompletedActions): string[] {
   if (actions.saved) labels.push(t("viewer.autoSaved"));
   if (actions.copied === "image") labels.push(t("viewer.autoCopiedImage"));
   if (actions.copied === "path") labels.push(t("viewer.autoCopiedPath"));
-  return [...labels, ...actions.tools];
+  return labels;
 }
 
 export function Viewer() {

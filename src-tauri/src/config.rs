@@ -57,7 +57,6 @@ pub enum AutoCopy {
 pub struct Capture {
     pub auto_save: bool,
     pub auto_copy: AutoCopy,
-    pub auto_tools: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub region: Option<CaptureOverride>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -74,15 +73,12 @@ pub struct CaptureOverride {
     pub auto_save: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub auto_copy: Option<AutoCopy>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub auto_tools: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CaptureActions {
     pub auto_save: bool,
     pub auto_copy: AutoCopy,
-    pub auto_tools: Vec<String>,
 }
 
 impl Capture {
@@ -101,10 +97,6 @@ impl Capture {
                 .as_ref()
                 .and_then(|v| v.auto_copy)
                 .unwrap_or(self.auto_copy),
-            auto_tools: override_
-                .as_ref()
-                .and_then(|v| v.auto_tools.clone())
-                .unwrap_or_else(|| self.auto_tools.clone()),
         }
     }
 }
@@ -332,6 +324,7 @@ copy_stdout = true
 
     #[test]
     fn mode_actions_inherit_only_unspecified_defaults() {
+        // 0.0.9 までの auto_tools は読み飛ばし、保存し直すと消える
         let config = Config::parse(
             r#"
 [capture]
@@ -349,11 +342,10 @@ auto_tools = []
             .actions_for(crate::state::CaptureKind::Region);
         assert!(region.auto_save);
         assert_eq!(region.auto_copy, AutoCopy::None);
-        assert!(region.auto_tools.is_empty());
         let window = config
             .capture
             .actions_for(crate::state::CaptureKind::Window);
-        assert_eq!(window.auto_tools, ["OCR"]);
+        assert_eq!(window.auto_copy, AutoCopy::Image);
         assert_eq!(Config::parse(&config.to_toml().unwrap()).unwrap(), config);
     }
 

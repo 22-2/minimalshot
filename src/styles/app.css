@@ -640,39 +640,6 @@ button {
   justify-self: start;
 }
 
-.setting-group {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-2);
-}
-
-.setting-group-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-.setting-group-header h3 {
-  min-width: 0;
-  margin: 0;
-  overflow: hidden;
-  font-size: var(--font-size-body);
-  font-weight: var(--font-weight-strong);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.setting-group-header .button {
-  flex: none;
-  margin-inline-end: calc(var(--space-2) * -1);
-}
-
-.setting-group-description {
-  margin-block-start: calc(var(--space-1) * -1);
-}
-
 /* 行の集まりだけを面で囲み、行どうしは細線で区切る */
 .setting-list {
   border-radius: var(--radius-medium);
@@ -732,46 +699,95 @@ button {
   color: var(--color-text-muted);
 }
 
-.chip-select {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+/* 開閉するまとまりは1件ずつ面にし、わずかな隙間で並べる */
+.setting-disclosure-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-1);
 }
 
-.chip {
-  display: inline-flex;
+.setting-disclosure {
+  border-radius: var(--radius-medium);
+  background: var(--color-surface-raised);
+}
+
+.setting-disclosure-heading {
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.setting-disclosure-trigger {
+  display: flex;
   align-items: center;
-  gap: var(--space-1);
-  height: var(--size-hotkey-chip);
-  padding-inline: var(--space-2);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-small);
-  background: var(--color-canvas);
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  border-radius: var(--radius-medium);
+  background: transparent;
+  text-align: start;
+}
+
+.setting-disclosure-trigger:hover {
+  background: var(--color-surface-hover);
+}
+
+/* 開いている間は下の行と面がつながるよう、下の角を丸めない */
+.setting-disclosure[data-open] .setting-disclosure-trigger {
+  border-end-start-radius: 0;
+  border-end-end-radius: 0;
+}
+
+.setting-disclosure-chevron {
+  flex: none;
+  width: var(--size-icon);
+  height: var(--size-icon);
+  stroke-width: var(--stroke-icon);
   color: var(--color-text-muted);
-  font-size: var(--font-size-menu);
+  transition: transform var(--duration-quick) var(--easing-standard);
+}
+
+.setting-disclosure[data-open] .setting-disclosure-chevron {
+  transform: rotate(90deg);
+}
+
+.setting-disclosure-title {
+  flex: none;
+  max-width: 60%;
+  overflow: hidden;
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.chip:hover:not(:disabled) {
-  border-color: var(--color-text-disabled);
-  color: var(--color-text);
+.setting-disclosure-summary {
+  min-width: 0;
+  margin-inline-start: auto;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.chip svg {
-  width: var(--size-titlebar-action-icon);
-  height: var(--size-titlebar-action-icon);
-  stroke-width: 2;
+.setting-disclosure-summary code {
+  font-family: var(--font-code);
+  font-size: var(--font-size-menu);
 }
 
-.chip[aria-pressed="true"] {
-  border-color: var(--color-accent);
-  background: var(--color-selection-fill);
-  color: var(--color-accent-strong);
+.setting-disclosure-panel {
+  border-block-start: var(--border-width) solid var(--color-hairline);
 }
 
-.chip:disabled {
-  color: var(--color-text-disabled);
+/* 削除などの取り消しにくい操作は、まとまりの最後に離して置く */
+.setting-item-actions {
+  justify-content: flex-end;
+  padding-block: var(--space-2);
+}
+
+.setting-item-actions .button {
+  margin-inline-end: calc(var(--space-2) * -1);
 }
 
 .text-input {
@@ -1015,7 +1031,8 @@ button {
     padding: var(--space-3);
   }
 
-  .setting-item {
+  .setting-item,
+  .setting-disclosure-trigger {
     padding-inline: var(--space-3);
   }
 

@@ -72,19 +72,6 @@ pub fn save_config(app: AppHandle, config: Config) -> AppResult<()> {
             )));
         }
     }
-    for actions in [
-        config.capture.actions_for(CaptureKind::Region),
-        config.capture.actions_for(CaptureKind::Window),
-        config.capture.actions_for(CaptureKind::Fullscreen),
-    ] {
-        for name in actions.auto_tools {
-            if !names.contains(&name) {
-                return Err(AppError::msg(format!(
-                    "自動実行する外部ツール「{name}」が見つかりません"
-                )));
-            }
-        }
-    }
     let previous_hotkeys = state.config().hotkeys;
     hotkeys::register(&app, &config.hotkeys)?;
     if let Err(error) = config.save(&state.config_path) {

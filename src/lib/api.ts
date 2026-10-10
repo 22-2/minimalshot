@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 export type AutoCopy = "none" | "image" | "path";
 export type ViewerLayout = "source" | "framed";
 export type CaptureKind = "region" | "window" | "fullscreen";
-export type CaptureActions = { auto_save: boolean; auto_copy: AutoCopy; auto_tools: string[] };
+export type CaptureActions = { auto_save: boolean; auto_copy: AutoCopy };
 export type CaptureOverride = Partial<CaptureActions>;
 
 /** Rust 側の `config::Config` と同じ形。 */
@@ -24,9 +24,9 @@ export type ExternalTool = {
 };
 
 /** 外部ツールを起動しただけか、出力をクリップボードへコピーしたか。 */
-export type ToolOutcome = "launched" | "copied" | "skipped";
+export type ToolOutcome = "launched" | "copied";
 
-export type CompletedActions = { saved: boolean; copied: AutoCopy | null; tools: string[] };
+export type CompletedActions = { saved: boolean; copied: AutoCopy | null };
 
 export type ShotInfo = {
   id: number;

@@ -1,7 +1,7 @@
-import { useId, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import * as Select from "@radix-ui/react-select";
 import * as Switch from "@radix-ui/react-switch";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronRight, ChevronsUpDown } from "lucide-react";
 
 /** 設定ページの見出しと説明。 */
 export function SettingPage(props: { title: string; description?: ReactNode; children: ReactNode }) {
@@ -16,20 +16,40 @@ export function SettingPage(props: { title: string; description?: ReactNode; chi
   );
 }
 
-/** 関連する設定行をひとつの面にまとめる。見出しの右には削除などの操作を置ける。 */
-export function SettingGroup(props: { title?: string; description?: ReactNode; actions?: ReactNode; children: ReactNode }) {
+/** 関連する設定行をひとつの面にまとめる。 */
+export function SettingGroup({ children }: { children: ReactNode }) {
+  return <div className="setting-list">{children}</div>;
+}
+
+/**
+ * 開閉できる設定のまとまり。閉じたままでも今の値を読めるよう、見出しの右に summary を置く。
+ * 同じ名前の行が並ぶまとまりどうしを読み上げでも区別できるよう、中身は見出しの名前を持つ region にする。
+ */
+export function SettingDisclosure(props: { title: string; summary?: ReactNode; defaultOpen?: boolean; children: ReactNode }) {
+  const [open, setOpen] = useState(props.defaultOpen ?? false);
   const titleId = useId();
+  const panelId = useId();
   return (
-    // 見出しで名前を付け、同じ名前の行が並ぶグループどうしを読み上げでも区別できるようにする
-    <section className="setting-group" aria-labelledby={props.title ? titleId : undefined}>
-      {(props.title || props.actions) && (
-        <header className="setting-group-header">
-          {props.title && <h3 id={titleId}>{props.title}</h3>}
-          {props.actions}
-        </header>
+    <section className="setting-disclosure" data-open={open || undefined}>
+      <h3 className="setting-disclosure-heading">
+        <button
+          type="button"
+          className="setting-disclosure-trigger"
+          aria-expanded={open}
+          aria-controls={open ? panelId : undefined}
+          onClick={() => setOpen(!open)}
+        >
+          <ChevronRight className="setting-disclosure-chevron" aria-hidden />
+          <span className="setting-disclosure-title" id={titleId}>{props.title}</span>
+          {/* 読み上げで名前と値がつながらないよう空白を挟む。flex の中なので見た目には影響しない */}
+          {props.summary && <>{" "}<span className="setting-disclosure-summary">{props.summary}</span></>}
+        </button>
+      </h3>
+      {open && (
+        <div id={panelId} className="setting-disclosure-panel" role="region" aria-labelledby={titleId}>
+          {props.children}
+        </div>
       )}
-      {props.description && <p className="setting-description setting-group-description">{props.description}</p>}
-      <div className="setting-list">{props.children}</div>
     </section>
   );
 }
@@ -124,35 +144,5 @@ export function Dropdown<T extends string>(props: ControlIds & {
         </Select.Content>
       </Select.Portal>
     </Select.Root>
-  );
-}
-
-/** 複数を同時に選べる短い選択肢。押すたびに選択を切り替える。 */
-export function ChipSelect(props: ControlIds & {
-  options: { value: string; label: string; disabled?: boolean }[];
-  selected: string[];
-  onChange: (selected: string[]) => void;
-}) {
-  return (
-    <div className="chip-select" role="group" aria-labelledby={props.labelId} aria-describedby={props.descriptionId}>
-      {props.options.map((option) => {
-        const pressed = props.selected.includes(option.value);
-        return (
-          <button
-            key={option.value}
-            type="button"
-            className="chip"
-            aria-pressed={pressed}
-            disabled={option.disabled}
-            onClick={() => props.onChange(pressed
-              ? props.selected.filter((value) => value !== option.value)
-              : [...props.selected, option.value])}
-          >
-            {pressed && <Check aria-hidden />}
-            {option.label}
-          </button>
-        );
-      })}
-    </div>
   );
 }

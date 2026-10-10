@@ -15,7 +15,7 @@ import {
 
 import { TitleBar } from "../components/TitleBar";
 import { HotkeyInput } from "../components/HotkeyInput";
-import { ChipSelect, Dropdown, SettingGroup, SettingItem, SettingNotice, SettingPage, TextInput, Toggle } from "../components/Setting";
+import { Dropdown, SettingDisclosure, SettingGroup, SettingItem, SettingNotice, SettingPage, TextInput, Toggle } from "../components/Setting";
 import type { AutoCopy, CaptureActions, CaptureKind, Config, ExternalTool, ViewerLayout } from "../lib/api";
 import { duplicatedHotkeys } from "../lib/hotkey";
 import { useSettings } from "../stores/settings";
@@ -149,58 +149,44 @@ function effectiveActions(draft: Config, kind: CaptureKind): CaptureActions {
   return {
     auto_save: override?.auto_save ?? draft.capture.auto_save,
     auto_copy: override?.auto_copy ?? draft.capture.auto_copy,
-    auto_tools: override?.auto_tools ?? draft.capture.auto_tools,
   };
 }
 
-function ModeActions(props: { draft: Config; kind: CaptureKind; title: string; update: Update; onOpenTools: () => void }) {
-  const { draft, kind } = props;
-  const actions = effectiveActions(draft, kind);
-  const tools = draft.external.tools;
+/** 閉じたままでも分かるよう、撮影直後に起きることを短く並べる。 */
+function actionsSummary(actions: CaptureActions): string {
+  const parts = [
+    { none: null, image: t("settings.summaryCopyImage"), path: t("settings.summaryCopyPath") }[actions.auto_copy],
+    actions.auto_save ? t("settings.summarySave") : null,
+  ].filter((part) => part !== null);
+  return parts.length > 0 ? parts.join("・") : t("settings.summaryNothing");
+}
+
+function ModeActions(props: { draft: Config; kind: CaptureKind; title: string; update: Update }) {
+  const actions = effectiveActions(props.draft, props.kind);
   // 画面には実際に適用される値を出し、触ったモードだけをモード別の設定として書き出す
   const change = <K extends keyof CaptureActions>(key: K, value: CaptureActions[K]) =>
-    props.update("capture", kind, { ...actions, [key]: value });
+    props.update("capture", props.kind, { ...actions, [key]: value });
 
   return (
-    <SettingGroup title={props.title}>
-      <SettingItem name={t("settings.autoSave")}>
-        {(ids) => <Toggle {...ids} checked={actions.auto_save} onChange={(v) => change("auto_save", v)} />}
-      </SettingItem>
+    <SettingDisclosure title={props.title} summary={actionsSummary(actions)}>
       <SettingItem name={t("settings.autoCopy")}>
         {(ids) => <Dropdown {...ids} value={actions.auto_copy} options={autoCopyOptions} onChange={(v) => change("auto_copy", v)} />}
       </SettingItem>
-      <SettingItem name={t("settings.autoTools")}>
-        {(ids) => tools.length === 0
-          ? (
-            <button type="button" className="button" onClick={props.onOpenTools}>
-              <SquareTerminal size={14} aria-hidden />
-              {t("settings.registerTools")}
-            </button>
-          )
-          : (
-            <ChipSelect
-              {...ids}
-              // 名前で選ぶので、名前の無いツールは選べない
-              options={tools.map((tool, index) => ({
-                value: tool.name,
-                label: tool.name || `${t("settings.untitledTool")} ${index + 1}`,
-                disabled: !tool.name.trim(),
-              }))}
-              selected={actions.auto_tools}
-              onChange={(selected) => change("auto_tools", selected)}
-            />
-          )}
+      <SettingItem name={t("settings.autoSave")}>
+        {(ids) => <Toggle {...ids} checked={actions.auto_save} onChange={(v) => change("auto_save", v)} />}
       </SettingItem>
-    </SettingGroup>
+    </SettingDisclosure>
   );
 }
 
-function ActionsPage(props: { draft: Config; update: Update; onOpenTools: () => void }) {
+function ActionsPage({ draft, update }: { draft: Config; update: Update }) {
   return (
-    <SettingPage title={t("settings.actions")} description={`${t("settings.actionsNote")}${t("settings.autoToolsNote")}`}>
-      {captureModes.map(({ kind, action }) => (
-        <ModeActions key={kind} draft={props.draft} kind={kind} title={action} update={props.update} onOpenTools={props.onOpenTools} />
-      ))}
+    <SettingPage title={t("settings.actions")} description={t("settings.actionsNote")}>
+      <div className="setting-disclosure-list">
+        {captureModes.map(({ kind, action }) => (
+          <ModeActions key={kind} draft={draft} kind={kind} title={action} update={update} />
+        ))}
+      </div>
     </SettingPage>
   );
 }
@@ -246,52 +232,60 @@ function ToolsPage({ tools, onChange }: { tools: ExternalTool[]; onChange: (tool
 
   return (
     <SettingPage title={t("settings.external")} description={t("settings.externalNote")}>
-      {tools.length === 0 && (
-        <SettingGroup>
-          <SettingNotice>{t("settings.noTools")}</SettingNotice>
-        </SettingGroup>
-      )}
-      {tools.map((tool, index) => (
-        <SettingGroup
-          key={index}
-          title={tool.name || `${t("settings.untitledTool")} ${index + 1}`}
-          actions={
-            <button
-              type="button"
-              className="button"
-              data-variant="danger"
-              onClick={() => onChange(tools.filter((_, i) => i !== index))}
-            >
-              <Trash2 size={14} aria-hidden />
-              {t("settings.removeTool")}
-            </button>
-          }
-        >
-          <SettingItem name={t("settings.toolName")}>
-            {(ids) => <TextInput {...ids} value={tool.name} onChange={(name) => edit(index, { name })} />}
-          </SettingItem>
-          <SettingItem name={t("settings.toolCommand")} stacked>
-            {(ids) => <TextInput {...ids} value={tool.command} onChange={(command) => edit(index, { command })} />}
-          </SettingItem>
-          <SettingItem name={t("settings.toolArgs")} stacked>
-            {(ids) => <TextInput {...ids} value={tool.args} onChange={(args) => edit(index, { args })} />}
-          </SettingItem>
-          <SettingItem name={t("settings.toolHideConsole")}>
-            {(ids) => (
-              <Toggle
-                {...ids}
-                // 出力を受け取るツールはコンソールを出さずに起動する
-                checked={tool.hide_console || tool.copy_stdout}
-                disabled={tool.copy_stdout}
-                onChange={(hide_console) => edit(index, { hide_console })}
-              />
-            )}
-          </SettingItem>
-          <SettingItem name={t("settings.toolCopyStdout")}>
-            {(ids) => <Toggle {...ids} checked={tool.copy_stdout} onChange={(copy_stdout) => edit(index, { copy_stdout })} />}
-          </SettingItem>
-        </SettingGroup>
-      ))}
+      {tools.length === 0
+        ? (
+          <SettingGroup>
+            <SettingNotice>{t("settings.noTools")}</SettingNotice>
+          </SettingGroup>
+        )
+        : (
+          <div className="setting-disclosure-list">
+            {tools.map((tool, index) => (
+              <SettingDisclosure
+                key={index}
+                title={tool.name || `${t("settings.untitledTool")} ${index + 1}`}
+                summary={tool.command && <code>{tool.command}</code>}
+                // 追加したばかりの空のツールは、すぐ入力できるよう開いておく
+                defaultOpen={!tool.name && !tool.command}
+              >
+                <SettingItem name={t("settings.toolName")}>
+                  {(ids) => <TextInput {...ids} value={tool.name} onChange={(name) => edit(index, { name })} />}
+                </SettingItem>
+                <SettingItem name={t("settings.toolCommand")} stacked>
+                  {(ids) => <TextInput {...ids} value={tool.command} onChange={(command) => edit(index, { command })} />}
+                </SettingItem>
+                <SettingItem name={t("settings.toolArgs")} stacked>
+                  {(ids) => <TextInput {...ids} value={tool.args} onChange={(args) => edit(index, { args })} />}
+                </SettingItem>
+                <SettingItem name={t("settings.toolHideConsole")}>
+                  {(ids) => (
+                    <Toggle
+                      {...ids}
+                      // 出力を受け取るツールはコンソールを出さずに起動する
+                      checked={tool.hide_console || tool.copy_stdout}
+                      disabled={tool.copy_stdout}
+                      onChange={(hide_console) => edit(index, { hide_console })}
+                    />
+                  )}
+                </SettingItem>
+                <SettingItem name={t("settings.toolCopyStdout")}>
+                  {(ids) => <Toggle {...ids} checked={tool.copy_stdout} onChange={(copy_stdout) => edit(index, { copy_stdout })} />}
+                </SettingItem>
+                <div className="setting-item setting-item-actions">
+                  <button
+                    type="button"
+                    className="button"
+                    data-variant="danger"
+                    onClick={() => onChange(tools.filter((_, i) => i !== index))}
+                  >
+                    <Trash2 size={14} aria-hidden />
+                    {t("settings.removeTool")}
+                  </button>
+                </div>
+              </SettingDisclosure>
+            ))}
+          </div>
+        )}
       <button
         type="button"
         className="button"
@@ -316,28 +310,6 @@ export function Settings() {
   const selectTab = (id: TabId) => {
     setTab(id);
     if (content.current) content.current.scrollTop = 0;
-  };
-
-  const changeTools = (tools: ExternalTool[]) => {
-    if (!draft) return;
-    const oldTools = draft.external.tools;
-    const renamed = new Map<string, string>();
-    if (tools.length === oldTools.length) {
-      oldTools.forEach((tool, index) => {
-        if (tool.name !== tools[index].name) renamed.set(tool.name, tools[index].name);
-      });
-    }
-    const keepNames = (names: string[]) => names
-      .map((name) => renamed.get(name) ?? name)
-      .filter((name) => tools.some((tool) => tool.name === name));
-    update("capture", "auto_tools", keepNames(draft.capture.auto_tools));
-    for (const { kind } of captureModes) {
-      const override = draft.capture[kind];
-      if (override?.auto_tools) {
-        update("capture", kind, { ...override, auto_tools: keepNames(override.auto_tools) });
-      }
-    }
-    update("external", "tools", tools);
   };
 
   useEffect(() => {
@@ -376,10 +348,10 @@ export function Settings() {
           {/* 各ページは同じ領域に描くので、パネルの id は選択中のタブに合わせて付け替える */}
           <div id={panelId(tab)} className="settings-panel" role="tabpanel" aria-labelledby={tabId(tab)}>
             {draft && tab === "hotkeys" && <HotkeysPage draft={draft} update={update} />}
-            {draft && tab === "actions" && <ActionsPage draft={draft} update={update} onOpenTools={() => selectTab("tools")} />}
+            {draft && tab === "actions" && <ActionsPage draft={draft} update={update} />}
             {draft && tab === "storage" && <StoragePage draft={draft} update={update} />}
             {draft && tab === "viewer" && <ViewerPage draft={draft} update={update} />}
-            {draft && tab === "tools" && <ToolsPage tools={draft.external.tools} onChange={changeTools} />}
+            {draft && tab === "tools" && <ToolsPage tools={draft.external.tools} onChange={(tools) => update("external", "tools", tools)} />}
           </div>
         </form>
       </div>

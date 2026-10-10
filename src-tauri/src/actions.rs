@@ -145,31 +145,6 @@ pub fn complete_capture(
         Ok(false) => {}
         Err(error) => errors.push(error.to_string()),
     }
-    if !actions.auto_tools.is_empty() {
-        let path = {
-            let shot = pending.shot.lock().unwrap();
-            tool_path_for_shot(id, &shot)
-        };
-        match path {
-            Ok(path) => {
-                for name in &actions.auto_tools {
-                    let Some(tool) = config.external.tools.iter().find(|tool| &tool.name == name)
-                    else {
-                        errors.push(format!("外部ツール「{name}」が見つかりません"));
-                        continue;
-                    };
-                    match run_tool(app, &path, tool, Some(id)) {
-                        Ok(_) => {
-                            completed.tools.push(name.clone());
-                            emit_completed_actions(app, label, &completed);
-                        }
-                        Err(error) => errors.push(error.to_string()),
-                    }
-                }
-            }
-            Err(error) => errors.push(error.to_string()),
-        }
-    }
     if errors.is_empty() {
         Ok(())
     } else {
@@ -181,7 +156,6 @@ pub fn complete_capture(
 struct CompletedActions {
     saved: bool,
     copied: Option<AutoCopy>,
-    tools: Vec<String>,
 }
 
 fn emit_completed_actions(app: &AppHandle, label: &str, completed: &CompletedActions) {
@@ -190,7 +164,7 @@ fn emit_completed_actions(app: &AppHandle, label: &str, completed: &CompletedAct
     }
 }
 
-/// OCR などの処理が遅れて完了しても、後の撮影結果のコピーを上書きしない。
+/// 保存などで遅れて完了しても、後の撮影結果のコピーを上書きしない。
 fn copy_in_capture_order(
     app: &AppHandle,
     id: u32,
@@ -280,7 +254,6 @@ fn tool_path_for_shot(id: u32, shot: &Shot) -> AppResult<PathBuf> {
 pub enum ToolOutcome {
     Launched,
     Copied,
-    Skipped,
 }
 
 pub fn open_with(app: &AppHandle, id: u32, tool_index: usize) -> AppResult<ToolOutcome> {
@@ -293,15 +266,10 @@ pub fn open_with(app: &AppHandle, id: u32, tool_index: usize) -> AppResult<ToolO
         .cloned()
         .ok_or_else(|| AppError::msg("外部ツールが見つかりません"))?;
     let path = path_for_tool(app, id)?;
-    run_tool(app, &path, &tool, None)
+    run_tool(&path, &tool)
 }
 
-fn run_tool(
-    app: &AppHandle,
-    path: &Path,
-    tool: &crate::config::ExternalTool,
-    auto_id: Option<u32>,
-) -> AppResult<ToolOutcome> {
+fn run_tool(path: &Path, tool: &crate::config::ExternalTool) -> AppResult<ToolOutcome> {
     let mut command = Command::new(tool.command.trim());
     command.args(external::build_args(&tool.args, path)?);
     // 出力を受け取る CLI にコンソールを出しても空の黒い窓が一瞬見えるだけなので、まとめて隠す
@@ -335,17 +303,7 @@ fn run_tool(
     if text.is_empty() {
         return Err(AppError::msg(format!("{} の出力が空でした", tool.name)));
     }
-    if let Some(auto_id) = auto_id {
-        let copied = copy_in_capture_order(app, auto_id, || {
-            Clipboard::new()?.set_text(text)?;
-            Ok(())
-        })?;
-        if !copied {
-            return Ok(ToolOutcome::Skipped);
-        }
-    } else {
-        Clipboard::new()?.set_text(text)?;
-    }
+    Clipboard::new()?.set_text(text)?;
     Ok(ToolOutcome::Copied)
 }
 
@@ -455,11 +413,10 @@ mod tests {
         let payload = CompletedActions {
             saved: true,
             copied: Some(AutoCopy::Image),
-            tools: vec!["OCR".into()],
         };
         assert_eq!(
             serde_json::to_value(payload).unwrap(),
-            serde_json::json!({ "saved": true, "copied": "image", "tools": ["OCR"] })
+            serde_json::json!({ "saved": true, "copied": "image" })
         );
     }
 }

@@ -79,17 +79,17 @@ test.describe("viewer", () => {
 
   test("briefly lists completed automatic capture actions", async ({ page }) => {
     await openViewer(page);
-    const emitActions = (payload: { saved: boolean; copied: "image" | "path" | null; tools: string[] }) =>
+    const emitActions = (payload: { saved: boolean; copied: "image" | "path" | null }) =>
       page.evaluate((actions) => {
         (window as unknown as { __emit: (event: string, payload: unknown) => void }).__emit("capture-actions", actions);
       }, payload);
 
-    await emitActions({ saved: true, copied: null, tools: [] });
+    await emitActions({ saved: true, copied: null });
     await expect(page.locator(".viewer-action-toast")).toHaveText("自動処理: 保存");
     await expect(page.locator(".viewer-action-toast")).toHaveCSS("background-color", "rgb(127, 184, 255)");
     await expect(page.locator(".viewer-action-toast")).toHaveCSS("color", "rgb(14, 23, 38)");
-    await emitActions({ saved: true, copied: "image", tools: ["OCR"] });
-    await expect(page.locator(".viewer-action-toast")).toHaveText("自動処理: 保存・画像コピー・OCR");
+    await emitActions({ saved: true, copied: "image" });
+    await expect(page.locator(".viewer-action-toast")).toHaveText("自動処理: 保存・画像コピー");
     await expect(page.locator(".viewer-action-toast")).toBeHidden({ timeout: 4000 });
   });
 
