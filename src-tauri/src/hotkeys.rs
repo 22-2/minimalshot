@@ -14,6 +14,7 @@ pub fn parse_hotkeys(hotkeys: &Hotkeys) -> AppResult<Vec<(Shortcut, CaptureKind)
         (&hotkeys.region, CaptureKind::Region),
         (&hotkeys.window, CaptureKind::Window),
         (&hotkeys.fullscreen, CaptureKind::Fullscreen),
+        (&hotkeys.desktop, CaptureKind::Desktop),
     ] {
         for text in texts.iter().filter(|text| !text.trim().is_empty()) {
             // ライブラリは大文字小文字を無視するが Win は別名として受け付けない。
@@ -107,6 +108,17 @@ mod tests {
             ..Hotkeys::default()
         };
         assert_eq!(parse_hotkeys(&hotkeys).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn parses_desktop_shortcut_as_a_separate_mode() {
+        let hotkeys = Hotkeys {
+            desktop: vec!["Ctrl+Alt+PrintScreen".into()],
+            ..Hotkeys::default()
+        };
+        let parsed = parse_hotkeys(&hotkeys).unwrap();
+        assert_eq!(parsed.len(), 4);
+        assert_eq!(parsed[3].1, CaptureKind::Desktop);
     }
 
     #[test]

@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+import { defaultConfig } from "../unit/fixtures";
 
 type MockOptions = {
   label: string;
@@ -18,7 +19,7 @@ export type Call = { cmd: string; args: Record<string, unknown> };
  * 呼ばれたコマンドは `window.__calls` に残し、テストから検証する。
  */
 export async function installTauriMock(page: Page, options: MockOptions) {
-  await page.addInitScript((opts: MockOptions) => {
+  await page.addInitScript(({ opts, defaults }: { opts: MockOptions; defaults: ReturnType<typeof defaultConfig> }) => {
     const calls: Call[] = [];
     const presentations: { session: unknown; imagesReady: boolean; settingsReady: boolean }[] = [];
     let savedPath: string | null = null;
@@ -39,7 +40,7 @@ export async function installTauriMock(page: Page, options: MockOptions) {
       }
     };
     const config = {
-      hotkeys: { region: ["Ctrl+PrintScreen"], window: ["Shift+PrintScreen"], fullscreen: ["Alt+PrintScreen"] },
+      hotkeys: { region: ["Ctrl+PrintScreen"], window: ["Shift+PrintScreen"], fullscreen: ["Alt+PrintScreen"], desktop: [] },
       capture: { auto_save: false, auto_copy: "image" },
       storage: { directory: "{pictures}/{appname}", format: "%Y-%m/%Y-%m-%d_%H-%M-%S.png" },
       viewer: { always_on_top: false, confirm_on_close: false, layout: "source" },
@@ -67,6 +68,7 @@ export async function installTauriMock(page: Page, options: MockOptions) {
 
     const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
       get_config: () => config,
+      get_default_config: () => defaults,
       open_config_folder: () => undefined,
       save_config: () => undefined,
       viewer_session: () => viewerSession,
@@ -146,7 +148,7 @@ export async function installTauriMock(page: Page, options: MockOptions) {
         },
       },
     });
-  }, options);
+  }, { opts: options, defaults: defaultConfig() });
 }
 
 export function calls(page: Page): Promise<Call[]> {

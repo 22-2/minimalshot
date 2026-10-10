@@ -24,6 +24,10 @@ pub fn start_capture(app: &AppHandle, kind: CaptureKind) -> AppResult<()> {
             let (x, y) = cursor(app)?;
             finish_capture(app, capture::monitor_at(x, y)?, None, kind)
         }
+        CaptureKind::Desktop => {
+            let (x, y) = cursor(app)?;
+            finish_capture(app, capture::desktop_at(x, y)?, None, kind)
+        }
         CaptureKind::Region => {
             // 選択中のオーバーレイを再撮影しない。初回の読み込み中も重複を避ける。
             if state.pending_region.lock().unwrap().is_some() {

@@ -42,6 +42,11 @@ pub fn get_config(state: State<'_, AppState>) -> Config {
 }
 
 #[tauri::command]
+pub fn get_default_config() -> Config {
+    Config::default()
+}
+
+#[tauri::command]
 pub fn open_config_folder(app: AppHandle) -> AppResult<()> {
     actions::open_config_folder(&app)
 }

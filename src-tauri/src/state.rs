@@ -16,6 +16,7 @@ pub enum CaptureKind {
     Region,
     Window,
     Fullscreen,
+    Desktop,
 }
 
 pub struct PendingRegion {

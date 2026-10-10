@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 export type AutoCopy = "none" | "image" | "path";
 export type ViewerLayout = "source" | "framed";
-export type CaptureKind = "region" | "window" | "fullscreen";
+export type CaptureKind = "region" | "window" | "fullscreen" | "desktop";
 export type CaptureActions = { auto_save: boolean; auto_copy: AutoCopy };
 export type CaptureOverride = Partial<CaptureActions>;
 
@@ -39,6 +39,7 @@ export type Rect = { x: number; y: number; width: number; height: number };
 
 export const api = {
   getConfig: () => invoke<Config>("get_config"),
+  getDefaultConfig: () => invoke<Config>("get_default_config"),
   openConfigFolder: () => invoke<void>("open_config_folder"),
   saveConfig: (config: Config) => invoke<void>("save_config", { config }),
   capture: (kind: CaptureKind) => invoke<void>("capture", { kind }),

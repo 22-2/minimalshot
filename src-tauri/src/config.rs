@@ -25,6 +25,8 @@ pub struct Hotkeys {
     pub window: Vec<String>,
     #[serde(deserialize_with = "one_or_many")]
     pub fullscreen: Vec<String>,
+    #[serde(deserialize_with = "one_or_many")]
+    pub desktop: Vec<String>,
 }
 
 fn one_or_many<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
@@ -63,6 +65,8 @@ pub struct Capture {
     pub window: Option<CaptureOverride>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fullscreen: Option<CaptureOverride>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub desktop: Option<CaptureOverride>,
 }
 
 /// モード別の指定項目だけを `[capture]` の既定値に上書きする。
@@ -87,6 +91,7 @@ impl Capture {
             crate::state::CaptureKind::Region => &self.region,
             crate::state::CaptureKind::Window => &self.window,
             crate::state::CaptureKind::Fullscreen => &self.fullscreen,
+            crate::state::CaptureKind::Desktop => &self.desktop,
         };
         CaptureActions {
             auto_save: override_
@@ -184,6 +189,7 @@ impl Default for Hotkeys {
             region: vec!["Ctrl+PrintScreen".into()],
             window: vec!["Shift+PrintScreen".into()],
             fullscreen: vec!["Alt+PrintScreen".into()],
+            desktop: Vec::new(),
         }
     }
 }
@@ -278,6 +284,30 @@ args = '"${file}"'
         assert!(!config.capture.auto_save);
         assert_eq!(config.external, External::default());
         assert_eq!(config.viewer.layout, ViewerLayout::Source);
+    }
+
+    #[test]
+    fn existing_display_shortcuts_are_preserved_when_desktop_is_added() {
+        let config = Config::parse("[hotkeys]\nfullscreen = [\"Ctrl+Alt+P\"]\n").unwrap();
+        assert_eq!(config.hotkeys.fullscreen, ["Ctrl+Alt+P"]);
+        assert!(config.hotkeys.desktop.is_empty());
+        assert_eq!(Config::parse(&config.to_toml().unwrap()).unwrap(), config);
+    }
+
+    #[test]
+    fn desktop_actions_are_independent_of_active_display_actions() {
+        let config =
+            Config::parse("[capture.desktop]\nauto_save = true\nauto_copy = \"none\"\n").unwrap();
+        let desktop = config
+            .capture
+            .actions_for(crate::state::CaptureKind::Desktop);
+        assert!(desktop.auto_save);
+        assert_eq!(desktop.auto_copy, AutoCopy::None);
+        let display = config
+            .capture
+            .actions_for(crate::state::CaptureKind::Fullscreen);
+        assert!(!display.auto_save);
+        assert_eq!(display.auto_copy, AutoCopy::Image);
     }
 
     #[test]
