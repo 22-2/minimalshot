@@ -11,6 +11,7 @@ import { useZoom } from "../lib/useZoom";
 import { useWindowReady } from "../lib/useWindowReady";
 import { api, errorMessage, type CompletedActions } from "../lib/api";
 import { isDevelopmentBuild } from "../lib/build";
+import { playCaptureSound } from "../lib/captureSound";
 import { openWithEntries, viewerMenu } from "../lib/viewerMenu";
 import { useViewer } from "../stores/viewer";
 import { t } from "../i18n";
@@ -37,9 +38,16 @@ export function Viewer() {
   const stageRef = useRef<HTMLElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const panFrom = useRef<{ x: number; y: number } | null>(null);
+  const sounded = useRef(false);
   const imageSize = useMemo(() => (info ? { width: info.width, height: info.height } : null), [info?.width, info?.height]);
   const zoom = useZoom(stageRef, imageRef, imageSize, layout);
   useWindowReady(session !== null && (imageReady || status?.tone === "error"));
+
+  useEffect(() => {
+    if (!imageReady || sounded.current) return;
+    sounded.current = true;
+    playCaptureSound();
+  }, [imageReady]);
 
   useEffect(() => {
     let disposed = false;
