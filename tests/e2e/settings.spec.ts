@@ -3,6 +3,55 @@ import { expect, test } from "@playwright/test";
 import { calls, installTauriMock } from "./tauri-mock";
 
 test.describe("settings", () => {
+  for (const width of [800, 395]) {
+    test(`stacks many shortcuts and keeps headers compact at ${width}px`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: 700 });
+      await installTauriMock(page, {
+        label: "settings",
+        config: {
+          hotkeys: {
+            region: ["Ctrl+PrintScreen", "Ctrl+A", "Ctrl+X", "Ctrl+V", "Ctrl+B", "Ctrl+Shift+Z"],
+            window: ["Shift+PrintScreen"], fullscreen: ["Alt+PrintScreen"], desktop: [],
+          },
+        },
+      });
+      await page.goto("/");
+      const header = page.getByRole("button", { name: "画像をコピー 領域をキャプチャ", exact: true });
+      await expect(page.locator(".setting-disclosure-heading kbd")).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "画像をコピー 全画面をキャプチャ", exact: true })).toBeVisible();
+      const icons = await header.locator(".summary-effects").boundingBox();
+      const title = await header.locator(".setting-disclosure-title").boundingBox();
+      expect(icons!.x + icons!.width).toBeLessThan(title!.x);
+      await header.click();
+      const panel = page.getByRole("region", { name: "領域をキャプチャ", exact: true });
+      const chips = await panel.locator(".hotkey-chip").all();
+      expect(chips).toHaveLength(6);
+      for (let index = 1; index < chips.length; index++) {
+        const previous = (await chips[index - 1].boundingBox())!;
+        const current = (await chips[index].boundingBox())!;
+        expect(current.y).toBeGreaterThanOrEqual(previous.y + previous.height);
+        expect(current.x).toBe(previous.x);
+      }
+      expect(await page.locator(".settings-content").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+      await page.screenshot({ path: testInfo.outputPath("shortcut-layout.png") });
+    });
+  }
+
+  test("configures shortcuts and actions for the entire desktop", async ({ page }) => {
+    await installTauriMock(page, { label: "settings" });
+    await page.goto("/");
+    await page.getByRole("button", { name: "画像をコピー 全画面をキャプチャ", exact: true }).click();
+    const panel = page.getByRole("region", { name: "全画面をキャプチャ", exact: true });
+    await expect(panel.getByText("未設定")).toBeVisible();
+    await panel.getByRole("button", { name: "全画面をキャプチャ: ショートカットを追加", exact: true }).click();
+    await page.keyboard.press("Control+Alt+KeyP");
+    await panel.getByRole("switch", { name: "自動で画像を保存する" }).click();
+    await expect.poll(async () => (await calls(page)).filter((call) => call.cmd === "save_config").at(-1)?.args.config).toMatchObject({
+      hotkeys: { desktop: ["Ctrl+Alt+P"], fullscreen: ["Alt+PrintScreen"] },
+      capture: { desktop: { auto_save: true, auto_copy: "image" } },
+    });
+  });
+
   test("opens the config folder without saving or discarding edits", async ({ page }) => {
     await installTauriMock(page, { label: "settings" });
     await page.goto("/");
@@ -41,7 +90,7 @@ test.describe("settings", () => {
     await page.getByRole("combobox", { name: "初期表示" }).click();
     await page.getByRole("option", { name: "16:9 の窓に余白付きで開く" }).click();
     await page.getByRole("tab", { name: "アクション" }).click();
-    await page.getByRole("button", { name: /^アクティブなウィンドウをキャプチャ / }).click();
+    await page.getByRole("button", { name: /アクティブなウィンドウをキャプチャ$/ }).click();
     await page.getByRole("region", { name: "アクティブなウィンドウをキャプチャ" }).getByRole("combobox", { name: "クリップボードへコピー" }).click();
     await page.getByRole("option", { name: "しない" }).click();
 
@@ -58,7 +107,7 @@ test.describe("settings", () => {
     await installTauriMock(page, { label: "settings" });
     await page.goto("/");
 
-    await page.getByRole("button", { name: /^領域をキャプチャ / }).click();
+    await page.getByRole("button", { name: /領域をキャプチャ$/ }).click();
     await page.getByRole("button", { name: "領域をキャプチャ: ショートカットを追加" }).click();
     await page.keyboard.press("Control+Shift+KeyZ");
     await expect(page.getByText("Ctrl + Shift + Z")).toBeVisible();

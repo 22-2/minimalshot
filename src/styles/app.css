@@ -598,6 +598,21 @@ button {
   color: var(--color-text);
 }
 
+.settings-nav-item[data-wrap] {
+  height: auto;
+  min-height: var(--size-settings-nav-item);
+  padding-block: var(--space-1);
+}
+
+.settings-nav-item[data-wrap] .settings-nav-label {
+  white-space: normal;
+}
+
+.settings-nav-item:disabled {
+  color: var(--color-text-disabled);
+  cursor: default;
+}
+
 .settings-nav-item[aria-selected="true"] {
   background: var(--color-surface-hover);
   color: var(--color-text);
@@ -647,12 +662,22 @@ button {
 }
 
 .setting-item {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2) var(--space-4);
   min-width: 0;
   padding: var(--space-3) var(--space-4);
+}
+
+.setting-item[data-modified]::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block: var(--space-3);
+  width: var(--size-setting-modified-marker);
+  background: var(--color-accent);
 }
 
 .setting-item + .setting-item {
@@ -762,6 +787,18 @@ button {
   white-space: nowrap;
 }
 
+.setting-disclosure-leading {
+  display: flex;
+  flex: none;
+  color: var(--color-text-muted);
+}
+
+.setting-disclosure-leading + .setting-disclosure-title {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+}
+
 .setting-disclosure-summary {
   display: flex;
   align-items: center;
@@ -810,12 +847,7 @@ button {
   color: var(--color-danger);
 }
 
-.mode-summary-more {
-  margin-inline-start: var(--space-1);
-  color: var(--color-text-muted);
-}
-
-/* アイコン2つ分の幅を取り、処理の数が違ってもチップの位置を揃える */
+/* アイコン2つ分の幅を取り、処理の数が違っても後続の表示位置を揃える */
 .summary-effects {
   display: flex;
   flex: none;
@@ -954,9 +986,8 @@ button {
 
 .hotkey-input {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
+  flex-direction: column;
+  align-items: flex-start;
   gap: var(--space-1);
 }
 

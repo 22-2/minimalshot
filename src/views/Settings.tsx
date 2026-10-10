@@ -11,6 +11,7 @@ import {
   Info,
   Link,
   Plus,
+  RotateCcw,
   Save,
   SquareTerminal,
   Trash2,
@@ -22,18 +23,19 @@ import { TitleBar } from "../components/TitleBar";
 import { HotkeyInput } from "../components/HotkeyInput";
 import { Dropdown, SettingDisclosure, SettingGroup, SettingItem, SettingNotice, SettingPage, TextInput, Toggle } from "../components/Setting";
 import type { AutoCopy, CaptureActions, CaptureKind, Config, ExternalTool, ViewerLayout } from "../lib/api";
-import { duplicatedHotkeys, formatHotkey, hotkeyIdentity } from "../lib/hotkey";
-import { useSettings } from "../stores/settings";
+import { duplicatedHotkeys } from "../lib/hotkey";
+import { useSettings, type ResetTarget } from "../stores/settings";
 import { useWindowReady } from "../lib/useWindowReady";
 import { t } from "../i18n";
 
-type TabId = "actions" | "storage" | "viewer" | "tools";
+type TabId = "actions" | "storage" | "viewer" | "tools" | "reset";
 type Tab = { id: TabId; label: string; icon: LucideIcon };
 
 const captureModes: { kind: CaptureKind; action: string }[] = [
   { kind: "region", action: t("tray.region") },
   { kind: "window", action: t("tray.window") },
   { kind: "fullscreen", action: t("tray.fullscreen") },
+  { kind: "desktop", action: t("tray.desktop") },
 ];
 
 // 見出しは置かず、余白だけでまとまりを分ける
@@ -44,6 +46,7 @@ const tabGroups: Tab[][] = [
     { id: "viewer", label: t("settings.viewer"), icon: Image },
     { id: "tools", label: t("settings.external"), icon: SquareTerminal },
   ],
+  [{ id: "reset", label: t("settings.reset"), icon: RotateCcw }],
 ];
 const tabs = tabGroups.flat();
 
@@ -61,7 +64,7 @@ const viewerLayoutOptions: { value: ViewerLayout; label: string }[] = [
 const tabId = (id: TabId) => `settings-tab-${id}`;
 const panelId = (id: TabId) => `settings-panel-${id}`;
 
-function SettingsTabs(props: { selected: TabId; onSelect: (id: TabId) => void; onOpenConfigFolder: () => void; onOpenAbout: () => void }) {
+function SettingsTabs(props: { selected: TabId; onSelect: (id: TabId) => void; onResetTab: () => void; resetDisabled: boolean; onOpenConfigFolder: () => void; onOpenAbout: () => void }) {
   const list = useRef<HTMLDivElement>(null);
 
   // WAI-ARIA の縦タブにならい、上下キーで選択を移す
@@ -105,6 +108,10 @@ function SettingsTabs(props: { selected: TabId; onSelect: (id: TabId) => void; o
       </div>
       {/* めったに使わない操作なので、タブの流れから離して末尾に置く */}
       <div className="settings-nav-group settings-nav-footer">
+        <button type="button" className="settings-nav-item" data-wrap title={t("settings.resetTab")} disabled={props.resetDisabled} onClick={props.onResetTab}>
+          <RotateCcw aria-hidden />
+          <span className="settings-nav-label">{t("settings.resetTab")}</span>
+        </button>
         <button type="button" className="settings-nav-item" title={t("settings.openConfigFolder")} onClick={props.onOpenConfigFolder}>
           <FolderOpen aria-hidden />
           <span className="settings-nav-label">{t("settings.openConfigFolder")}</span>
@@ -119,6 +126,7 @@ function SettingsTabs(props: { selected: TabId; onSelect: (id: TabId) => void; o
 }
 
 type Update = ReturnType<typeof useSettings.getState>["update"];
+type ConfigPageProps = { draft: Config; defaults: Config; update: Update };
 
 /** モードごとの上書きが無ければ、共通の既定値で動く。 */
 function effectiveActions(draft: Config, kind: CaptureKind): CaptureActions {
@@ -131,7 +139,7 @@ function effectiveActions(draft: Config, kind: CaptureKind): CaptureActions {
 
 type Effect = { label: string; icon: LucideIcon };
 
-/** 見出しの右端に、有効な処理をアイコンで並べる。名前はツールチップと読み上げで伝える。 */
+/** 有効な処理をアイコンで並べる。名前はツールチップと読み上げで伝える。 */
 function SummaryEffects({ effects }: { effects: Effect[] }) {
   return (
     <>
@@ -163,28 +171,11 @@ function actionEffects(actions: CaptureActions): Effect[] {
   return [copy, save].filter((effect) => effect !== null);
 }
 
-/** 閉じたままでも、どのキーで撮り、撮った後に何が起きるかを見分けられるようにする。 */
-function ModeSummary(props: { hotkeys: string[]; conflicts: Set<string>; actions: CaptureActions }) {
-  const [first, ...rest] = props.hotkeys.filter((value) => value.trim());
-  return (
-    <>
-      {first
-        ? (
-          // 2つ目以降は数だけをチップの中に添え、モードどうしでチップの右端を揃える
-          <span className="summary-chip" data-conflict={props.conflicts.has(hotkeyIdentity(first)) || undefined}>
-            <kbd>{formatHotkey(first)}</kbd>
-            {rest.length > 0 && <>{" "}<span className="mode-summary-more">+{rest.length}</span></>}
-          </span>
-        )
-        : <span className="summary-chip" data-empty>{t("settings.noHotkey")}</span>}
-      <SummaryEffects effects={actionEffects(props.actions)} />
-    </>
-  );
-}
-
-function CaptureModeSettings(props: { draft: Config; kind: CaptureKind; title: string; conflicts: Set<string>; update: Update }) {
+function CaptureModeSettings(props: ConfigPageProps & { kind: CaptureKind; title: string; conflicts: Set<string> }) {
   const actions = effectiveActions(props.draft, props.kind);
+  const defaultActions = effectiveActions(props.defaults, props.kind);
   const hotkeys = props.draft.hotkeys[props.kind];
+  const shortcutsChanged = JSON.stringify(hotkeys.filter((value) => value.trim())) !== JSON.stringify(props.defaults.hotkeys[props.kind]);
   // 画面には実際に適用される値を出し、触ったモードだけをモード別の設定として書き出す
   const change = <K extends keyof CaptureActions>(key: K, value: CaptureActions[K]) =>
     props.update("capture", props.kind, { ...actions, [key]: value });
@@ -192,9 +183,9 @@ function CaptureModeSettings(props: { draft: Config; kind: CaptureKind; title: s
   return (
     <SettingDisclosure
       title={props.title}
-      summary={<ModeSummary hotkeys={hotkeys} conflicts={props.conflicts} actions={actions} />}
+      leading={<SummaryEffects effects={actionEffects(actions)} />}
     >
-      <div className="setting-item">
+      <div className="setting-item" data-stacked data-modified={shortcutsChanged || undefined}>
         <div className="setting-info">
           <span className="setting-name">{t("settings.hotkeys")}</span>
         </div>
@@ -207,37 +198,37 @@ function CaptureModeSettings(props: { draft: Config; kind: CaptureKind; title: s
           />
         </div>
       </div>
-      <SettingItem name={t("settings.autoCopy")}>
+      <SettingItem name={t("settings.autoCopy")} modified={actions.auto_copy !== defaultActions.auto_copy}>
         {(ids) => <Dropdown {...ids} value={actions.auto_copy} options={autoCopyOptions} onChange={(v) => change("auto_copy", v)} />}
       </SettingItem>
-      <SettingItem name={t("settings.autoSave")}>
+      <SettingItem name={t("settings.autoSave")} modified={actions.auto_save !== defaultActions.auto_save}>
         {(ids) => <Toggle {...ids} checked={actions.auto_save} onChange={(v) => change("auto_save", v)} />}
       </SettingItem>
     </SettingDisclosure>
   );
 }
 
-function ActionsPage({ draft, update }: { draft: Config; update: Update }) {
+function ActionsPage({ draft, defaults, update }: ConfigPageProps) {
   const conflicts = duplicatedHotkeys(captureModes.map(({ kind }) => draft.hotkeys[kind]));
   return (
     <SettingPage title={t("settings.actions")} description={`${t("settings.actionsNote")}${t("settings.hotkeyNote")}`}>
       <div className="setting-disclosure-list">
         {captureModes.map(({ kind, action }) => (
-          <CaptureModeSettings key={kind} draft={draft} kind={kind} title={action} conflicts={conflicts} update={update} />
+          <CaptureModeSettings key={kind} draft={draft} defaults={defaults} kind={kind} title={action} conflicts={conflicts} update={update} />
         ))}
       </div>
     </SettingPage>
   );
 }
 
-function StoragePage({ draft, update }: { draft: Config; update: Update }) {
+function StoragePage({ draft, defaults, update }: ConfigPageProps) {
   return (
     <SettingPage title={t("settings.storage")}>
       <SettingGroup>
-        <SettingItem name={t("settings.directory")} description={t("settings.directoryNote")} stacked>
+        <SettingItem name={t("settings.directory")} description={t("settings.directoryNote")} stacked modified={draft.storage.directory !== defaults.storage.directory}>
           {(ids) => <TextInput {...ids} value={draft.storage.directory} onChange={(v) => update("storage", "directory", v)} />}
         </SettingItem>
-        <SettingItem name={t("settings.format")} description={t("settings.formatNote")} stacked>
+        <SettingItem name={t("settings.format")} description={t("settings.formatNote")} stacked modified={draft.storage.format !== defaults.storage.format}>
           {(ids) => <TextInput {...ids} value={draft.storage.format} onChange={(v) => update("storage", "format", v)} />}
         </SettingItem>
       </SettingGroup>
@@ -245,19 +236,19 @@ function StoragePage({ draft, update }: { draft: Config; update: Update }) {
   );
 }
 
-function ViewerPage({ draft, update }: { draft: Config; update: Update }) {
+function ViewerPage({ draft, defaults, update }: ConfigPageProps) {
   return (
     <SettingPage title={t("settings.viewer")}>
       <SettingGroup>
-        <SettingItem name={t("settings.viewerLayout")} description={t("settings.viewerLayoutNote")}>
+        <SettingItem name={t("settings.viewerLayout")} description={t("settings.viewerLayoutNote")} modified={draft.viewer.layout !== defaults.viewer.layout}>
           {(ids) => (
             <Dropdown {...ids} value={draft.viewer.layout} options={viewerLayoutOptions} onChange={(v) => update("viewer", "layout", v)} />
           )}
         </SettingItem>
-        <SettingItem name={t("settings.alwaysOnTop")}>
+        <SettingItem name={t("settings.alwaysOnTop")} modified={draft.viewer.always_on_top !== defaults.viewer.always_on_top}>
           {(ids) => <Toggle {...ids} checked={draft.viewer.always_on_top} onChange={(v) => update("viewer", "always_on_top", v)} />}
         </SettingItem>
-        <SettingItem name={t("settings.confirmOnClose")}>
+        <SettingItem name={t("settings.confirmOnClose")} modified={draft.viewer.confirm_on_close !== defaults.viewer.confirm_on_close}>
           {(ids) => <Toggle {...ids} checked={draft.viewer.confirm_on_close} onChange={(v) => update("viewer", "confirm_on_close", v)} />}
         </SettingItem>
       </SettingGroup>
@@ -289,7 +280,7 @@ function ToolSummary({ tool }: { tool: ExternalTool }) {
   );
 }
 
-function ToolsPage({ tools, onChange }: { tools: ExternalTool[]; onChange: (tools: ExternalTool[]) => void }) {
+function ToolsPage({ tools, defaults, onChange }: { tools: ExternalTool[]; defaults: ExternalTool[]; onChange: (tools: ExternalTool[]) => void }) {
   const edit = (index: number, patch: Partial<ExternalTool>) =>
     onChange(tools.map((tool, i) => (i === index ? { ...tool, ...patch } : tool)));
 
@@ -311,16 +302,16 @@ function ToolsPage({ tools, onChange }: { tools: ExternalTool[]; onChange: (tool
                 // 追加したばかりの空のツールは、すぐ入力できるよう開いておく
                 defaultOpen={!tool.name && !tool.command}
               >
-                <SettingItem name={t("settings.toolName")}>
+                <SettingItem name={t("settings.toolName")} modified={tool.name !== defaults[index]?.name}>
                   {(ids) => <TextInput {...ids} value={tool.name} onChange={(name) => edit(index, { name })} />}
                 </SettingItem>
-                <SettingItem name={t("settings.toolCommand")} stacked>
+                <SettingItem name={t("settings.toolCommand")} stacked modified={tool.command !== defaults[index]?.command}>
                   {(ids) => <TextInput {...ids} value={tool.command} onChange={(command) => edit(index, { command })} />}
                 </SettingItem>
-                <SettingItem name={t("settings.toolArgs")} stacked>
+                <SettingItem name={t("settings.toolArgs")} stacked modified={tool.args !== defaults[index]?.args}>
                   {(ids) => <TextInput {...ids} value={tool.args} onChange={(args) => edit(index, { args })} />}
                 </SettingItem>
-                <SettingItem name={t("settings.toolHideConsole")}>
+                <SettingItem name={t("settings.toolHideConsole")} modified={(tool.hide_console || tool.copy_stdout) !== (defaults[index] && (defaults[index].hide_console || defaults[index].copy_stdout))}>
                   {(ids) => (
                     <Toggle
                       {...ids}
@@ -331,7 +322,7 @@ function ToolsPage({ tools, onChange }: { tools: ExternalTool[]; onChange: (tool
                     />
                   )}
                 </SettingItem>
-                <SettingItem name={t("settings.toolCopyStdout")}>
+                <SettingItem name={t("settings.toolCopyStdout")} modified={tool.copy_stdout !== defaults[index]?.copy_stdout}>
                   {(ids) => <Toggle {...ids} checked={tool.copy_stdout} onChange={(copy_stdout) => edit(index, { copy_stdout })} />}
                 </SettingItem>
                 <div className="setting-item setting-item-actions">
@@ -364,15 +355,26 @@ function ToolsPage({ tools, onChange }: { tools: ExternalTool[]; onChange: (tool
 }
 
 export function Settings() {
-  const { draft, status, load, openConfigFolder, openAbout, update, flush } = useSettings();
+  const { draft, defaults, status, load, openConfigFolder, openAbout, update, flush, reset } = useSettings();
   const [presentation, setPresentation] = useState(0);
   const [tab, setTab] = useState<TabId>("actions");
+  const [resetting, setResetting] = useState(false);
   const content = useRef<HTMLDivElement>(null);
   useWindowReady(presentation > 0, presentation);
 
   const selectTab = (id: TabId) => {
     setTab(id);
     if (content.current) content.current.scrollTop = 0;
+  };
+
+  const resetSettings = async (target: ResetTarget) => {
+    setResetting(true);
+    try {
+      await reset(target);
+      if (content.current) content.current.scrollTop = 0;
+    } finally {
+      setResetting(false);
+    }
   };
 
   useEffect(() => {
@@ -400,16 +402,26 @@ export function Settings() {
         <SettingsTabs
           selected={tab}
           onSelect={selectTab}
+          onResetTab={() => { if (tab !== "reset") void resetSettings(tab); }}
+          resetDisabled={!draft || resetting || tab === "reset"}
           onOpenConfigFolder={() => void openConfigFolder()}
           onOpenAbout={() => void openAbout()}
         />
         <div ref={content} className="settings-content">
           {/* 各ページは同じ領域に描くので、パネルの id は選択中のタブに合わせて付け替える */}
           <div id={panelId(tab)} className="settings-panel" role="tabpanel" aria-labelledby={tabId(tab)}>
-            {draft && tab === "actions" && <ActionsPage draft={draft} update={update} />}
-            {draft && tab === "storage" && <StoragePage draft={draft} update={update} />}
-            {draft && tab === "viewer" && <ViewerPage draft={draft} update={update} />}
-            {draft && tab === "tools" && <ToolsPage tools={draft.external.tools} onChange={(tools) => update("external", "tools", tools)} />}
+            {draft && defaults && tab === "actions" && <ActionsPage draft={draft} defaults={defaults} update={update} />}
+            {draft && defaults && tab === "storage" && <StoragePage draft={draft} defaults={defaults} update={update} />}
+            {draft && defaults && tab === "viewer" && <ViewerPage draft={draft} defaults={defaults} update={update} />}
+            {draft && defaults && tab === "tools" && <ToolsPage tools={draft.external.tools} defaults={defaults.external.tools} onChange={(tools) => update("external", "tools", tools)} />}
+            {draft && tab === "reset" && (
+              <SettingPage title={t("settings.reset")} description={t("settings.resetAllNote")}>
+                <button type="button" className="button" data-variant="danger" disabled={resetting} onClick={() => void resetSettings("all")}>
+                  <RotateCcw size={14} aria-hidden />
+                  {t("settings.resetAll")}
+                </button>
+              </SettingPage>
+            )}
           </div>
         </div>
       </div>

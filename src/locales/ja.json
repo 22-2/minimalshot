@@ -60,6 +60,10 @@
   },
   "settings": {
     "title": "設定",
+    "reset": "初期化",
+    "resetTab": "このタブをデフォルトに戻す",
+    "resetAll": "すべてをデフォルトに戻す",
+    "resetAllNote": "ショートカット、撮影後の処理、保存先、ビューア、外部ツールをすべて初期設定に戻して保存します。保存済みの画像は残ります。",
     "openConfigFolder": "設定フォルダを開く",
     "openedConfigFolder": "設定フォルダを開きました",
     "openConfigFolderFailed": "設定フォルダを開けませんでした",

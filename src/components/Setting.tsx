@@ -25,7 +25,7 @@ export function SettingGroup({ children }: { children: ReactNode }) {
  * 開閉できる設定のまとまり。閉じたままでも今の値を読めるよう、見出しの右に summary を置く。
  * 同じ名前の行が並ぶまとまりどうしを読み上げでも区別できるよう、中身は見出しの名前を持つ region にする。
  */
-export function SettingDisclosure(props: { title: string; summary?: ReactNode; defaultOpen?: boolean; children: ReactNode }) {
+export function SettingDisclosure(props: { title: string; leading?: ReactNode; summary?: ReactNode; defaultOpen?: boolean; children: ReactNode }) {
   const [open, setOpen] = useState(props.defaultOpen ?? false);
   const titleId = useId();
   const panelId = useId();
@@ -40,6 +40,7 @@ export function SettingDisclosure(props: { title: string; summary?: ReactNode; d
           onClick={() => setOpen(!open)}
         >
           <ChevronRight className="setting-disclosure-chevron" aria-hidden />
+          {props.leading && <><span className="setting-disclosure-leading">{props.leading}</span>{" "}</>}
           <span className="setting-disclosure-title" id={titleId}>{props.title}</span>
           {/* 読み上げで名前と値がつながらないよう空白を挟む。flex の中なので見た目には影響しない */}
           {props.summary && <>{" "}<span className="setting-disclosure-summary">{props.summary}</span></>}
@@ -65,6 +66,7 @@ export function SettingItem(props: {
   name: ReactNode;
   description?: ReactNode;
   stacked?: boolean;
+  modified?: boolean;
   children: (ids: ControlIds) => ReactNode;
 }) {
   const id = useId();
@@ -72,7 +74,7 @@ export function SettingItem(props: {
   const descriptionId = useId();
   const ids = { id, labelId, descriptionId: props.description ? descriptionId : undefined };
   return (
-    <div className="setting-item" data-stacked={props.stacked || undefined}>
+    <div className="setting-item" data-stacked={props.stacked || undefined} data-modified={props.modified || undefined}>
       <div className="setting-info">
         <label className="setting-name" id={labelId} htmlFor={id}>{props.name}</label>
         {props.description && <p className="setting-description" id={descriptionId}>{props.description}</p>}

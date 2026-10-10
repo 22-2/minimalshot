@@ -4,13 +4,16 @@ import { api, errorMessage, type Config } from "../lib/api";
 import { t } from "../i18n";
 
 type Status = { tone: "info" | "error"; text: string } | null;
+export type ResetTarget = "actions" | "storage" | "viewer" | "tools" | "all";
 
 type SettingsState = {
   draft: Config | null;
+  defaults: Config | null;
   status: Status;
   load: () => Promise<void>;
   openConfigFolder: () => Promise<void>;
   openAbout: () => Promise<void>;
+  reset: (target: ResetTarget) => Promise<void>;
   update: <S extends keyof Config, K extends keyof Config[S]>(
     section: S,
     key: K,
@@ -61,13 +64,15 @@ export const useSettings = create<SettingsState>((set, get) => {
 
   return {
     draft: null,
+    defaults: null,
     status: null,
 
     load: async () => {
       await flush();
-      set({ draft: null, status: null });
+      set({ draft: null, defaults: null, status: null });
       try {
-        set({ draft: await api.getConfig(), status: null });
+        const [draft, defaults] = await Promise.all([api.getConfig(), api.getDefaultConfig()]);
+        set({ draft, defaults, status: null });
       } catch (error) {
         set({ status: { tone: "error", text: `${t("settings.loadFailed")}: ${errorMessage(error)}` } });
       }
@@ -85,6 +90,27 @@ export const useSettings = create<SettingsState>((set, get) => {
     openAbout: async () => {
       try {
         await api.openAbout();
+      } catch (error) {
+        set({ status: { tone: "error", text: errorMessage(error) } });
+      }
+    },
+
+    reset: async (target) => {
+      try {
+        const defaults = await api.getDefaultConfig();
+        const draft = get().draft;
+        if (!draft) return;
+        const sections: Record<Exclude<ResetTarget, "all">, Partial<Config>> = {
+          actions: { hotkeys: defaults.hotkeys, capture: defaults.capture },
+          storage: { storage: defaults.storage },
+          viewer: { viewer: defaults.viewer },
+          tools: { external: defaults.external },
+        };
+        // タブ内の上書きも取り除き、他のタブで編集中の値は残す。
+        set({ draft: target === "all" ? defaults : { ...draft, ...sections[target] } });
+        clearTimeout(timer);
+        timer = undefined;
+        await save();
       } catch (error) {
         set({ status: { tone: "error", text: errorMessage(error) } });
       }
