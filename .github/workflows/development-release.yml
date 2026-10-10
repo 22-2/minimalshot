@@ -44,7 +44,7 @@ jobs:
           workspaces: src-tauri
           shared-key: release
       - run: pnpm install --frozen-lockfile
-      - run: pnpm tauri build --no-bundle
+      - run: pnpm tauri build --no-bundle --features devtools
       - name: Update development release
         shell: bash
         env:

@@ -10,6 +10,7 @@ import { TitleBar } from "../components/TitleBar";
 import { useZoom } from "../lib/useZoom";
 import { useWindowReady } from "../lib/useWindowReady";
 import { api, errorMessage, type CompletedActions } from "../lib/api";
+import { isDevelopmentBuild } from "../lib/build";
 import { openWithEntries, viewerMenu } from "../lib/viewerMenu";
 import { useViewer } from "../stores/viewer";
 import { t } from "../i18n";
@@ -186,6 +187,10 @@ export function Viewer() {
             onPointerMove={onPointerMove}
             onPointerUp={() => (panFrom.current = null)}
             onDoubleClick={() => zoom.fit()}
+            onContextMenuCapture={(event) => {
+              // 開発版では Shift+右クリックで WebView 既定のメニューを出し、「検証」から devtools を開けるようにする
+              if (isDevelopmentBuild && event.shiftKey) event.stopPropagation();
+            }}
           >
             {imageUrl ? (
               <img

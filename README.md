@@ -102,6 +102,7 @@ UI の文言は `src/locales/ja.json` にまとめ、Rust 側（トレイメニ�
 
 `develop` に push すると CI が走り、すべて成功したコミットを Development release ワークフローがビルドして公開します。バージョン番号の更新や手動リリース操作は不要です。
 開発版の「このアプリについて」には、ビルド開始時の日時を日本時間で表示します。
+開発版は `devtools` 機能付きでビルドするため、右クリックメニューの「検証」から開発者ツールを開けます。ビューアでは Shift+右クリックで既定のメニューを出します。
 
 - [開発版をダウンロード](https://github.com/22-2/minimalshot/releases/download/v0.0.0-dev/MinimalShot_dev_x64.exe)
 - [開発版の詳細・ビルド元コミット](https://github.com/22-2/minimalshot/releases/tag/v0.0.0-dev)

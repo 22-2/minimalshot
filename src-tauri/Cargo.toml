@@ -11,6 +11,8 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [features]
 native-ui-test = []
+# 開発版の配布 exe だけで有効にし、既定の右クリックメニューの「検証」から devtools を開けるようにする
+devtools = ["tauri/devtools"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
