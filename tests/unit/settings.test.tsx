@@ -65,6 +65,7 @@ describe("Settings", () => {
       external: {
         tools: [
           { name: "ペイント", command: "paint.net", args: '"${file}"', hide_console: false, copy_stdout: false },
+          defaultConfig().external.tools[1],
           { name: "GIMP", command: "gimp.exe", args: '"${file}"', hide_console: false, copy_stdout: true },
         ],
       },
@@ -133,9 +134,9 @@ describe("Settings", () => {
     await user.click(screen.getByRole("button", { name: "ペイント mspaint.exe" }));
     expect(screen.queryByRole("button", { name: "設定を保存" })).not.toBeInTheDocument();
     await user.click(within(screen.getByRole("region", { name: "ペイント" })).getByRole("button", { name: "このツールを削除" }));
-    expect(screen.getByText("ツールが登録されていません。")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /文字認識してメモ帳で開く powershell.exe/ })).toBeInTheDocument();
 
-    await expectSaved({ external: { tools: [] } });
+    await expectSaved({ external: { tools: [defaultConfig().external.tools[1]] } });
   });
 
   it("writes pending changes before the window closes", async () => {

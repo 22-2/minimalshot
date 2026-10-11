@@ -102,7 +102,7 @@
     "waitingForTool": "外部ツールの名前とコマンドを入力すると保存します",
     "noCommand": "コマンド未設定",
     "loadFailed": "設定を読み込めませんでした",
-    "externalNote": "引数では ${file}（画像のフルパス）、${fileDirname}、${fileBasename}、${fileBasenameNoExtension}、${fileExtname} が使えます。空白を含む引数は \"\" で囲みます。「標準出力をコピー」をオンにすると、終了を待って標準出力をクリップボードへコピーします（例: tesseract.exe に \"${file}\" stdout -l jpn+eng）。",
+    "externalNote": "引数では ${file}（画像のフルパス）、${fileDirname}、${fileBasename}、${fileBasenameNoExtension}、${fileExtname}、${configDirname}（設定フォルダ）が使えます。空白を含む引数は \"\" で囲みます。「文字認識してメモ帳で開く」には Tesseract と日本語・英語の認識データが必要です。「標準出力をコピー」をオンにすると、終了を待って標準出力をクリップボードへコピーします。",
     "toolName": "名前",
     "toolCommand": "コマンド",
     "toolArgs": "引数",

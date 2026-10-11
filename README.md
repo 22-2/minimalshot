@@ -65,7 +65,7 @@ always_on_top = false
 confirm_on_close = false
 
 # 「外部ツールで開く」に並ぶツール。args では次の変数が使えます:
-# ${file} ${fileDirname} ${fileBasename} ${fileBasenameNoExtension} ${fileExtname}
+# ${file} ${fileDirname} ${fileBasename} ${fileBasenameNoExtension} ${fileExtname} ${configDirname}
 [[external.tools]]
 name = "ペイント"
 command = "mspaint.exe"
@@ -73,7 +73,15 @@ args = '"${file}"'
 hide_console = false # true でコンソールウィンドウを出さない
 copy_stdout = false  # true で終了を待ち、標準出力をクリップボードへコピー
 
-# 例: Tesseract で文字認識して結果をコピー
+# 初期設定の文字認識。Tesseract と jpn / eng の認識データを別途インストール
+[[external.tools]]
+name = "文字認識してメモ帳で開く"
+command = "powershell.exe"
+args = '-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "${configDirname}/ocr.ps1" -ImagePath "${file}" -Scale 3 -PageSegmentationMode 3'
+hide_console = true
+copy_stdout = false
+
+# 別の登録例: Tesseract で文字認識して結果をコピー（拡大処理なし）
 [[external.tools]]
 name = "文字認識"
 command = 'C:\Program Files\Tesseract-OCR\tesseract.exe'
@@ -82,6 +90,10 @@ copy_stdout = true
 ```
 
 `[capture.region]`、`[capture.window]`、`[capture.fullscreen]` でモードごとに既定動作を上書きできます。外部ツールは撮影後にビューアの「外部ツールで開く」から選んで実行します。ホットキーは `Win` / `Windows` を修飾キーとして使え、大文字小文字を区別しません。以前の単一文字列形式も読み込めます。0.0.3 までの `[external] editor = "..."` も読み込めます（ツール1件として扱います）。
+
+初期設定の「文字認識してメモ帳で開く」は、認識用の一時画像を3倍に拡大し、`jpn+eng`・`--oem 1`・`--psm 3` で認識して、画像と同じ場所の `.txt` をメモ帳で開きます。Tesseract と日本語・英語の認識データを別途インストールしてください。既定では `%ProgramFiles%\Tesseract-OCR\tesseract.exe` を使います。
+
+補助スクリプト `ocr.ps1` はアプリに同梱され、起動時に設定フォルダへ配置されます。`${configDirname}` はその設定フォルダを指します。Windows 標準の PowerShell で実行でき、PowerShell 7 の追加インストールは不要です。引数の `-Scale`（1〜4）で拡大率、`-PageSegmentationMode`（3・6・7・11）で認識モード、`-Languages` で言語、`-TesseractPath` で実行ファイルを変更できます。既存の外部ツール設定は保持され、「外部ツール」タブをデフォルトに戻すと、この初期設定に切り替わります。利用者が編集した既存の `ocr.ps1` も上書きしません。
 
 ## 開発
 

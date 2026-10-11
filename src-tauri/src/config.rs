@@ -206,13 +206,22 @@ impl Default for Storage {
 impl Default for External {
     fn default() -> Self {
         Self {
-            tools: vec![ExternalTool {
-                name: "ペイント".into(),
-                command: "mspaint.exe".into(),
-                args: default_args(),
-                hide_console: false,
-                copy_stdout: false,
-            }],
+            tools: vec![
+                ExternalTool {
+                    name: "ペイント".into(),
+                    command: "mspaint.exe".into(),
+                    args: default_args(),
+                    hide_console: false,
+                    copy_stdout: false,
+                },
+                ExternalTool {
+                    name: "文字認識してメモ帳で開く".into(),
+                    command: "powershell.exe".into(),
+                    args: r#"-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "${configDirname}/ocr.ps1" -ImagePath "${file}" -Scale 3 -PageSegmentationMode 3"#.into(),
+                    hide_console: true,
+                    copy_stdout: false,
+                },
+            ],
         }
     }
 }
@@ -273,6 +282,13 @@ confirm_on_close = false
 name = "ペイント"
 command = "mspaint.exe"
 args = '"${file}"'
+
+[[external.tools]]
+name = "文字認識してメモ帳で開く"
+command = "powershell.exe"
+args = '-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "${configDirname}/ocr.ps1" -ImagePath "${file}" -Scale 3 -PageSegmentationMode 3'
+hide_console = true
+copy_stdout = false
 "#;
         assert_eq!(Config::parse(text).unwrap(), Config::default());
     }
@@ -350,6 +366,22 @@ copy_stdout = true
     fn keeps_an_explicitly_empty_tool_list() {
         let config = Config::parse("[external]\ntools = []\n").unwrap();
         assert!(config.external.tools.is_empty());
+    }
+
+    #[test]
+    fn existing_tools_are_not_replaced_by_new_defaults() {
+        let config = Config::parse(
+            r#"
+[[external.tools]]
+name = "自分のツール"
+command = "custom.exe"
+args = '"${file}"'
+"#,
+        )
+        .unwrap();
+        assert_eq!(config.external.tools.len(), 1);
+        assert_eq!(config.external.tools[0].command, "custom.exe");
+        assert_eq!(Config::parse(&config.to_toml().unwrap()).unwrap(), config);
     }
 
     #[test]

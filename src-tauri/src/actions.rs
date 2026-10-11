@@ -270,12 +270,21 @@ pub fn open_with(app: &AppHandle, id: u32, tool_index: usize) -> AppResult<ToolO
         .cloned()
         .ok_or_else(|| AppError::msg("外部ツールが見つかりません"))?;
     let path = path_for_tool(app, id)?;
-    run_tool(&path, &tool)
+    let state = app.state::<AppState>();
+    let config_dir = state
+        .config_path
+        .parent()
+        .ok_or_else(|| AppError::msg("設定フォルダが見つかりません"))?;
+    run_tool(&path, &tool, config_dir)
 }
 
-fn run_tool(path: &Path, tool: &crate::config::ExternalTool) -> AppResult<ToolOutcome> {
+fn run_tool(
+    path: &Path,
+    tool: &crate::config::ExternalTool,
+    config_dir: &Path,
+) -> AppResult<ToolOutcome> {
     let mut command = Command::new(tool.command.trim());
-    command.args(external::build_args(&tool.args, path)?);
+    command.args(external::build_args(&tool.args, path, config_dir)?);
     // 出力を受け取る CLI にコンソールを出しても空の黒い窓が一瞬見えるだけなので、まとめて隠す
     if tool.hide_console || tool.copy_stdout {
         hide_console(&mut command);

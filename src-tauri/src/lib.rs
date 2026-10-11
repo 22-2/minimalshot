@@ -109,8 +109,10 @@ pub fn run() {
                 .build(),
         )
         .setup(|app| {
-            let config_path = app.path().app_config_dir()?.join("config.toml");
+            let config_dir = app.path().app_config_dir()?;
+            let config_path = config_dir.join("config.toml");
             let config = Config::load_or_create(&config_path)?;
+            external::prepare_ocr_script(&config_dir)?;
             let hotkeys = config.hotkeys.clone();
             app.manage(AppState::new(config, config_path));
             setup_tray(app.handle())?;
