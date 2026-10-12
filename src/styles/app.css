@@ -962,10 +962,28 @@ button {
 
 /* ---- ショートカット ---- */
 
+.hotkey-setting .setting-info {
+  flex: none;
+}
+
+.hotkey-setting .setting-control {
+  flex: 1 1 var(--size-setting-input);
+  min-width: 0;
+}
+
 .hotkey-input {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.hotkey-values {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
   gap: var(--space-1);
 }
 
@@ -973,7 +991,9 @@ button {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  height: var(--size-hotkey-chip);
+  min-width: 0;
+  max-width: 100%;
+  min-height: var(--size-hotkey-chip);
   padding-inline: var(--space-2) var(--space-1);
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-small);
@@ -984,8 +1004,11 @@ button {
 }
 
 .hotkey-chip kbd {
+  min-width: 0;
+  overflow-wrap: anywhere;
   font: inherit;
   font-weight: var(--font-weight-medium);
+  white-space: normal;
 }
 
 .hotkey-chip[data-empty] {
@@ -999,6 +1022,7 @@ button {
   padding-inline-end: var(--space-2);
   border-color: var(--color-accent);
   color: var(--color-accent);
+  white-space: normal;
 }
 
 .hotkey-chip[data-conflict] {
@@ -1009,6 +1033,7 @@ button {
 .hotkey-chip-remove {
   display: grid;
   place-items: center;
+  flex: none;
   width: var(--size-hotkey-remove);
   height: var(--size-hotkey-remove);
   padding: 0;

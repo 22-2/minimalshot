@@ -43,9 +43,9 @@ export function hotkeyIdentity(text: string) {
     .join("+");
 }
 
-/** 画面に出す表記。区切りの前後に空白を入れて読みやすくする（例: Ctrl + Shift + Z）。 */
+/** 設定欄に収まる短い表記（例: Ctrl+Shift+Z）。 */
 export function formatHotkey(text: string) {
-  return text.split("+").map((part) => part.trim()).join(" + ");
+  return text.split("+").map((part) => part.trim()).join("+");
 }
 
 /** 2か所以上に割り当てられているショートカットの識別値。 */

@@ -185,7 +185,7 @@ function CaptureModeSettings(props: ConfigPageProps & { kind: CaptureKind; title
       title={props.title}
       summary={<SummaryEffects effects={actionEffects(actions)} />}
     >
-      <div className="setting-item" data-stacked data-modified={shortcutsChanged || undefined}>
+      <div className="setting-item hotkey-setting" data-modified={shortcutsChanged || undefined}>
         <div className="setting-info">
           <span className="setting-name">{t("settings.hotkeys")}</span>
         </div>

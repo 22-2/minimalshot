@@ -3,8 +3,8 @@ import { expect, test } from "@playwright/test";
 import { calls, installTauriMock } from "./tauri-mock";
 
 test.describe("settings", () => {
-  for (const width of [800, 395]) {
-    test(`stacks many shortcuts and keeps headers compact at ${width}px`, async ({ page }, testInfo) => {
+  for (const width of [800, 395, 240]) {
+    test(`wraps shortcuts compactly and keeps controls inside at ${width}px`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width, height: 700 });
       await installTauriMock(page, {
         label: "settings",
@@ -33,12 +33,18 @@ test.describe("settings", () => {
       const panel = page.getByRole("region", { name: "領域をキャプチャ", exact: true });
       const chips = await panel.locator(".hotkey-chip").all();
       expect(chips).toHaveLength(6);
-      for (let index = 1; index < chips.length; index++) {
-        const previous = (await chips[index - 1].boundingBox())!;
-        const current = (await chips[index].boundingBox())!;
-        expect(current.y).toBeGreaterThanOrEqual(previous.y + previous.height);
-        expect(current.x).toBe(previous.x);
+      const chipBoxes = await Promise.all(chips.map((chip) => chip.boundingBox()));
+      const inputBox = (await panel.locator(".hotkey-input").boundingBox())!;
+      const addBox = (await panel.getByRole("button", { name: "領域をキャプチャ: ショートカットを追加", exact: true }).boundingBox())!;
+      for (const box of chipBoxes) {
+        expect(box!.x).toBeGreaterThanOrEqual(inputBox.x);
+        expect(box!.x + box!.width).toBeLessThanOrEqual(addBox.x);
       }
+      if (width === 800) {
+        expect(chipBoxes[1]!.y).toBe(chipBoxes[0]!.y);
+        expect(inputBox.height).toBeLessThan(80);
+      }
+      expect(addBox.x + addBox.width).toBeLessThanOrEqual(inputBox.x + inputBox.width);
       expect(await page.locator(".settings-content").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
       await page.screenshot({ path: testInfo.outputPath("shortcut-layout.png") });
     });
@@ -117,7 +123,7 @@ test.describe("settings", () => {
     await page.getByRole("button", { name: /^領域をキャプチャ / }).click();
     await page.getByRole("button", { name: "領域をキャプチャ: ショートカットを追加" }).click();
     await page.keyboard.press("Control+Shift+KeyZ");
-    await expect(page.getByText("Ctrl + Shift + Z")).toBeVisible();
+    await expect(page.getByText("Ctrl+Shift+Z")).toBeVisible();
     await page.getByRole("region", { name: "領域をキャプチャ" }).getByRole("switch", { name: "自動で画像を保存する" }).click();
 
     await expect.poll(async () => (await calls(page)).filter((c) => c.cmd === "save_config").at(-1)?.args.config).toMatchObject({

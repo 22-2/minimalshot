@@ -49,37 +49,39 @@ export function HotkeyInput(props: {
 
   return (
     <div className="hotkey-input">
-      {assigned.length === 0 && !recording && <span className="hotkey-chip" data-empty>{t("settings.noHotkey")}</span>}
-      {assigned.map(({ value, index }) => {
-        const conflict = props.conflicts.has(hotkeyIdentity(value));
-        return (
-          <span
-            key={index}
-            className="hotkey-chip"
-            data-conflict={conflict || undefined}
-            title={conflict ? t("settings.hotkeyConflict") : undefined}
-          >
-            <kbd>{formatHotkey(value)}</kbd>
-            <button
-              type="button"
-              className="hotkey-chip-remove"
-              aria-label={`${props.label}: ${t("settings.removeHotkey")} ${value}`}
-              onClick={() => props.onChange(props.values.filter((_, i) => i !== index))}
+      <div className="hotkey-values">
+        {assigned.length === 0 && !recording && <span className="hotkey-chip" data-empty>{t("settings.noHotkey")}</span>}
+        {assigned.map(({ value, index }) => {
+          const conflict = props.conflicts.has(hotkeyIdentity(value));
+          return (
+            <span
+              key={index}
+              className="hotkey-chip"
+              data-conflict={conflict || undefined}
+              title={conflict ? t("settings.hotkeyConflict") : undefined}
             >
-              <X aria-hidden />
-            </button>
-          </span>
-        );
-      })}
-      {recording && (
-        <HotkeyRecorder
-          onRecord={(hotkey) => {
-            setRecording(false);
-            props.onChange([...props.values.filter((value) => value.trim()), hotkey]);
-          }}
-          onCancel={() => setRecording(false)}
-        />
-      )}
+              <kbd>{formatHotkey(value)}</kbd>
+              <button
+                type="button"
+                className="hotkey-chip-remove"
+                aria-label={`${props.label}: ${t("settings.removeHotkey")} ${value}`}
+                onClick={() => props.onChange(props.values.filter((_, i) => i !== index))}
+              >
+                <X aria-hidden />
+              </button>
+            </span>
+          );
+        })}
+        {recording && (
+          <HotkeyRecorder
+            onRecord={(hotkey) => {
+              setRecording(false);
+              props.onChange([...props.values.filter((value) => value.trim()), hotkey]);
+            }}
+            onCancel={() => setRecording(false)}
+          />
+        )}
+      </div>
       <button
         type="button"
         className="button icon-button"

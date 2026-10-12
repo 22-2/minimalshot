@@ -101,7 +101,7 @@ describe("Settings", () => {
     // 修飾キーを伴わない入力は無視して、記録を続ける
     await user.keyboard("z");
     await user.keyboard("{Control>}{Shift>}z{/Shift}{/Control}");
-    expect(screen.getByText("Ctrl + Shift + Z")).toBeInTheDocument();
+    expect(screen.getByText("Ctrl+Shift+Z")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "アクティブなディスプレイをキャプチャ: ショートカットを削除 Alt+PrintScreen" }));
     expect(within(fullscreen).getByText("未設定")).toBeInTheDocument();
 
