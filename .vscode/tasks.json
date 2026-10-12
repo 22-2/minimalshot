@@ -10,13 +10,10 @@
         "-NoLogo",
         "-NoProfile",
         "-Command",
-        "pnpm readme:shots; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Invoke-Item -LiteralPath $env:README_SHOT_DIR"
+        "pnpm readme:shots --open; exit $LASTEXITCODE"
       ],
       "options": {
-        "cwd": "${workspaceFolder}",
-        "env": {
-          "README_SHOT_DIR": "${env:TEMP}\\minimalshot-readme-screenshots"
-        }
+        "cwd": "${workspaceFolder}"
       },
       "presentation": { "clear": true, "panel": "dedicated", "reveal": "always" },
       "problemMatcher": []

@@ -132,16 +132,16 @@ UI の文言は `src/locales/ja.json` にまとめ、Rust 側（トレイメニ�
 
 `pnpm readme:shots` で、設定一覧・歯車から開くモーダル・データタブ・ビューアをページから直接 PNG に撮影します。Playwright の Chromium が必要です（未導入なら `pnpm exec playwright install chromium`）。アプリ本体や実画面のキャプチャは使わず、サンプル設定・画像と Tauri IPC のモックで撮影するため、普段の設定やクリップボードには触れません。
 
-出力先は一時フォルダ内の `minimalshot-readme-screenshots` です。各 PNG のパスは実行時に表示されます。出力先を変更する場合は PowerShell で次のように指定します。
+出力先は一時フォルダ内の `minimalshot-readme-screenshots/run-*` です。実行ごとに新しいフォルダを作るため、前回の PNG を画像ビューアで開いたままでも上書きしません。各 PNG のパスは実行時に表示されます。保存先の親フォルダを変更する場合は PowerShell で次のように指定します。
 
 ```powershell
 $env:README_SHOT_DIR = "V:/tmp/minimalshot-readme"
 pnpm readme:shots
 ```
 
-スクリプトは `scripts/readme/readme-screenshots.spec.ts`、専用設定は `playwright.readme.config.ts` にあります。通常の E2E テストとは別に実行します。
+実行スクリプトは `scripts/readme/capture-screenshots.mjs`、撮影手順は `scripts/readme/readme-screenshots.spec.ts`、専用設定は `playwright.readme.config.ts` にあります。通常の E2E テストとは別に実行します。
 
-VS Code では「ターミナル → タスクの実行 → MinimalShot: Capture UI screenshots」から一括撮影できます。`.vscode/tasks.json` のタスクが開発サーバーの起動とページ撮影を行い、成功したら `%TEMP%\minimalshot-readme-screenshots` を開きます。
+VS Code では「ターミナル → タスクの実行 → MinimalShot: Capture UI screenshots」から一括撮影できます。`.vscode/tasks.json` のタスクが開発サーバーの起動とページ撮影を行い、成功したら今回の PNG を保存したフォルダを開きます。ターミナルから同じ操作をする場合は `pnpm readme:shots --open` を実行します。
 
 ## リリース
 

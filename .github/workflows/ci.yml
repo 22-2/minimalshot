@@ -48,6 +48,7 @@ jobs:
       - if: steps.playwright-cache.outputs.cache-hit == 'true' && runner.os == 'Linux'
         run: pnpm exec playwright install-deps chromium
       - run: pnpm test:e2e
+      - run: pnpm readme:shots
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
