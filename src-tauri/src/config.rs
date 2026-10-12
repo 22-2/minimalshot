@@ -61,6 +61,7 @@ pub enum AutoCopy {
 pub struct Capture {
     pub auto_save: bool,
     pub auto_copy: AutoCopy,
+    pub open_viewer: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub region: Option<CaptureOverride>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -78,6 +79,7 @@ impl Default for Capture {
         Self {
             auto_save: false,
             auto_copy: AutoCopy::Image,
+            open_viewer: true,
             region: None,
             window: None,
             fullscreen: None,
@@ -86,6 +88,7 @@ impl Default for Capture {
             clipboard: Some(CaptureOverride {
                 auto_save: Some(false),
                 auto_copy: Some(AutoCopy::None),
+                open_viewer: Some(true),
             }),
         }
     }
@@ -99,12 +102,15 @@ pub struct CaptureOverride {
     pub auto_save: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub auto_copy: Option<AutoCopy>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub open_viewer: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CaptureActions {
     pub auto_save: bool,
     pub auto_copy: AutoCopy,
+    pub open_viewer: bool,
 }
 
 impl Capture {
@@ -117,6 +123,10 @@ impl Capture {
             crate::state::CaptureKind::Clipboard => &self.clipboard,
         };
         CaptureActions {
+            open_viewer: override_
+                .as_ref()
+                .and_then(|v| v.open_viewer)
+                .unwrap_or(self.open_viewer),
             auto_save: override_
                 .as_ref()
                 .and_then(|v| v.auto_save)
@@ -322,8 +332,35 @@ copy_stdout = false
         let config = Config::parse("[capture]\nauto_copy = \"path\"\n").unwrap();
         assert_eq!(config.capture.auto_copy, AutoCopy::Path);
         assert!(!config.capture.auto_save);
+        assert!(config.capture.open_viewer);
         assert_eq!(config.external, External::default());
         assert_eq!(config.viewer.layout, ViewerLayout::Source);
+    }
+
+    #[test]
+    fn viewer_visibility_is_inherited_and_overridden_per_mode() {
+        let config =
+            Config::parse("[capture]\nopen_viewer = false\n[capture.region]\nopen_viewer = true\n")
+                .unwrap();
+        assert!(
+            config
+                .capture
+                .actions_for(crate::state::CaptureKind::Region)
+                .open_viewer
+        );
+        assert!(
+            !config
+                .capture
+                .actions_for(crate::state::CaptureKind::Window)
+                .open_viewer
+        );
+        assert!(
+            config
+                .capture
+                .actions_for(crate::state::CaptureKind::Clipboard)
+                .open_viewer
+        );
+        assert_eq!(Config::parse(&config.to_toml().unwrap()).unwrap(), config);
     }
 
     #[test]

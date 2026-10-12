@@ -3,7 +3,7 @@ import type { Config } from "../../src/lib/api";
 export function defaultConfig(): Config {
   return {
     hotkeys: { region: ["Ctrl+PrintScreen"], window: ["Shift+PrintScreen"], fullscreen: ["Alt+PrintScreen"], desktop: [], clipboard: [] },
-    capture: { auto_save: false, auto_copy: "image", clipboard: { auto_save: false, auto_copy: "none" } },
+    capture: { auto_save: false, auto_copy: "image", open_viewer: true, clipboard: { auto_save: false, auto_copy: "none", open_viewer: true } },
     storage: { directory: "{pictures}/{appname}", format: "%Y-%m/%Y-%m-%d_%H-%M-%S.png" },
     viewer: { always_on_top: false, confirm_on_close: false, layout: "source" },
     external: {

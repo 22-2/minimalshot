@@ -228,6 +228,7 @@ fn prewarmed_windows_display_captures_before_auto_save() {
             region_session,
             show_window,
             commands::get_config,
+            commands::take_capture_sounds,
             commands::prepare_region,
             commands::shot_info,
             commands::shot_png,
@@ -394,6 +395,46 @@ fn prewarmed_windows_display_captures_before_auto_save() {
                 })
                 .unwrap();
             let shown = frontend.shown.lock().unwrap().clone();
+            state.config.lock().unwrap().capture.open_viewer = false;
+            wait_for("spare after clipboard import", || {
+                handle.webview_windows().iter().any(|(label, _)| {
+                    label.starts_with(windows::VIEWER_PREFIX)
+                        && state.viewers.lock().unwrap().shot_id(label).is_none()
+                        && frontend.ready.lock().unwrap().contains(label)
+                })
+            });
+            let windows_before = handle.webview_windows().len();
+            let shots_before = state.shots.len();
+            actions::finish_capture(
+                &handle,
+                Captured {
+                    image: imported.clone(),
+                    monitor: geometry,
+                },
+                None,
+                crate::state::CaptureKind::Fullscreen,
+            )
+            .unwrap();
+            assert_eq!(frontend.shown.lock().unwrap().len(), 3);
+            assert_eq!(handle.webview_windows().len(), windows_before);
+            assert_eq!(state.shots.len(), shots_before);
+            assert!(state.pending_captures.lock().unwrap().is_empty());
+            let hidden_path = directory.path().join("shot_2.png");
+            assert_eq!(image::open(&hidden_path).unwrap().into_rgba8(), imported);
+            // 保存失敗でも、表示されない画像を保持し続けない。
+            state.config.lock().unwrap().storage.directory = first.to_string_lossy().into_owned();
+            assert!(actions::finish_capture(
+                &handle,
+                Captured {
+                    image: imported,
+                    monitor: geometry
+                },
+                None,
+                crate::state::CaptureKind::Fullscreen,
+            )
+            .is_err());
+            assert_eq!(state.shots.len(), shots_before);
+            assert!(state.pending_captures.lock().unwrap().is_empty());
             for label in shown {
                 handle
                     .get_webview_window(&label)

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { listen } from "@tauri-apps/api/event";
 
 import { api, errorMessage, pngUrl } from "../lib/api";
+import { playCaptureSound } from "../lib/captureSound";
 import { useWindowReady } from "../lib/useWindowReady";
 import { isMeaningfulSelection, rectFromPoints, toImagePixels, type Point } from "../lib/region";
 import { t } from "../i18n";
@@ -17,6 +18,23 @@ export function RegionSelect() {
   const [error, setError] = useState<string | null>(null);
   const imageReady = imageUrl !== null && loadedImageUrl === imageUrl;
   useWindowReady(session !== null && (imageReady || error !== null), session ?? 0, session ?? undefined);
+
+  useEffect(() => {
+    let disposed = false;
+    const playPending = async () => {
+      if (disposed) return;
+      const count = await api.takeCaptureSounds();
+      if (disposed) return;
+      for (let i = 0; i < count; i++) playCaptureSound();
+    };
+    // 非表示の常駐 WebView で音だけ鳴らす。初回のリスナー登録前に届いた分も拾う。
+    const unlisten = listen("capture-completed", () => void playPending().catch(console.error));
+    void unlisten.then(playPending).catch(console.error);
+    return () => {
+      disposed = true;
+      void unlisten.then((stop) => stop());
+    };
+  }, []);
 
   useEffect(() => {
     let disposed = false;

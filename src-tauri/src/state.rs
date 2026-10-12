@@ -43,6 +43,7 @@ pub struct AppState {
     #[cfg(windows)]
     pub region_previous_foreground: std::sync::atomic::AtomicIsize,
     pub pending_captures: Mutex<HashMap<u32, PendingCapture>>,
+    pub pending_capture_sounds: AtomicU32,
     pub save_lock: Mutex<()>,
     pub auto_copy_lock: Mutex<u32>,
     /// 領域選択中の全画面画像。選択が確定するまで保持する。
@@ -63,6 +64,7 @@ impl AppState {
             #[cfg(windows)]
             region_previous_foreground: std::sync::atomic::AtomicIsize::new(0),
             pending_captures: Mutex::new(HashMap::new()),
+            pending_capture_sounds: AtomicU32::new(0),
             save_lock: Mutex::new(()),
             auto_copy_lock: Mutex::new(0),
             pending_region: Mutex::new(None),

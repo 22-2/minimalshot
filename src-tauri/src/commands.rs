@@ -47,6 +47,13 @@ pub fn get_default_config() -> Config {
 }
 
 #[tauri::command]
+pub fn take_capture_sounds(state: State<'_, AppState>) -> u32 {
+    state
+        .pending_capture_sounds
+        .swap(0, std::sync::atomic::Ordering::Relaxed)
+}
+
+#[tauri::command]
 pub fn open_config_folder(app: AppHandle) -> AppResult<()> {
     actions::open_config_folder(&app)
 }
@@ -274,7 +281,7 @@ pub fn show_window(
             if let Some(pending) = pending {
                 let app = app.clone();
                 tauri::async_runtime::spawn_blocking(move || {
-                    if let Err(error) = actions::complete_capture(&app, &label, id, pending) {
+                    if let Err(error) = actions::complete_capture(&app, Some(&label), id, pending) {
                         eprintln!("[{}] {error}", crate::paths::APP_NAME);
                         if let Err(emit_error) =
                             app.emit_to(&label, "shot-error", error.to_string())
@@ -327,7 +334,7 @@ pub async fn finish_region(
     )?;
     let origin = pending_region.bounds.selection_origin(rect.x, rect.y)?;
     tauri::async_runtime::spawn_blocking(move || {
-        actions::finish_capture(
+        let result = actions::finish_capture(
             &app,
             Captured {
                 image,
@@ -335,7 +342,11 @@ pub async fn finish_region(
             },
             Some(origin),
             CaptureKind::Region,
-        )
+        );
+        if let Err(error) = &result {
+            crate::show_capture_error(&app, error);
+        }
+        result
     })
     .await
     .map_err(|e| AppError::msg(e.to_string()))?

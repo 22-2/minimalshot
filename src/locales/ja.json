@@ -76,6 +76,8 @@
     "addHotkey": "ショートカットを追加",
     "removeHotkey": "ショートカットを削除",
     "autoSave": "自動で画像を保存する",
+    "hideViewer": "撮影後にウィンドウを開かない",
+    "hideViewerNote": "自動保存・コピーを実行して撮影を完了します。",
     "capture": "キャプチャ",
     "captureNote": "撮影モードごとに、ショートカットと撮影した直後の処理を設定します。",
     "autoCopy": "クリップボードへコピー",

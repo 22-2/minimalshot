@@ -5,7 +5,7 @@ import { calls, installTauriMock } from "./tauri-mock";
 
 const changedConfig = () => ({
   hotkeys: { region: ["Ctrl+P"], window: [], fullscreen: [], desktop: ["Ctrl+Alt+P"], clipboard: ["Ctrl+Alt+V"] },
-  capture: { auto_save: true, auto_copy: "none", region: { auto_copy: "path" }, clipboard: { auto_save: true, auto_copy: "image" } },
+  capture: { auto_save: true, auto_copy: "none", open_viewer: true, region: { auto_copy: "path" }, clipboard: { auto_save: true, auto_copy: "image" } },
   storage: { directory: "D:/shots", format: "%Y.png" },
   viewer: { always_on_top: true, confirm_on_close: true, layout: "framed" },
   external: { tools: [{ name: "Custom", command: "custom.exe", args: "", hide_console: true, copy_stdout: true }] },

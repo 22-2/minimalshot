@@ -38,16 +38,27 @@ fn capture_in_background(app: &AppHandle, kind: CaptureKind) {
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         if let Err(error) = actions::start_capture(&app, kind) {
-            if kind == CaptureKind::Clipboard {
-                app.dialog()
-                    .message(error.to_string())
-                    .title(t("app.name"))
-                    .kind(MessageDialogKind::Error)
-                    .show(|_| {});
+            if kind == CaptureKind::Clipboard
+                || !app
+                    .state::<AppState>()
+                    .config()
+                    .capture
+                    .actions_for(kind)
+                    .open_viewer
+            {
+                show_capture_error(&app, &error);
             }
             report(Err(error));
         }
     });
+}
+
+fn show_capture_error(app: &AppHandle, error: &error::AppError) {
+    app.dialog()
+        .message(error.to_string())
+        .title(t("app.name"))
+        .kind(MessageDialogKind::Error)
+        .show(|_| {});
 }
 
 fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
@@ -183,6 +194,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::get_config,
             commands::get_default_config,
+            commands::take_capture_sounds,
             commands::open_config_folder,
             commands::save_config,
             commands::capture,

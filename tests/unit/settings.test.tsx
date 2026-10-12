@@ -86,9 +86,20 @@ describe("Settings", () => {
 
     await expectSaved({ capture: { region: { auto_save: true, auto_copy: "path" } } });
     const config = saved.at(-1) as ReturnType<typeof defaultConfig>;
-    expect(config.capture.region).toEqual({ auto_save: true, auto_copy: "path" });
+    expect(config.capture.region).toEqual({ auto_save: true, auto_copy: "path", open_viewer: true });
     expect(config.capture.window).toBeUndefined();
     expect(config.capture).toMatchObject({ auto_save: false, auto_copy: "image" });
+  });
+
+  it("disables the viewer for one mode while preserving its output actions", async () => {
+    const user = userEvent.setup();
+    render(<Settings />);
+    const region = await openMode(user, "領域をキャプチャ");
+    await user.click(within(region).getByRole("switch", { name: "撮影後にウィンドウを開かない" }));
+    await expectSaved({ capture: { region: { open_viewer: false, auto_copy: "image", auto_save: false } } });
+    expect(screen.getByRole("button", { name: "領域をキャプチャ 画像をコピー 撮影後にウィンドウを開かない" })).toBeInTheDocument();
+    await user.click(within(region).getByRole("switch", { name: "撮影後にウィンドウを開かない" }));
+    await expectSaved({ capture: { region: { open_viewer: true } } });
   });
 
   it("records shortcuts from key presses and removes them", async () => {

@@ -55,6 +55,7 @@ clipboard = [] # クリップボード画像を開く。ショートカットは
 [capture]
 auto_save = false
 auto_copy = "image" # none / image / path（path は保存時のみ）。すべての撮影モードの既定動作
+open_viewer = true # false にすると、窓を開かず自動保存・コピーを完了する
 
 [capture.region]
 auto_save = true # 指定しない項目は [capture] の値を引き継ぐ
@@ -62,6 +63,7 @@ auto_save = true # 指定しない項目は [capture] の値を引き継ぐ
 [capture.clipboard]
 auto_save = false # クリップボード画像は既定で開くだけ
 auto_copy = "none"
+open_viewer = true
 
 [storage]
 directory = "{pictures}/{appname}"

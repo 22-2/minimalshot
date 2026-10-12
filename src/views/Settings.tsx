@@ -135,6 +135,7 @@ function effectiveActions(draft: Config, kind: CaptureKind): CaptureActions {
   return {
     auto_save: override?.auto_save ?? draft.capture.auto_save,
     auto_copy: override?.auto_copy ?? draft.capture.auto_copy,
+    open_viewer: override?.open_viewer ?? draft.capture.open_viewer,
   };
 }
 
@@ -169,7 +170,8 @@ function actionEffects(actions: CaptureActions): Effect[] {
     path: { label: t("settings.summaryCopyPath"), icon: Link },
   }[actions.auto_copy];
   const save = actions.auto_save ? { label: t("settings.summarySave"), icon: Save } : null;
-  return [copy, save].filter((effect) => effect !== null);
+  const hidden = !actions.open_viewer ? { label: t("settings.hideViewer"), icon: EyeOff } : null;
+  return [copy, save, hidden].filter((effect) => effect !== null);
 }
 
 function CaptureModeSettings(props: ConfigPageProps & { kind: CaptureKind; title: string; conflicts: Set<string> }) {
@@ -204,6 +206,9 @@ function CaptureModeSettings(props: ConfigPageProps & { kind: CaptureKind; title
       </SettingItem>
       <SettingItem name={t("settings.autoSave")} modified={actions.auto_save !== defaultActions.auto_save}>
         {(ids) => <Toggle {...ids} checked={actions.auto_save} onChange={(v) => change("auto_save", v)} />}
+      </SettingItem>
+      <SettingItem name={t("settings.hideViewer")} description={t("settings.hideViewerNote")} modified={actions.open_viewer !== defaultActions.open_viewer}>
+        {(ids) => <Toggle {...ids} checked={!actions.open_viewer} onChange={(v) => change("open_viewer", !v)} />}
       </SettingItem>
     </SettingDisclosure>
   );

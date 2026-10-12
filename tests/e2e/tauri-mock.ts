@@ -11,6 +11,7 @@ type MockOptions = {
   viewerSession?: number | null;
   regionSession?: number | null;
   regionImageSize?: { width: number; height: number };
+  pendingCaptureSounds?: number;
 };
 
 export type Call = { cmd: string; args: Record<string, unknown> };
@@ -24,6 +25,7 @@ export async function installTauriMock(page: Page, options: MockOptions) {
     const calls: Call[] = [];
     const presentations: { session: unknown; imagesReady: boolean; settingsReady: boolean }[] = [];
     let savedPath: string | null = null;
+    let pendingCaptureSounds = opts.pendingCaptureSounds ?? 0;
     let pinned = false;
     let regionSession: number | null = opts.regionSession === undefined ? 1 : opts.regionSession;
     let viewerSession: number | null = opts.viewerSession === undefined ? 1 : opts.viewerSession;
@@ -33,6 +35,7 @@ export async function installTauriMock(page: Page, options: MockOptions) {
     const held = new Map<string, () => void>();
     const callCounts = new Map<string, number>();
     const emit = (event: string, payload?: unknown) => {
+      if (event === "capture-completed") pendingCaptureSounds++;
       if (event === "region-load") regionSession = payload as number;
       if (event === "viewer-load") viewerSession = payload as number;
       if (event === "shot-saved") savedPath = payload as string;
@@ -42,7 +45,7 @@ export async function installTauriMock(page: Page, options: MockOptions) {
     };
     const config = {
       hotkeys: { region: ["Ctrl+PrintScreen"], window: ["Shift+PrintScreen"], fullscreen: ["Alt+PrintScreen"], desktop: [], clipboard: [] },
-      capture: { auto_save: false, auto_copy: "image", clipboard: { auto_save: false, auto_copy: "none" } },
+      capture: { auto_save: false, auto_copy: "image", open_viewer: true, clipboard: { auto_save: false, auto_copy: "none", open_viewer: true } },
       storage: { directory: "{pictures}/{appname}", format: "%Y-%m/%Y-%m-%d_%H-%M-%S.png" },
       viewer: { always_on_top: false, confirm_on_close: false, layout: "source" },
       external: {
@@ -70,6 +73,11 @@ export async function installTauriMock(page: Page, options: MockOptions) {
     const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
       get_config: () => config,
       get_default_config: () => defaults,
+      take_capture_sounds: () => {
+        const count = pendingCaptureSounds;
+        pendingCaptureSounds = 0;
+        return count;
+      },
       open_config_folder: () => undefined,
       save_config: () => undefined,
       viewer_session: () => viewerSession,

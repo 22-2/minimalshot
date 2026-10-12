@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 export type AutoCopy = "none" | "image" | "path";
 export type ViewerLayout = "source" | "framed";
 export type CaptureKind = "region" | "window" | "fullscreen" | "desktop" | "clipboard";
-export type CaptureActions = { auto_save: boolean; auto_copy: AutoCopy };
+export type CaptureActions = { auto_save: boolean; auto_copy: AutoCopy; open_viewer: boolean };
 export type CaptureOverride = Partial<CaptureActions>;
 
 /** Rust 側の `config::Config` と同じ形。 */
@@ -59,7 +59,8 @@ export const api = {
   appVersion: () => invoke<string>("app_version"),
   showWindow: (session?: number) => invoke<void>("show_window", { session: session ?? null }),
 
-regionSession: () => invoke<number | null>("region_session"),
+  takeCaptureSounds: () => invoke<number>("take_capture_sounds"),
+  regionSession: () => invoke<number | null>("region_session"),
   prepareRegion: () => invoke<{ width: number; height: number; renderWhileHidden: boolean }>("prepare_region"),
   regionPng: (session: number) => invoke<BinaryPayload>("region_png", { session }).then(toBytes),
   finishRegion: (rect: Rect, session: number) => invoke<void>("finish_region", { rect, session }),

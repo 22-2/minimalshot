@@ -72,7 +72,7 @@ fn cursor(app: &AppHandle) -> AppResult<(i32, i32)> {
     Ok((position.x.round() as i32, position.y.round() as i32))
 }
 
-/// 画像を先に表示し、自動保存・コピーは show_window から開始する。
+/// ビューアを開く場合は先に表示し、自動保存・コピーは show_window から開始する。
 pub fn finish_capture(
     app: &AppHandle,
     captured: Captured,
@@ -84,14 +84,29 @@ pub fn finish_capture(
     let dimensions = captured.image.dimensions();
     let id = state.shots.insert(captured.image);
 
-    state.pending_captures.lock().unwrap().insert(
-        id,
-        PendingCapture {
-            config: config.clone(),
-            kind,
-            shot: state.shots.get(id)?,
-        },
-    );
+    let pending = PendingCapture {
+        config: config.clone(),
+        kind,
+        shot: state.shots.get(id)?,
+    };
+    if !config.capture.actions_for(kind).open_viewer {
+        let result = complete_capture(app, None, id, pending);
+        // 成否に関わらず、窓に所有されない画像はここで解放する。
+        state.shots.remove(id);
+        result?;
+        state
+            .pending_capture_sounds
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        // 起動直後でも通知を失わないよう、音の件数はリスナー側で取り出す。
+        if let Err(error) = windows::prepare_region(app).and_then(|()| {
+            app.emit_to(windows::REGION_LABEL, "capture-completed", ())
+                .map_err(Into::into)
+        }) {
+            eprintln!("[{APP_NAME}] {error}");
+        }
+        return Ok(());
+    }
+    state.pending_captures.lock().unwrap().insert(id, pending);
     if let Err(error) = windows::open_viewer(
         app,
         id,
@@ -111,7 +126,7 @@ pub fn finish_capture(
 
 pub fn complete_capture(
     app: &AppHandle,
-    label: &str,
+    label: Option<&str>,
     id: u32,
     pending: PendingCapture,
 ) -> AppResult<()> {
@@ -130,10 +145,12 @@ pub fn complete_capture(
         match saved {
             Ok(path) => {
                 // ビューアを閉じた後も、残りの自動アクションを続ける。
-                if let Err(error) =
-                    app.emit_to(label, "shot-saved", path.to_string_lossy().as_ref())
-                {
-                    eprintln!("[{APP_NAME}] {error}");
+                if let Some(label) = label {
+                    if let Err(error) =
+                        app.emit_to(label, "shot-saved", path.to_string_lossy().as_ref())
+                    {
+                        eprintln!("[{APP_NAME}] {error}");
+                    }
                 }
                 completed.saved = true;
                 emit_completed_actions(app, label, &completed);
@@ -179,9 +196,11 @@ struct CompletedActions {
     copied: Option<AutoCopy>,
 }
 
-fn emit_completed_actions(app: &AppHandle, label: &str, completed: &CompletedActions) {
-    if let Err(error) = app.emit_to(label, "capture-actions", completed) {
-        eprintln!("[{APP_NAME}] {error}");
+fn emit_completed_actions(app: &AppHandle, label: Option<&str>, completed: &CompletedActions) {
+    if let Some(label) = label {
+        if let Err(error) = app.emit_to(label, "capture-actions", completed) {
+            eprintln!("[{APP_NAME}] {error}");
+        }
     }
 }
 

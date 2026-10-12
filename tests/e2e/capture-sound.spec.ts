@@ -66,3 +66,14 @@ test("settings operations stay silent", async ({ page }) => {
   await page.getByRole("switch", { name: "常に最前面に表示", exact: true }).click();
   expect((await notes(page)).notes).toBe(0);
 });
+
+test("captures without a viewer play queued and subsequent sounds without showing a window", async ({ page }) => {
+  await observeAudio(page);
+  await installTauriMock(page, { label: "region", regionSession: null, pendingCaptureSounds: 1 });
+  await page.goto("/");
+  await expect.poll(() => notes(page)).toEqual({ notes: 2, states: ["running", "running"] });
+  await page.evaluate(() => (window as unknown as { __emit: (event: string) => void }).__emit("capture-completed"));
+  await expect.poll(() => notes(page)).toEqual({ notes: 4, states: ["running", "running", "running", "running"] });
+  await expect.poll(() => commandNames(page)).toContain("region_session");
+  expect(await commandNames(page)).not.toContain("show_window");
+});
