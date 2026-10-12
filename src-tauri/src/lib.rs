@@ -61,13 +61,43 @@ fn show_capture_error(app: &AppHandle, error: &error::AppError) {
         .show(|_| {});
 }
 
-fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
-    let region = MenuItem::with_id(app, "region", t("tray.region"), true, None::<&str>)?;
-    let window = MenuItem::with_id(app, "window", t("tray.window"), true, None::<&str>)?;
-    let fullscreen =
-        MenuItem::with_id(app, "fullscreen", t("tray.fullscreen"), true, None::<&str>)?;
-    let desktop = MenuItem::with_id(app, "desktop", t("tray.desktop"), true, None::<&str>)?;
-    let clipboard = MenuItem::with_id(app, "clipboard", t("tray.clipboard"), true, None::<&str>)?;
+fn tray_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
+    let capture = app.state::<AppState>().config().capture;
+    let region = MenuItem::with_id(
+        app,
+        "region",
+        t("tray.region"),
+        capture.enabled_for(CaptureKind::Region),
+        None::<&str>,
+    )?;
+    let window = MenuItem::with_id(
+        app,
+        "window",
+        t("tray.window"),
+        capture.enabled_for(CaptureKind::Window),
+        None::<&str>,
+    )?;
+    let fullscreen = MenuItem::with_id(
+        app,
+        "fullscreen",
+        t("tray.fullscreen"),
+        capture.enabled_for(CaptureKind::Fullscreen),
+        None::<&str>,
+    )?;
+    let desktop = MenuItem::with_id(
+        app,
+        "desktop",
+        t("tray.desktop"),
+        capture.enabled_for(CaptureKind::Desktop),
+        None::<&str>,
+    )?;
+    let clipboard = MenuItem::with_id(
+        app,
+        "clipboard",
+        t("tray.clipboard"),
+        capture.enabled_for(CaptureKind::Clipboard),
+        None::<&str>,
+    )?;
     let settings = MenuItem::with_id(app, "settings", t("tray.settings"), true, None::<&str>)?;
     let about = MenuItem::with_id(app, "about", t("about.menu"), true, None::<&str>)?;
     let save_folder = MenuItem::with_id(
@@ -86,7 +116,7 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     )?;
     let quit = MenuItem::with_id(app, "quit", t("tray.quit"), true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
-    let menu = Menu::with_items(
+    Menu::with_items(
         app,
         &[
             &region,
@@ -101,7 +131,18 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
             &about,
             &quit,
         ],
-    )?;
+    )
+}
+
+fn refresh_tray(app: &AppHandle) -> tauri::Result<()> {
+    if let Some(tray) = app.tray_by_id("main") {
+        tray.set_menu(Some(tray_menu(app)?))?;
+    }
+    Ok(())
+}
+
+fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
+    let menu = tray_menu(app)?;
 
     TrayIconBuilder::with_id("main")
         .icon(app.default_window_icon().cloned().expect("bundle icon"))
@@ -148,7 +189,7 @@ pub fn run() {
             let config_path = config_dir.join("config.toml");
             let config = Config::load_or_create(&config_path)?;
             external::prepare_ocr_script(&config_dir)?;
-            let hotkeys = config.hotkeys.clone();
+            let hotkeys = config.active_hotkeys();
             app.manage(AppState::new(config, config_path));
             setup_tray(app.handle())?;
             report(hotkeys::register(app.handle(), &hotkeys));

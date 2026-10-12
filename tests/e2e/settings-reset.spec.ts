@@ -23,10 +23,10 @@ for (const [tab, sections] of [
     await installTauriMock(page, { label: "settings", config });
     await page.goto("/");
     await page.getByRole("tab", { name: tab, exact: true }).click();
-    if (tab === "キャプチャ") await page.getByRole("button", { name: "領域をキャプチャの設定" }).click();
-    if (tab === "外部ツール") await page.getByRole("button", { name: "Customの設定" }).click();
+    if (tab === "キャプチャ") await page.getByRole("button", { name: "領域をキャプチャ" }).click();
+    if (tab === "外部ツール") await page.getByRole("button", { name: "Custom" }).click();
     await expect(page.locator(".setting-item[data-modified]").first()).toBeVisible();
-    if (tab === "キャプチャ" || tab === "外部ツール") await page.getByRole("button", { name: "設定を閉じる", exact: true }).click();
+    if (tab === "キャプチャ" || tab === "外部ツール") await page.getByRole("button", { expanded: true }).click();
     const reset = page.getByRole("button", { name: "このタブをデフォルトに戻す", exact: true });
     const folder = page.getByRole("button", { name: "設定フォルダを開く", exact: true });
     expect((await reset.boundingBox())!.y).toBeLessThan((await folder.boundingBox())!.y);

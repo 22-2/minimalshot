@@ -34,26 +34,26 @@ describe("Settings", () => {
   // 保存ボタンは無く、変更が止まると自動で保存される
   const expectSaved = (expected: object) => waitFor(() => expect(saved.at(-1)).toMatchObject(expected));
 
-  // 歯車からモード別の設定を開く。
+  // 行からモード別の設定を開く。
   const openMode = async (user: ReturnType<typeof userEvent.setup>, name: string) => {
-    await user.click(await screen.findByRole("button", { name: `${name}の設定` }));
-    return screen.getByRole("dialog", { name });
+    await user.click(await screen.findByRole("button", { name }));
+    return screen.getByRole("region", { name });
   };
 
   it("edits external tools and saves them", async () => {
     const user = userEvent.setup();
     render(<Settings />);
     await openTab(user, "外部ツール");
-    await user.click(screen.getByRole("button", { name: "ペイントの設定" }));
+    await user.click(screen.getByRole("button", { name: "ペイント" }));
 
     const command = screen.getByLabelText("コマンド");
     expect(command).toHaveValue("mspaint.exe");
     await user.clear(command);
     await user.type(command, "paint.net");
-    await user.click(screen.getByRole("button", { name: "設定を閉じる" }));
+    await user.click(screen.getByRole("button", { expanded: true }));
     await user.click(screen.getByRole("button", { name: "ツールを追加" }));
     // 名前とコマンドが揃うまでは、検証エラーにせず保存を待つ
-    expect(await within(screen.getByRole("dialog")).findByText("外部ツールの名前とコマンドを入力すると保存します")).toBeInTheDocument();
+    expect(await screen.findByText("外部ツールの名前とコマンドを入力すると保存します")).toBeInTheDocument();
     await user.type(screen.getByLabelText("名前"), "GIMP");
     await user.type(screen.getByLabelText("コマンド"), "gimp.exe");
     // 出力をコピーするツールは、コンソール非表示が強制される
@@ -61,7 +61,7 @@ describe("Settings", () => {
     expect(screen.getByRole("switch", { name: "コンソールを表示しない" })).toBeDisabled();
     expect(screen.getByRole("switch", { name: "コンソールを表示しない" })).toBeChecked();
 
-    expect(await within(screen.getByRole("dialog")).findByText("設定を保存しました")).toBeInTheDocument();
+    expect(await screen.findByText("設定を保存しました")).toBeInTheDocument();
     await expectSaved({
       external: {
         tools: [
@@ -110,7 +110,7 @@ describe("Settings", () => {
     await user.keyboard("z");
     await user.keyboard("{Control>}{Shift>}z{/Shift}{/Control}");
     expect(screen.getByText("Ctrl+Shift+Z")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "設定を閉じる" }));
+    await user.click(screen.getByRole("button", { expanded: true }));
     const fullscreen = await openMode(user, "アクティブなディスプレイをキャプチャ");
     await user.click(screen.getByRole("button", { name: "アクティブなディスプレイをキャプチャ: ショートカットを削除 Alt+PrintScreen" }));
     expect(within(fullscreen).getByText("未設定")).toBeInTheDocument();
@@ -132,7 +132,7 @@ describe("Settings", () => {
     await user.click(screen.getByRole("button", { name: "アクティブなウィンドウをキャプチャ: ショートカットを追加" }));
     await user.keyboard("{Alt>}[PrintScreen]{/Alt}");
     expect(screen.getAllByTitle("他のショートカットと重複しています")).toHaveLength(1);
-    await user.click(screen.getByRole("button", { name: "設定を閉じる" }));
+    await user.click(screen.getByRole("button", { expanded: true }));
     await openMode(user, "アクティブなディスプレイをキャプチャ");
     expect(screen.getByTitle("他のショートカットと重複しています")).toBeInTheDocument();
   });
@@ -142,11 +142,11 @@ describe("Settings", () => {
     render(<Settings />);
     await openTab(user, "外部ツール");
 
-    // 閉じていても名前とコマンドは見出しで読める
-    await user.click(screen.getByRole("button", { name: "ペイントの設定" }));
+    // ツール名の行から設定を開く
+    await user.click(screen.getByRole("button", { name: "ペイント" }));
     expect(screen.queryByRole("button", { name: "設定を保存" })).not.toBeInTheDocument();
-    await user.click(within(screen.getByRole("dialog", { name: "ペイント" })).getByRole("button", { name: "このツールを削除" }));
-    expect(screen.getByRole("button", { name: "文字認識してメモ帳で開くの設定" })).toBeInTheDocument();
+    await user.click(within(screen.getByRole("region", { name: "ペイント" })).getByRole("button", { name: "このツールを削除" }));
+    expect(screen.getByRole("button", { name: "文字認識してメモ帳で開く" })).toBeInTheDocument();
 
     await expectSaved({ external: { tools: [defaultConfig().external.tools[1]] } });
   });
@@ -170,7 +170,7 @@ describe("Settings", () => {
     await user.click(screen.getByRole("button", { name: "領域をキャプチャ: ショートカットを追加" }));
     await user.keyboard("{Control>}{Alt>}p{/Alt}{/Control}");
 
-    expect(await within(screen.getByRole("dialog")).findByText(/他のアプリが使用中です/)).toBeInTheDocument();
+    expect(await screen.findByText(/他のアプリが使用中です/)).toBeInTheDocument();
     expect(saved).toHaveLength(0);
   });
 });

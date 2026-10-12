@@ -715,42 +715,6 @@ button {
   color: var(--color-text-muted);
 }
 
-/* 見出しの値はショートカットのチップと同じ形にそろえ、操作できない表示なので削除ボタンの余白は持たない */
-.summary-chip {
-  display: inline-flex;
-  align-items: center;
-  flex: 0 1 auto;
-  min-width: 0;
-  height: var(--size-hotkey-chip);
-  padding-inline: var(--space-2);
-  overflow: hidden;
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-small);
-  background: var(--color-canvas);
-  color: var(--color-text);
-  font-family: inherit;
-  font-size: var(--font-size-menu);
-  font-weight: var(--font-weight-medium);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.summary-chip kbd {
-  font: inherit;
-}
-
-.summary-chip[data-empty] {
-  border-style: dashed;
-  background: transparent;
-  color: var(--color-text-muted);
-  font-weight: var(--font-weight-regular);
-}
-
-.summary-chip[data-conflict] {
-  border-color: var(--color-danger);
-  color: var(--color-danger);
-}
-
 /* 削除などの取り消しにくい操作は、まとまりの最後に離して置く */
 .setting-item-actions {
   justify-content: flex-end;

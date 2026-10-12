@@ -4,7 +4,7 @@ export type AutoCopy = "none" | "image" | "path";
 export type ViewerLayout = "source" | "framed";
 export type CaptureKind = "region" | "window" | "fullscreen" | "desktop" | "clipboard";
 export type CaptureActions = { auto_save: boolean; auto_copy: AutoCopy; open_viewer: boolean };
-export type CaptureOverride = Partial<CaptureActions>;
+export type CaptureOverride = Partial<CaptureActions> & { enabled?: boolean };
 
 /** Rust 側の `config::Config` と同じ形。 */
 export type Config = {

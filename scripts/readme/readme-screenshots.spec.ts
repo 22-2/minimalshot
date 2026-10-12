@@ -29,12 +29,12 @@ test("capture settings and compact hotkey editor", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "キャプチャ", exact: true })).toBeVisible();
   await capturePage(page, "settings-capture.png");
-  await page.getByRole("button", { name: "領域をキャプチャの設定", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "領域をキャプチャ", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "領域をキャプチャ", exact: true }).click();
+  await expect(page.getByRole("region", { name: "領域をキャプチャ", exact: true })).toBeVisible();
   await capturePage(page, "settings-capture-editor.png");
   await page.setViewportSize({ width: 395, height: 600 });
   await capturePage(page, "settings-capture-editor-compact.png");
-  await page.getByRole("button", { name: "設定を閉じる", exact: true }).click();
+  await page.getByRole("button", { name: "領域をキャプチャ", exact: true }).click();
   await capturePage(page, "settings-capture-compact.png");
 });
 
@@ -42,9 +42,9 @@ test("external tools and their in-window editor", async ({ page }) => {
   await installTauriMock(page, { label: "settings", config: defaultConfig() });
   await page.goto("/");
   await page.getByRole("tab", { name: "外部ツール", exact: true }).click();
-  await expect(page.getByRole("button", { name: "ペイントの設定", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "ペイント", exact: true })).toBeVisible();
   await capturePage(page, "settings-tools.png");
-  await page.getByRole("button", { name: "文字認識してメモ帳で開くの設定", exact: true }).click();
+  await page.getByRole("button", { name: "文字認識してメモ帳で開く", exact: true }).click();
   await expect(page.getByLabel("コマンド", { exact: true })).toHaveValue("powershell.exe");
   await capturePage(page, "settings-tool-editor.png");
 });

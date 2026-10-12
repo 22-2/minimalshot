@@ -141,16 +141,20 @@ function CaptureModeSettings(props: ConfigPageProps & { kind: CaptureKind; title
   const actions = effectiveActions(props.draft, props.kind);
   const defaultActions = effectiveActions(props.defaults, props.kind);
   const hotkeys = props.draft.hotkeys[props.kind];
+  const enabled = props.draft.capture[props.kind]?.enabled ?? true;
+  const importImage = props.kind === "clipboard";
   const shortcutsChanged = JSON.stringify(hotkeys.filter((value) => value.trim())) !== JSON.stringify(props.defaults.hotkeys[props.kind]);
   // 画面には実際に適用される値を出し、触ったモードだけをモード別の設定として書き出す
   const change = <K extends keyof CaptureActions>(key: K, value: CaptureActions[K]) =>
-    props.update("capture", props.kind, { ...actions, [key]: value });
+    props.update("capture", props.kind, { ...props.draft.capture[props.kind], ...actions, [key]: value });
 
   return (
     <SettingEditor
       title={props.title}
-      modified={shortcutsChanged || JSON.stringify(actions) !== JSON.stringify(defaultActions)}
-      description={t("settings.hotkeyNote")}
+      modified={shortcutsChanged || enabled !== (props.defaults.capture[props.kind]?.enabled ?? true) || JSON.stringify(actions) !== JSON.stringify(defaultActions)}
+      enabled={enabled}
+      onEnabledChange={(value) => props.update("capture", props.kind, { ...props.draft.capture[props.kind], enabled: value })}
+      description={importImage ? t("settings.clipboardNote") : t("settings.hotkeyNote")}
     >
       <div className="setting-item hotkey-setting" data-modified={shortcutsChanged || undefined}>
         <div className="setting-info">
@@ -171,7 +175,7 @@ function CaptureModeSettings(props: ConfigPageProps & { kind: CaptureKind; title
       <SettingItem name={t("settings.autoSave")} modified={actions.auto_save !== defaultActions.auto_save}>
         {(ids) => <Toggle {...ids} checked={actions.auto_save} onChange={(v) => change("auto_save", v)} />}
       </SettingItem>
-      <SettingItem name={t("settings.hideViewer")} description={t("settings.hideViewerNote")} modified={actions.open_viewer !== defaultActions.open_viewer}>
+      <SettingItem name={t(importImage ? "settings.hideImportedViewer" : "settings.hideViewer")} description={t("settings.hideViewerNote")} modified={actions.open_viewer !== defaultActions.open_viewer}>
         {(ids) => <Toggle {...ids} checked={!actions.open_viewer} onChange={(v) => change("open_viewer", !v)} />}
       </SettingItem>
     </SettingEditor>
@@ -229,20 +233,6 @@ function ViewerPage({ draft, defaults, update }: ConfigPageProps) {
   );
 }
 
-/** 起動するコマンドは一覧で確認できるよう、ファイル名をチップに出す。 */
-function ToolSummary({ tool }: { tool: ExternalTool }) {
-  const command = tool.command.trim();
-  // フルパスは長く、見分けるのに要るのはファイル名なので末尾だけを出す
-  const program = command.split(/[\\/]/).pop();
-  return (
-    <>
-      {program
-        ? <code className="summary-chip" title={command}>{program}</code>
-        : <span className="summary-chip" data-empty>{t("settings.noCommand")}</span>}
-    </>
-  );
-}
-
 function ToolsPage({ tools, defaults, onChange }: { tools: ExternalTool[]; defaults: ExternalTool[]; onChange: (tools: ExternalTool[]) => void }) {
   const addButton = useRef<HTMLButtonElement>(null);
   const edit = (index: number, patch: Partial<ExternalTool>) =>
@@ -262,7 +252,6 @@ function ToolsPage({ tools, defaults, onChange }: { tools: ExternalTool[]; defau
               <SettingEditor
                 key={index}
                 title={tool.name || `${t("settings.untitledTool")} ${index + 1}`}
-                summary={<ToolSummary tool={tool} />}
                 description={t("settings.externalNote")}
                 modified={JSON.stringify(tool) !== JSON.stringify(defaults[index])}
                 fallbackFocus={addButton}

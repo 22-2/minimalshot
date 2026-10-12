@@ -1,82 +1,53 @@
-import { useRef, useState, type ReactNode, type RefObject } from "react";
-import * as Dialog from "@radix-ui/react-dialog";
-import { Settings, X } from "lucide-react";
+import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from "react";
+import { ChevronRight } from "lucide-react";
 
 import { t } from "../i18n";
-import { useSettings } from "../stores/settings";
 import "./SettingEditor.css";
 
-/** 一覧には要約だけを置き、設定は同じウィンドウ内で編集する。 */
+/** 行から開閉し、一覧の中で設定を編集する。チェックは開閉とは独立させる。 */
 export function SettingEditor(props: {
   title: string;
-  summary?: ReactNode;
   description?: string;
   modified?: boolean;
   defaultOpen?: boolean;
+  enabled?: boolean;
+  onEnabledChange?: (enabled: boolean) => void;
   fallbackFocus?: RefObject<HTMLButtonElement | null>;
   children: ReactNode | ((closeBeforeRemoval: () => void) => ReactNode);
 }) {
   const [open, setOpen] = useState(props.defaultOpen ?? false);
-  const returnToFallback = useRef(false);
-  const trigger = useRef<HTMLButtonElement>(null);
+  const titleId = useId();
+  const panelId = useId();
   const content = useRef<HTMLDivElement>(null);
-  const status = useSettings((state) => state.status);
-  const name = `${props.title}${t("settings.editSuffix")}`;
+  useEffect(() => {
+    // 追加直後のツールだけは、一覧をスクロールして最初の入力へ移す。
+    if (props.defaultOpen) content.current?.querySelector<HTMLInputElement>("input")?.focus();
+  }, [props.defaultOpen]);
   return (
-    <Dialog.Root open={open} onOpenChange={setOpen}>
-      <section className="setting-row" data-modified={props.modified || undefined}>
-        <h3 className="setting-row-title">{props.title}</h3>
-        {props.summary && <div className="setting-row-summary">{props.summary}</div>}
-        <Dialog.Trigger asChild>
-          <button ref={trigger} type="button" className="button icon-button setting-row-edit" data-variant="quiet" title={name} aria-label={name}>
-            <Settings aria-hidden />
+    <section className="setting-disclosure" data-modified={props.modified || undefined} data-disabled={props.enabled === false || undefined}>
+      <div className="setting-row">
+        <h3 className="setting-row-heading">
+          <button type="button" className="setting-row-trigger" aria-expanded={open} aria-controls={open ? panelId : undefined} onClick={() => setOpen(!open)}>
+            <span className="setting-row-title" id={titleId}>{props.title}</span>
+            <ChevronRight className="setting-row-chevron" aria-hidden />
           </button>
-        </Dialog.Trigger>
-      </section>
-      <Dialog.Portal>
-        <Dialog.Overlay className="setting-editor-overlay" />
-        <Dialog.Content
-          ref={content}
-          className="setting-editor"
-          onEscapeKeyDown={(event) => {
-            // 最初の Escape はショートカットの記録だけを取り消す。
-            if (content.current?.querySelector("[data-recording]")) event.preventDefault();
-          }}
-          onOpenAutoFocus={(event) => {
-            const input = content.current?.querySelector<HTMLInputElement>("input");
-            if (input) { event.preventDefault(); input.focus(); }
-          }}
-          onCloseAutoFocus={(event) => {
-            // ツールを削除すると元の歯車も消えるため、追加ボタンへ戻す。
-            if ((returnToFallback.current || !trigger.current?.isConnected) && props.fallbackFocus?.current) {
-              event.preventDefault();
-              props.fallbackFocus.current.focus();
-              returnToFallback.current = false;
-            }
-          }}
-        >
-          <header className="setting-editor-header">
-            <Dialog.Title className="setting-editor-title">{props.title}</Dialog.Title>
-            <Dialog.Close asChild>
-              <button type="button" className="button icon-button" data-variant="quiet" title={t("settings.closeEditor")} aria-label={t("settings.closeEditor")}>
-                <X aria-hidden />
-              </button>
-            </Dialog.Close>
-          </header>
-          <div className="setting-editor-body">
-            <Dialog.Description className={props.description ? "setting-description setting-editor-description" : "visually-hidden"}>
-              {props.description ?? t("settings.autoSaveNote")}
-            </Dialog.Description>
-            {typeof props.children === "function" ? props.children(() => {
-              returnToFallback.current = true;
-              setOpen(false);
-            }) : props.children}
-          </div>
-          <footer className="setting-editor-footer">
-            <output className="toolbar-status" data-tone={status?.tone}>{status?.text ?? t("settings.autoSaveNote")}</output>
-          </footer>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+        </h3>
+        {props.onEnabledChange && (
+          <label className="setting-row-enable">
+            <span className="visually-hidden">{props.title}{t("settings.enableSuffix")}</span>
+            <input type="checkbox" checked={props.enabled} onChange={(event) => props.onEnabledChange?.(event.target.checked)} />
+          </label>
+        )}
+      </div>
+      {open && (
+        <div ref={content} id={panelId} role="region" aria-labelledby={titleId} className="setting-editor-body">
+          {props.description && <p className="setting-description setting-editor-description">{props.description}</p>}
+          {typeof props.children === "function" ? props.children(() => {
+            props.fallbackFocus?.current?.focus();
+            setOpen(false);
+          }) : props.children}
+        </div>
+      )}
+    </section>
   );
 }

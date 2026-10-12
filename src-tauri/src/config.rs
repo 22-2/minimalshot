@@ -86,6 +86,7 @@ impl Default for Capture {
             desktop: None,
             // 取り込んだ画像は開くだけにし、元のクリップボードや保存先を変更しない。
             clipboard: Some(CaptureOverride {
+                enabled: None,
                 auto_save: Some(false),
                 auto_copy: Some(AutoCopy::None),
                 open_viewer: Some(true),
@@ -98,6 +99,8 @@ impl Default for Capture {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct CaptureOverride {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub auto_save: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -114,14 +117,25 @@ pub struct CaptureActions {
 }
 
 impl Capture {
-    pub fn actions_for(&self, kind: crate::state::CaptureKind) -> CaptureActions {
-        let override_ = match kind {
+    fn override_for(&self, kind: crate::state::CaptureKind) -> Option<&CaptureOverride> {
+        match kind {
             crate::state::CaptureKind::Region => &self.region,
             crate::state::CaptureKind::Window => &self.window,
             crate::state::CaptureKind::Fullscreen => &self.fullscreen,
             crate::state::CaptureKind::Desktop => &self.desktop,
             crate::state::CaptureKind::Clipboard => &self.clipboard,
-        };
+        }
+        .as_ref()
+    }
+
+    pub fn enabled_for(&self, kind: crate::state::CaptureKind) -> bool {
+        self.override_for(kind)
+            .and_then(|v| v.enabled)
+            .unwrap_or(true)
+    }
+
+    pub fn actions_for(&self, kind: crate::state::CaptureKind) -> CaptureActions {
+        let override_ = self.override_for(kind);
         CaptureActions {
             open_viewer: override_
                 .as_ref()
@@ -261,6 +275,24 @@ impl Default for External {
 }
 
 impl Config {
+    /// 無効なモードの割り当ては設定に残し、OS への登録だけを外す。
+    pub fn active_hotkeys(&self) -> Hotkeys {
+        use crate::state::CaptureKind;
+        let mut hotkeys = self.hotkeys.clone();
+        for (keys, kind) in [
+            (&mut hotkeys.region, CaptureKind::Region),
+            (&mut hotkeys.window, CaptureKind::Window),
+            (&mut hotkeys.fullscreen, CaptureKind::Fullscreen),
+            (&mut hotkeys.desktop, CaptureKind::Desktop),
+            (&mut hotkeys.clipboard, CaptureKind::Clipboard),
+        ] {
+            if !self.capture.enabled_for(kind) {
+                keys.clear();
+            }
+        }
+        hotkeys
+    }
+
     /// 保存とインポートで同じ検証を行い、不正な内容を実行中の設定へ反映しない。
     pub fn validate(&self) -> AppResult<()> {
         crate::hotkeys::parse_hotkeys(&self.hotkeys)?;
@@ -374,6 +406,22 @@ copy_stdout = false
         assert!(config.capture.open_viewer);
         assert_eq!(config.external, External::default());
         assert_eq!(config.viewer.layout, ViewerLayout::Source);
+    }
+
+    #[test]
+    fn disabled_modes_keep_settings_but_release_their_hotkeys() {
+        use crate::state::CaptureKind;
+        let mut config =
+            Config::parse("[capture.region]\nenabled = false\nauto_save = true\n").unwrap();
+        assert!(!config.capture.enabled_for(CaptureKind::Region));
+        assert!(config.capture.enabled_for(CaptureKind::Window));
+        assert!(config.active_hotkeys().region.is_empty());
+        assert_eq!(config.hotkeys.region, Hotkeys::default().region);
+        assert_eq!(config.active_hotkeys().window, config.hotkeys.window);
+        assert!(config.capture.actions_for(CaptureKind::Region).auto_save);
+        assert_eq!(Config::parse(&config.to_toml().unwrap()).unwrap(), config);
+        config.capture.region.as_mut().unwrap().enabled = Some(true);
+        assert_eq!(config.active_hotkeys(), config.hotkeys);
     }
 
     #[test]

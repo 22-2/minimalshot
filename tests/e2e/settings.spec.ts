@@ -21,32 +21,45 @@ test.describe("settings", () => {
     await page.screenshot({ path: testInfo.outputPath("navigation-fallback-font.png"), animations: "disabled" });
   });
 
-  test("edits in a focused modal and restores focus without opening another window", async ({ page }) => {
+  test("toggles inline settings from the row and keeps the checkbox independent", async ({ page }, testInfo) => {
     await installTauriMock(page, { label: "settings" });
     await page.goto("/");
-    const trigger = page.getByRole("button", { name: "領域をキャプチャの設定", exact: true });
-    await expect(page.locator(".setting-disclosure")).toHaveCount(0);
-    await trigger.click();
-    const dialog = page.getByRole("dialog", { name: "領域をキャプチャ", exact: true });
-    await expect(dialog).toBeVisible();
-    await dialog.getByRole("combobox", { name: "クリップボードへコピー" }).click();
+    const trigger = page.getByRole("button", { name: "領域をキャプチャ", exact: true });
+    await expect(page.locator(".setting-disclosure")).toHaveCount(5);
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    const checkbox = page.getByRole("checkbox", { name: "領域をキャプチャを有効にする", exact: true });
+    await checkbox.uncheck();
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await expect(trigger).toHaveCSS("color", "rgb(154, 158, 168)");
+    await expect.poll(async () => (await calls(page)).filter((call) => call.cmd === "save_config").at(-1)?.args.config).toMatchObject({
+      capture: { region: { enabled: false } }, hotkeys: { region: ["Ctrl+PrintScreen"] },
+    });
+    await page.screenshot({ path: testInfo.outputPath("capture-modes.png") });
+    const box = (await trigger.boundingBox())!;
+    await trigger.click({ position: { x: box.width - 8, y: box.height / 2 } });
+    const panel = page.getByRole("region", { name: "領域をキャプチャ", exact: true });
+    await expect(panel).toBeVisible();
+    await panel.getByRole("combobox", { name: "クリップボードへコピー" }).click();
     await page.keyboard.press("Escape");
-    await expect(dialog).toBeVisible();
+    await expect(panel).toBeVisible();
     await expect(page.getByRole("option")).toHaveCount(0);
-    await dialog.getByRole("button", { name: "領域をキャプチャ: ショートカットを追加", exact: true }).click();
+    await panel.getByRole("button", { name: "領域をキャプチャ: ショートカットを追加", exact: true }).click();
     await page.keyboard.press("Escape");
-    await expect(dialog).toBeVisible();
-    await expect(dialog.getByText("キーを押してください")).toHaveCount(0);
-    for (let i = 0; i < 10; i++) {
-      await page.keyboard.press("Tab");
-      expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
-    }
-    await dialog.getByRole("switch", { name: "撮影後にウィンドウを開かない" }).click();
-    await page.keyboard.press("Escape");
-    await expect(dialog).toHaveCount(0);
+    await expect(panel).toBeVisible();
+    await expect(panel.getByText("キーを押してください")).toHaveCount(0);
+    await panel.getByRole("switch", { name: "撮影後にウィンドウを開かない" }).click();
+    await expect(checkbox).not.toBeChecked();
+    await expect.poll(async () => (await calls(page)).filter((call) => call.cmd === "save_config").at(-1)?.args.config).toMatchObject({
+      capture: { region: { enabled: false, open_viewer: false } },
+    });
+    await checkbox.check();
+    await expect(panel).toBeVisible();
+    await trigger.focus();
+    await page.keyboard.press("Space");
+    await expect(panel).toHaveCount(0);
     await expect(trigger).toBeFocused();
     await expect(page.locator(".setting-row svg")).toHaveCount(5);
-    await expect(page.locator(".setting-row svg:not(.lucide-settings)")).toHaveCount(0);
+    await expect(page.locator(".setting-row .lucide-settings")).toHaveCount(0);
     expect((await calls(page)).filter((call) => ["open_settings", "capture"].includes(call.cmd))).toHaveLength(0);
   });
 
@@ -55,14 +68,14 @@ test.describe("settings", () => {
     await page.goto("/");
     await page.getByRole("tab", { name: "外部ツール", exact: true }).click();
     await expect(page.locator(".setting-row .summary-effects")).toHaveCount(0);
-    await expect(page.locator(".setting-row .summary-chip").first()).toHaveText("mspaint.exe");
-    const trigger = page.getByRole("button", { name: "ペイントの設定", exact: true });
+    await expect(page.locator(".setting-row .summary-chip")).toHaveCount(0);
+    const trigger = page.getByRole("button", { name: "ペイント", exact: true });
     await trigger.click();
     await page.getByRole("button", { name: "このツールを削除", exact: true }).click();
-    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByRole("region")).toHaveCount(0);
     await expect(trigger).toHaveCount(0);
     await expect(page.getByRole("button", { name: "ツールを追加", exact: true })).toBeFocused();
-    await expect(page.getByRole("button", { name: "GIMPの設定", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "GIMP", exact: true })).toBeVisible();
   });
 
   for (const width of [800, 395, 240]) {
@@ -79,22 +92,24 @@ test.describe("settings", () => {
       });
       await page.goto("/");
       const row = page.locator(".setting-row").filter({ has: page.getByRole("heading", { name: "領域をキャプチャ", exact: true }) });
-      const header = row.getByRole("button", { name: "領域をキャプチャの設定", exact: true });
+      const header = row.getByRole("button", { name: "領域をキャプチャ", exact: true });
       await expect(page.locator(".setting-row kbd")).toHaveCount(0);
-      await expect(page.getByRole("button", { name: "全画面をキャプチャの設定", exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: "全画面をキャプチャ", exact: true })).toBeVisible();
       const title = await row.locator(".setting-row-title").boundingBox();
       const headerBox = (await header.boundingBox())!;
-      expect(title!.x + title!.width).toBeLessThanOrEqual(headerBox.x);
+      const chevron = (await row.locator(".setting-row-chevron").boundingBox())!;
+      expect(chevron.x - title!.x - title!.width).toBeLessThanOrEqual(5);
+      expect(chevron.x).toBeGreaterThanOrEqual(title!.x + title!.width - 1);
       await expect(row.locator("svg")).toHaveCount(1);
-      await expect(row.locator(".lucide-settings")).toBeVisible();
-      expect((await row.boundingBox())!.x + (await row.boundingBox())!.width - headerBox.x - headerBox.width).toBeLessThanOrEqual(12);
+      await expect(row.getByRole("checkbox")).toBeVisible();
+      expect(headerBox.width).toBeGreaterThan((await row.boundingBox())!.width / 2);
       if (width > 420) {
         const resetLabel = page.getByRole("button", { name: "このタブをデフォルトに戻す", exact: true }).locator(".settings-nav-label");
         expect(await resetLabel.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
         expect(await resetLabel.evaluate((element) => element.getBoundingClientRect().height)).toBeLessThan(24);
       }
       await header.click();
-      const panel = page.getByRole("dialog", { name: "領域をキャプチャ", exact: true });
+      const panel = page.getByRole("region", { name: "領域をキャプチャ", exact: true });
       const chips = await panel.locator(".hotkey-chip").all();
       expect(chips).toHaveLength(6);
       const chipBoxes = await Promise.all(chips.map((chip) => chip.boundingBox()));
@@ -117,8 +132,8 @@ test.describe("settings", () => {
   test("configures shortcuts and actions for the entire desktop", async ({ page }) => {
     await installTauriMock(page, { label: "settings" });
     await page.goto("/");
-    await page.getByRole("button", { name: "全画面をキャプチャの設定", exact: true }).click();
-    const panel = page.getByRole("dialog", { name: "全画面をキャプチャ", exact: true });
+    await page.getByRole("button", { name: "全画面をキャプチャ", exact: true }).click();
+    const panel = page.getByRole("region", { name: "全画面をキャプチャ", exact: true });
     await expect(panel.getByText("未設定")).toBeVisible();
     await panel.getByRole("button", { name: "全画面をキャプチャ: ショートカットを追加", exact: true }).click();
     await page.keyboard.press("Control+Alt+KeyP");
@@ -132,8 +147,8 @@ test.describe("settings", () => {
   test("configures clipboard import with no automatic save or copy by default", async ({ page }, testInfo) => {
     await installTauriMock(page, { label: "settings" });
     await page.goto("/");
-    await page.getByRole("button", { name: "クリップボードの画像を開くの設定", exact: true }).click();
-    const panel = page.getByRole("dialog", { name: "クリップボードの画像を開く", exact: true });
+    await page.getByRole("button", { name: "クリップボードの画像を開く", exact: true }).click();
+    const panel = page.getByRole("region", { name: "クリップボードの画像を開く", exact: true });
     await expect(panel.getByRole("combobox", { name: "クリップボードへコピー" })).toHaveText("しない");
     await expect(panel.getByRole("switch", { name: "自動で画像を保存する" })).not.toBeChecked();
     await panel.getByRole("button", { name: "クリップボードの画像を開く: ショートカットを追加", exact: true }).click();
@@ -193,12 +208,12 @@ test.describe("settings", () => {
     await page.getByRole("combobox", { name: "初期表示" }).click();
     await page.getByRole("option", { name: "16:9 の窓に余白付きで開く" }).click();
     await page.getByRole("tab", { name: "キャプチャ" }).click();
-    await page.getByRole("button", { name: "アクティブなウィンドウをキャプチャの設定" }).click();
-    await page.getByRole("dialog", { name: "アクティブなウィンドウをキャプチャ" }).getByRole("combobox", { name: "クリップボードへコピー" }).click();
+    await page.getByRole("button", { name: "アクティブなウィンドウをキャプチャ" }).click();
+    await page.getByRole("region", { name: "アクティブなウィンドウをキャプチャ" }).getByRole("combobox", { name: "クリップボードへコピー" }).click();
     await page.getByRole("option", { name: "しない" }).click();
 
     // 保存ボタンは無く、変更が止まると自動で保存する
-    await expect(page.getByRole("dialog").getByText("設定を保存しました")).toBeVisible();
+    await expect(page.getByText("設定を保存しました")).toBeVisible();
     await expect.poll(async () => (await calls(page)).filter((c) => c.cmd === "save_config").at(-1)?.args.config).toMatchObject({
       storage: { format: "%Y/%m%d-%H%M%S.png" },
       viewer: { always_on_top: true, layout: "framed" },
@@ -210,11 +225,11 @@ test.describe("settings", () => {
     await installTauriMock(page, { label: "settings" });
     await page.goto("/");
 
-    await page.getByRole("button", { name: "領域をキャプチャの設定" }).click();
+    await page.getByRole("button", { name: "領域をキャプチャ" }).click();
     await page.getByRole("button", { name: "領域をキャプチャ: ショートカットを追加" }).click();
     await page.keyboard.press("Control+Shift+KeyZ");
     await expect(page.getByText("Ctrl+Shift+Z")).toBeVisible();
-    await page.getByRole("dialog", { name: "領域をキャプチャ" }).getByRole("switch", { name: "自動で画像を保存する" }).click();
+    await page.getByRole("region", { name: "領域をキャプチャ" }).getByRole("switch", { name: "自動で画像を保存する" }).click();
 
     await expect.poll(async () => (await calls(page)).filter((c) => c.cmd === "save_config").at(-1)?.args.config).toMatchObject({
       hotkeys: { region: ["Ctrl+PrintScreen", "Ctrl+Shift+Z"] },

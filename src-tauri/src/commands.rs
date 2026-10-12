@@ -69,13 +69,14 @@ pub fn save_config(app: AppHandle, config: Config) -> AppResult<()> {
     let state = app.state::<AppState>();
     // 先に全項目を検証し、不正な設定はファイルに書かない
     config.validate()?;
-    let previous_hotkeys = state.config().hotkeys;
-    hotkeys::register(&app, &config.hotkeys)?;
+    let previous_hotkeys = state.config().active_hotkeys();
+    hotkeys::register(&app, &config.active_hotkeys())?;
     if let Err(error) = config.save(&state.config_path) {
         let _ = hotkeys::register(&app, &previous_hotkeys);
         return Err(error);
     }
     *state.config.lock().unwrap() = config;
+    crate::refresh_tray(&app)?;
     Ok(())
 }
 

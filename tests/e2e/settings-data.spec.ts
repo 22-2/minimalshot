@@ -57,7 +57,7 @@ test("imports settings and displays the restored values in every tab", async ({ 
   await page.getByRole("tab", { name: "外部ツール", exact: true }).click();
   await expect(page.getByText("ツールが登録されていません。", { exact: true })).toBeVisible();
   await page.getByRole("tab", { name: "キャプチャ", exact: true }).click();
-  await page.getByRole("button", { name: "領域をキャプチャの設定", exact: true }).click();
+  await page.getByRole("button", { name: "領域をキャプチャ", exact: true }).click();
   await expect(page.getByText("Ctrl+Shift+Z", { exact: true })).toBeVisible();
   await expect(page.getByRole("switch", { name: "撮影後にウィンドウを開かない" })).toBeChecked();
   expect((await calls(page)).filter((call) => call.cmd === "save_config")).toHaveLength(0);

@@ -18,6 +18,9 @@ use crate::windows;
 pub fn start_capture(app: &AppHandle, kind: CaptureKind) -> AppResult<()> {
     let state = app.state::<AppState>();
     let _capture = state.capture_lock.lock().unwrap();
+    if !state.config().capture.enabled_for(kind) {
+        return Ok(());
+    }
     match kind {
         CaptureKind::Window => finish_capture(app, capture::focused_window()?, None, kind),
         CaptureKind::Fullscreen => {
