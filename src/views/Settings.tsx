@@ -36,6 +36,7 @@ const captureModes: { kind: CaptureKind; action: string }[] = [
   { kind: "window", action: t("tray.window") },
   { kind: "fullscreen", action: t("tray.fullscreen") },
   { kind: "desktop", action: t("tray.desktop") },
+  { kind: "clipboard", action: t("tray.clipboard") },
 ];
 
 // 見出しは置かず、余白だけでまとまりを分ける

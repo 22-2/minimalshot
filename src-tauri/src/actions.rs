@@ -28,6 +28,10 @@ pub fn start_capture(app: &AppHandle, kind: CaptureKind) -> AppResult<()> {
             let (x, y) = cursor(app)?;
             finish_capture(app, capture::desktop_at(x, y)?.captured, None, kind)
         }
+        CaptureKind::Clipboard => {
+            let image = capture::clipboard_image()?;
+            open_clipboard_image(app, image)
+        }
         CaptureKind::Region => {
             // 選択中のオーバーレイを再撮影しない。初回の読み込み中も重複を避ける。
             if state.pending_region.lock().unwrap().is_some() {
@@ -49,6 +53,18 @@ pub fn start_capture(app: &AppHandle, kind: CaptureKind) -> AppResult<()> {
             Ok(())
         }
     }
+}
+
+/// 画面を撮り直さず、クリップボードから取り込んだ画像を通常のビューアに渡す。
+pub fn open_clipboard_image(app: &AppHandle, image: image::RgbaImage) -> AppResult<()> {
+    let (x, y) = cursor(app)?;
+    let monitor = capture::monitor_geometry_at(x, y)?;
+    finish_capture(
+        app,
+        Captured { image, monitor },
+        None,
+        CaptureKind::Clipboard,
+    )
 }
 
 fn cursor(app: &AppHandle) -> AppResult<(i32, i32)> {

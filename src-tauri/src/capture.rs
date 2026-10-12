@@ -86,6 +86,34 @@ pub struct DesktopCapture {
     pub bounds: ScreenBounds,
 }
 
+pub fn monitor_geometry_at(x: i32, y: i32) -> AppResult<MonitorGeometry> {
+    MonitorGeometry::of(&Monitor::from_point(x, y)?)
+}
+
+pub fn clipboard_image() -> AppResult<RgbaImage> {
+    let data = arboard::Clipboard::new()?
+        .get_image()
+        .map_err(|error| match error {
+            arboard::Error::ContentNotAvailable => AppError::msg(
+                "クリップボードに画像がありません。画像をコピーしてから、もう一度お試しください。",
+            ),
+            error => AppError::msg(format!("クリップボードの画像を読み込めません: {error}")),
+        })?;
+    image_from_clipboard(data)
+}
+
+fn image_from_clipboard(data: arboard::ImageData<'_>) -> AppResult<RgbaImage> {
+    let width = u32::try_from(data.width).map_err(|_| AppError::msg("画像の幅が大きすぎます"))?;
+    let height =
+        u32::try_from(data.height).map_err(|_| AppError::msg("画像の高さが大きすぎます"))?;
+    if width == 0 || height == 0 {
+        return Err(AppError::msg("クリップボードの画像が空です"));
+    }
+    // GDI 撮影と異なり、クリップボード画像の透明度はそのまま保持する。
+    RgbaImage::from_raw(width, height, data.bytes.into_owned())
+        .ok_or_else(|| AppError::msg("クリップボードの画像データが不正です"))
+}
+
 /// カーソルのあるモニター全体を撮る。
 pub fn monitor_at(x: i32, y: i32) -> AppResult<Captured> {
     let monitor = Monitor::from_point(x, y)?;
@@ -149,6 +177,55 @@ pub fn focused_window() -> AppResult<Captured> {
 mod tests {
     use super::*;
     use image::Rgba;
+
+    #[test]
+    fn clipboard_image_keeps_rgba_pixels_and_transparency() {
+        let bytes = vec![10, 20, 30, 0, 40, 50, 60, 128];
+        let image = image_from_clipboard(arboard::ImageData {
+            width: 2,
+            height: 1,
+            bytes: bytes.clone().into(),
+        })
+        .unwrap();
+        assert_eq!(image.dimensions(), (2, 1));
+        assert_eq!(image.as_raw(), &bytes);
+        let png = crate::imaging::encode_png(&image).unwrap();
+        assert_eq!(image::load_from_memory(&png).unwrap().to_rgba8(), image);
+    }
+
+    #[test]
+    fn rejects_empty_or_truncated_clipboard_images() {
+        for (width, height, bytes) in [(0, 2, vec![]), (2, 0, vec![]), (2, 2, vec![0; 4])] {
+            assert!(image_from_clipboard(arboard::ImageData {
+                width,
+                height,
+                bytes: bytes.into()
+            })
+            .is_err());
+        }
+    }
+
+    #[test]
+    #[ignore = "needs a desktop clipboard session; reads without changing its contents"]
+    fn reads_system_clipboard_without_modifying_it() {
+        match arboard::Clipboard::new().unwrap().get_image() {
+            Ok(data) => {
+                let expected = image_from_clipboard(data).unwrap();
+                let imported = clipboard_image().unwrap();
+                assert!(
+                    imported == expected,
+                    "clipboard image pixels changed during import"
+                );
+            }
+            Err(arboard::Error::ContentNotAvailable) => {
+                assert!(clipboard_image()
+                    .unwrap_err()
+                    .to_string()
+                    .contains("クリップボードに画像がありません"));
+            }
+            Err(error) => panic!("clipboard read failed: {error}"),
+        }
+    }
 
     #[test]
     fn makes_transparent_pixels_opaque() {

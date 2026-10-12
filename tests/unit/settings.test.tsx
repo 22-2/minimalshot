@@ -36,7 +36,7 @@ describe("Settings", () => {
 
   // 撮影モードの見出しは「モード名 処理」と読まれる。登録キーは中身だけに出す。
   const openMode = async (user: ReturnType<typeof userEvent.setup>, name: string) => {
-    await user.click(await screen.findByRole("button", { name: new RegExp(`^${name} `), expanded: false }));
+    await user.click(await screen.findByRole("button", { name: new RegExp(`^${name}(?: |$)`), expanded: false }));
     return screen.getByRole("region", { name });
   };
 

@@ -27,6 +27,8 @@ pub struct Hotkeys {
     pub fullscreen: Vec<String>,
     #[serde(deserialize_with = "one_or_many")]
     pub desktop: Vec<String>,
+    #[serde(deserialize_with = "one_or_many")]
+    pub clipboard: Vec<String>,
 }
 
 fn one_or_many<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
@@ -54,7 +56,7 @@ pub enum AutoCopy {
     Path,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Capture {
     pub auto_save: bool,
@@ -67,6 +69,26 @@ pub struct Capture {
     pub fullscreen: Option<CaptureOverride>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub desktop: Option<CaptureOverride>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub clipboard: Option<CaptureOverride>,
+}
+
+impl Default for Capture {
+    fn default() -> Self {
+        Self {
+            auto_save: false,
+            auto_copy: AutoCopy::Image,
+            region: None,
+            window: None,
+            fullscreen: None,
+            desktop: None,
+            // 取り込んだ画像は開くだけにし、元のクリップボードや保存先を変更しない。
+            clipboard: Some(CaptureOverride {
+                auto_save: Some(false),
+                auto_copy: Some(AutoCopy::None),
+            }),
+        }
+    }
 }
 
 /// モード別の指定項目だけを `[capture]` の既定値に上書きする。
@@ -92,6 +114,7 @@ impl Capture {
             crate::state::CaptureKind::Window => &self.window,
             crate::state::CaptureKind::Fullscreen => &self.fullscreen,
             crate::state::CaptureKind::Desktop => &self.desktop,
+            crate::state::CaptureKind::Clipboard => &self.clipboard,
         };
         CaptureActions {
             auto_save: override_
@@ -190,6 +213,7 @@ impl Default for Hotkeys {
             window: vec!["Shift+PrintScreen".into()],
             fullscreen: vec!["Alt+PrintScreen".into()],
             desktop: Vec::new(),
+            clipboard: Vec::new(),
         }
     }
 }
@@ -300,6 +324,28 @@ copy_stdout = false
         assert!(!config.capture.auto_save);
         assert_eq!(config.external, External::default());
         assert_eq!(config.viewer.layout, ViewerLayout::Source);
+    }
+
+    #[test]
+    fn clipboard_import_opens_only_unless_its_actions_are_configured() {
+        let config = Config::parse("[capture]\nauto_save = true\nauto_copy = \"path\"\n").unwrap();
+        assert!(config.hotkeys.clipboard.is_empty());
+        let actions = config
+            .capture
+            .actions_for(crate::state::CaptureKind::Clipboard);
+        assert!(!actions.auto_save);
+        assert_eq!(actions.auto_copy, AutoCopy::None);
+        let configured = Config::parse("[hotkeys]\nclipboard = \"Ctrl+Alt+V\"\n[capture.clipboard]\nauto_save = true\nauto_copy = \"image\"\n").unwrap();
+        assert_eq!(configured.hotkeys.clipboard, ["Ctrl+Alt+V"]);
+        let actions = configured
+            .capture
+            .actions_for(crate::state::CaptureKind::Clipboard);
+        assert!(actions.auto_save);
+        assert_eq!(actions.auto_copy, AutoCopy::Image);
+        assert_eq!(
+            Config::parse(&configured.to_toml().unwrap()).unwrap(),
+            configured
+        );
     }
 
     #[test]

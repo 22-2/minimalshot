@@ -20,6 +20,7 @@ mod native_tests;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Emitter, Manager, RunEvent, WindowEvent};
+use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use tauri_plugin_global_shortcut::ShortcutState;
 
 use crate::config::Config;
@@ -35,7 +36,18 @@ fn report(result: error::AppResult<()>) {
 
 fn capture_in_background(app: &AppHandle, kind: CaptureKind) {
     let app = app.clone();
-    tauri::async_runtime::spawn_blocking(move || report(actions::start_capture(&app, kind)));
+    tauri::async_runtime::spawn_blocking(move || {
+        if let Err(error) = actions::start_capture(&app, kind) {
+            if kind == CaptureKind::Clipboard {
+                app.dialog()
+                    .message(error.to_string())
+                    .title(t("app.name"))
+                    .kind(MessageDialogKind::Error)
+                    .show(|_| {});
+            }
+            report(Err(error));
+        }
+    });
 }
 
 fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
@@ -44,6 +56,7 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     let fullscreen =
         MenuItem::with_id(app, "fullscreen", t("tray.fullscreen"), true, None::<&str>)?;
     let desktop = MenuItem::with_id(app, "desktop", t("tray.desktop"), true, None::<&str>)?;
+    let clipboard = MenuItem::with_id(app, "clipboard", t("tray.clipboard"), true, None::<&str>)?;
     let settings = MenuItem::with_id(app, "settings", t("tray.settings"), true, None::<&str>)?;
     let about = MenuItem::with_id(app, "about", t("about.menu"), true, None::<&str>)?;
     let config_folder = MenuItem::with_id(
@@ -62,6 +75,7 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
             &window,
             &fullscreen,
             &desktop,
+            &clipboard,
             &separator,
             &settings,
             &config_folder,
@@ -79,6 +93,7 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
             "window" => capture_in_background(app, CaptureKind::Window),
             "fullscreen" => capture_in_background(app, CaptureKind::Fullscreen),
             "desktop" => capture_in_background(app, CaptureKind::Desktop),
+            "clipboard" => capture_in_background(app, CaptureKind::Clipboard),
             "settings" => report(windows::open_settings(app)),
             "about" => report(windows::open_about(app)),
             "config_folder" => report(actions::open_config_folder(app)),

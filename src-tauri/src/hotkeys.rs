@@ -15,6 +15,7 @@ pub fn parse_hotkeys(hotkeys: &Hotkeys) -> AppResult<Vec<(Shortcut, CaptureKind)
         (&hotkeys.window, CaptureKind::Window),
         (&hotkeys.fullscreen, CaptureKind::Fullscreen),
         (&hotkeys.desktop, CaptureKind::Desktop),
+        (&hotkeys.clipboard, CaptureKind::Clipboard),
     ] {
         for text in texts.iter().filter(|text| !text.trim().is_empty()) {
             // ライブラリは大文字小文字を無視するが Win は別名として受け付けない。
@@ -119,6 +120,19 @@ mod tests {
         let parsed = parse_hotkeys(&hotkeys).unwrap();
         assert_eq!(parsed.len(), 4);
         assert_eq!(parsed[3].1, CaptureKind::Desktop);
+    }
+
+    #[test]
+    fn clipboard_shortcut_is_optional_and_conflicts_with_other_modes() {
+        let mut hotkeys = Hotkeys {
+            clipboard: vec!["Ctrl+Alt+V".into()],
+            ..Hotkeys::default()
+        };
+        let parsed = parse_hotkeys(&hotkeys).unwrap();
+        assert_eq!(parsed.len(), 4);
+        assert_eq!(parsed[3].1, CaptureKind::Clipboard);
+        hotkeys.clipboard = hotkeys.region.clone();
+        assert!(parse_hotkeys(&hotkeys).is_err());
     }
 
     #[test]

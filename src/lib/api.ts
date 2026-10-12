@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 export type AutoCopy = "none" | "image" | "path";
 export type ViewerLayout = "source" | "framed";
-export type CaptureKind = "region" | "window" | "fullscreen" | "desktop";
+export type CaptureKind = "region" | "window" | "fullscreen" | "desktop" | "clipboard";
 export type CaptureActions = { auto_save: boolean; auto_copy: AutoCopy };
 export type CaptureOverride = Partial<CaptureActions>;
 

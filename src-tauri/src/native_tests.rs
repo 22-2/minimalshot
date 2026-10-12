@@ -377,6 +377,22 @@ fn prewarmed_windows_display_captures_before_auto_save() {
                 .unwrap();
             assert_ne!(first, second);
             assert!(first.is_file() && second.is_file());
+            let imported = image::RgbaImage::from_pixel(32, 24, image::Rgba([10, 20, 30, 70]));
+            actions::open_clipboard_image(&handle, imported.clone()).unwrap();
+            wait_for("clipboard image presentation", || {
+                frontend.shown.lock().unwrap().len() == 3
+            });
+            state
+                .shots
+                .with(3, |shot| {
+                    assert_eq!(shot.image, imported);
+                    assert!(
+                        shot.saved_path.is_none(),
+                        "clipboard import unexpectedly auto-saved"
+                    );
+                    Ok(())
+                })
+                .unwrap();
             let shown = frontend.shown.lock().unwrap().clone();
             for label in shown {
                 handle
