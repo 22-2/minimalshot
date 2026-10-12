@@ -21,7 +21,8 @@ import {
 
 import { TitleBar } from "../components/TitleBar";
 import { HotkeyInput } from "../components/HotkeyInput";
-import { Dropdown, SettingDisclosure, SettingGroup, SettingItem, SettingNotice, SettingPage, TextInput, Toggle } from "../components/Setting";
+import { Dropdown, SettingGroup, SettingItem, SettingNotice, SettingPage, TextInput, Toggle } from "../components/Setting";
+import { SettingEditor } from "../components/SettingEditor";
 import type { AutoCopy, CaptureActions, CaptureKind, Config, ExternalTool, ViewerLayout } from "../lib/api";
 import { duplicatedHotkeys } from "../lib/hotkey";
 import { useSettings, type ResetTarget } from "../stores/settings";
@@ -184,9 +185,11 @@ function CaptureModeSettings(props: ConfigPageProps & { kind: CaptureKind; title
     props.update("capture", props.kind, { ...actions, [key]: value });
 
   return (
-    <SettingDisclosure
+    <SettingEditor
       title={props.title}
       summary={<SummaryEffects effects={actionEffects(actions)} />}
+      modified={shortcutsChanged || JSON.stringify(actions) !== JSON.stringify(defaultActions)}
+      description={t("settings.hotkeyNote")}
     >
       <div className="setting-item hotkey-setting" data-modified={shortcutsChanged || undefined}>
         <div className="setting-info">
@@ -210,15 +213,15 @@ function CaptureModeSettings(props: ConfigPageProps & { kind: CaptureKind; title
       <SettingItem name={t("settings.hideViewer")} description={t("settings.hideViewerNote")} modified={actions.open_viewer !== defaultActions.open_viewer}>
         {(ids) => <Toggle {...ids} checked={!actions.open_viewer} onChange={(v) => change("open_viewer", !v)} />}
       </SettingItem>
-    </SettingDisclosure>
+    </SettingEditor>
   );
 }
 
 function CapturePage({ draft, defaults, update }: ConfigPageProps) {
   const conflicts = duplicatedHotkeys(captureModes.map(({ kind }) => draft.hotkeys[kind]));
   return (
-    <SettingPage title={t("settings.capture")} description={`${t("settings.captureNote")}${t("settings.hotkeyNote")}`}>
-      <div className="setting-disclosure-list">
+    <SettingPage title={t("settings.capture")} description={t("settings.captureNote")}>
+      <div className="setting-row-list">
         {captureModes.map(({ kind, action }) => (
           <CaptureModeSettings key={kind} draft={draft} defaults={defaults} kind={kind} title={action} conflicts={conflicts} update={update} />
         ))}
@@ -287,11 +290,12 @@ function ToolSummary({ tool }: { tool: ExternalTool }) {
 }
 
 function ToolsPage({ tools, defaults, onChange }: { tools: ExternalTool[]; defaults: ExternalTool[]; onChange: (tools: ExternalTool[]) => void }) {
+  const addButton = useRef<HTMLButtonElement>(null);
   const edit = (index: number, patch: Partial<ExternalTool>) =>
     onChange(tools.map((tool, i) => (i === index ? { ...tool, ...patch } : tool)));
 
   return (
-    <SettingPage title={t("settings.external")} description={t("settings.externalNote")}>
+    <SettingPage title={t("settings.external")} description={t("settings.externalSummary")}>
       {tools.length === 0
         ? (
           <SettingGroup>
@@ -299,56 +303,65 @@ function ToolsPage({ tools, defaults, onChange }: { tools: ExternalTool[]; defau
           </SettingGroup>
         )
         : (
-          <div className="setting-disclosure-list">
+          <div className="setting-row-list">
             {tools.map((tool, index) => (
-              <SettingDisclosure
+              <SettingEditor
                 key={index}
                 title={tool.name || `${t("settings.untitledTool")} ${index + 1}`}
                 summary={<ToolSummary tool={tool} />}
+                description={t("settings.externalNote")}
+                modified={JSON.stringify(tool) !== JSON.stringify(defaults[index])}
+                fallbackFocus={addButton}
                 // 追加したばかりの空のツールは、すぐ入力できるよう開いておく
                 defaultOpen={!tool.name && !tool.command}
               >
-                <SettingItem name={t("settings.toolName")} modified={tool.name !== defaults[index]?.name}>
-                  {(ids) => <TextInput {...ids} value={tool.name} onChange={(name) => edit(index, { name })} />}
-                </SettingItem>
-                <SettingItem name={t("settings.toolCommand")} stacked modified={tool.command !== defaults[index]?.command}>
-                  {(ids) => <TextInput {...ids} value={tool.command} onChange={(command) => edit(index, { command })} />}
-                </SettingItem>
-                <SettingItem name={t("settings.toolArgs")} stacked modified={tool.args !== defaults[index]?.args}>
-                  {(ids) => <TextInput {...ids} value={tool.args} onChange={(args) => edit(index, { args })} />}
-                </SettingItem>
-                <SettingItem name={t("settings.toolHideConsole")} modified={(tool.hide_console || tool.copy_stdout) !== (defaults[index] && (defaults[index].hide_console || defaults[index].copy_stdout))}>
-                  {(ids) => (
-                    <Toggle
-                      {...ids}
-                      // 出力を受け取るツールはコンソールを出さずに起動する
-                      checked={tool.hide_console || tool.copy_stdout}
-                      disabled={tool.copy_stdout}
-                      onChange={(hide_console) => edit(index, { hide_console })}
-                    />
-                  )}
-                </SettingItem>
-                <SettingItem name={t("settings.toolCopyStdout")} modified={tool.copy_stdout !== defaults[index]?.copy_stdout}>
-                  {(ids) => <Toggle {...ids} checked={tool.copy_stdout} onChange={(copy_stdout) => edit(index, { copy_stdout })} />}
-                </SettingItem>
-                <div className="setting-item setting-item-actions">
-                  <button
-                    type="button"
-                    className="button"
-                    data-variant="danger"
-                    onClick={() => onChange(tools.filter((_, i) => i !== index))}
-                  >
-                    <Trash2 size={14} aria-hidden />
-                    {t("settings.removeTool")}
-                  </button>
-                </div>
-              </SettingDisclosure>
+                {(closeBeforeRemoval) => <>
+                  <SettingItem name={t("settings.toolName")} modified={tool.name !== defaults[index]?.name}>
+                    {(ids) => <TextInput {...ids} value={tool.name} onChange={(name) => edit(index, { name })} />}
+                  </SettingItem>
+                  <SettingItem name={t("settings.toolCommand")} stacked modified={tool.command !== defaults[index]?.command}>
+                    {(ids) => <TextInput {...ids} value={tool.command} onChange={(command) => edit(index, { command })} />}
+                  </SettingItem>
+                  <SettingItem name={t("settings.toolArgs")} stacked modified={tool.args !== defaults[index]?.args}>
+                    {(ids) => <TextInput {...ids} value={tool.args} onChange={(args) => edit(index, { args })} />}
+                  </SettingItem>
+                  <SettingItem name={t("settings.toolHideConsole")} modified={(tool.hide_console || tool.copy_stdout) !== (defaults[index] && (defaults[index].hide_console || defaults[index].copy_stdout))}>
+                    {(ids) => (
+                      <Toggle
+                        {...ids}
+                        // 出力を受け取るツールはコンソールを出さずに起動する
+                        checked={tool.hide_console || tool.copy_stdout}
+                        disabled={tool.copy_stdout}
+                        onChange={(hide_console) => edit(index, { hide_console })}
+                      />
+                    )}
+                  </SettingItem>
+                  <SettingItem name={t("settings.toolCopyStdout")} modified={tool.copy_stdout !== defaults[index]?.copy_stdout}>
+                    {(ids) => <Toggle {...ids} checked={tool.copy_stdout} onChange={(copy_stdout) => edit(index, { copy_stdout })} />}
+                  </SettingItem>
+                  <div className="setting-item setting-item-actions">
+                    <button
+                      type="button"
+                      className="button"
+                      data-variant="danger"
+                      onClick={() => {
+                        closeBeforeRemoval();
+                        onChange(tools.filter((_, i) => i !== index));
+                      }}
+                    >
+                      <Trash2 size={14} aria-hidden />
+                      {t("settings.removeTool")}
+                    </button>
+                  </div>
+                </>}
+              </SettingEditor>
             ))}
           </div>
         )}
       <button
         type="button"
         className="button"
+        ref={addButton}
         onClick={() =>
           onChange([...tools, { name: "", command: "", args: '"${file}"', hide_console: false, copy_stdout: false }])
         }

@@ -92,6 +92,7 @@ for (const size of sizes) {
     await page.getByLabel("名前", { exact: true }).last().fill("Tool");
     await expect.poll(async () => (await calls(page)).filter((call) => call.cmd === "save_config").at(-1)?.args.config)
       .toMatchObject({ storage: { format: "%Y/%m/%d.png" } });
+    await page.getByRole("button", { name: "設定を閉じる", exact: true }).click();
     // 保存結果の通知が出ても横にはみ出さない。
     await insideViewport(page, page.locator(".toolbar-status"));
     await noHorizontalOverflow(page);

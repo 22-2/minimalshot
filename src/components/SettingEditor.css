@@ -1,0 +1,140 @@
+.setting-row-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  border-block: var(--border-width) solid var(--color-hairline);
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+}
+
+.setting-row + .setting-row {
+  border-block-start: var(--border-width) solid var(--color-hairline);
+}
+
+.setting-row[data-modified] {
+  box-shadow: inset var(--size-setting-modified-marker) 0 var(--color-accent);
+}
+
+.setting-row-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+}
+
+.setting-row-summary {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 0 1 auto;
+  gap: var(--space-2);
+  max-width: 40%;
+  min-width: 0;
+  color: var(--color-text-muted);
+}
+
+.setting-row-edit {
+  flex: none;
+}
+
+.setting-row-edit svg,
+.setting-editor-header svg {
+  width: var(--size-icon);
+  height: var(--size-icon);
+  stroke-width: var(--stroke-icon);
+}
+
+.setting-editor-overlay {
+  position: fixed;
+  inset: var(--size-titlebar) 0 0;
+  background: var(--color-scrim);
+}
+
+.setting-editor {
+  position: fixed;
+  inset: calc(var(--size-titlebar) + var(--space-4)) var(--space-4) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  width: calc(100% - var(--space-6));
+  max-width: var(--size-setting-editor);
+  height: fit-content;
+  max-height: calc(100dvh - var(--size-titlebar) - var(--space-6));
+  margin: auto;
+  overflow: hidden;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-medium);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-popover);
+}
+
+.setting-editor-header {
+  display: flex;
+  flex: none;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-block-end: var(--border-width) solid var(--color-hairline);
+}
+
+.setting-editor-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  align-self: center;
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-strong);
+}
+
+.setting-editor-header .icon-button {
+  flex: none;
+}
+
+.setting-editor-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.setting-editor-description {
+  margin: var(--space-4) var(--space-4) 0;
+}
+
+.setting-editor-footer {
+  flex: none;
+  padding: var(--space-2) var(--space-4);
+  border-block-start: var(--border-width) solid var(--color-hairline);
+}
+
+@media (max-width: 420px), (max-height: 320px) {
+  .setting-editor {
+    inset: calc(var(--size-titlebar) + var(--space-2)) var(--space-2) var(--space-2);
+    width: calc(100% - var(--space-4));
+    max-height: calc(100dvh - var(--size-titlebar) - var(--space-4));
+  }
+
+  .setting-editor-header,
+  .setting-editor-footer {
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .setting-editor-description {
+    margin: var(--space-3) var(--space-3) 0;
+  }
+
+  .setting-row {
+    gap: var(--space-2);
+    padding-inline: var(--space-2);
+  }
+
+  .setting-row-summary .summary-chip {
+    display: none;
+  }
+}

@@ -1,7 +1,7 @@
-import { useId, useState, type ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import * as Select from "@radix-ui/react-select";
 import * as Switch from "@radix-ui/react-switch";
-import { Check, ChevronRight, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown } from "lucide-react";
 
 /** 設定ページの見出しと説明。 */
 export function SettingPage(props: { title: string; description?: ReactNode; children: ReactNode }) {
@@ -19,39 +19,6 @@ export function SettingPage(props: { title: string; description?: ReactNode; chi
 /** 関連する設定行をひとつの面にまとめる。 */
 export function SettingGroup({ children }: { children: ReactNode }) {
   return <div className="setting-list">{children}</div>;
-}
-
-/**
- * 開閉できる設定のまとまり。閉じたままでも今の値を読めるよう、見出しの右に summary を置く。
- * 同じ名前の行が並ぶまとまりどうしを読み上げでも区別できるよう、中身は見出しの名前を持つ region にする。
- */
-export function SettingDisclosure(props: { title: string; summary?: ReactNode; defaultOpen?: boolean; children: ReactNode }) {
-  const [open, setOpen] = useState(props.defaultOpen ?? false);
-  const titleId = useId();
-  const panelId = useId();
-  return (
-    <section className="setting-disclosure" data-open={open || undefined}>
-      <h3 className="setting-disclosure-heading">
-        <button
-          type="button"
-          className="setting-disclosure-trigger"
-          aria-expanded={open}
-          aria-controls={open ? panelId : undefined}
-          onClick={() => setOpen(!open)}
-        >
-          <ChevronRight className="setting-disclosure-chevron" aria-hidden />
-          <span className="setting-disclosure-title" id={titleId}>{props.title}</span>
-          {/* 読み上げで名前と値がつながらないよう空白を挟む。flex の中なので見た目には影響しない */}
-          {props.summary && <>{" "}<span className="setting-disclosure-summary">{props.summary}</span></>}
-        </button>
-      </h3>
-      {open && (
-        <div id={panelId} className="setting-disclosure-panel" role="region" aria-labelledby={titleId}>
-          {props.children}
-        </div>
-      )}
-    </section>
-  );
 }
 
 type ControlIds = { id: string; labelId?: string; descriptionId?: string };
