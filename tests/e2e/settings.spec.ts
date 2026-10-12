@@ -159,6 +159,17 @@ test.describe("settings", () => {
     expect(commands).not.toContain("save_config");
   });
 
+  test("opens the save folder from the storage tab", async ({ page }) => {
+    await installTauriMock(page, { label: "settings" });
+    await page.goto("/");
+    await page.getByRole("tab", { name: "保存先" }).click();
+    await page.getByRole("button", { name: "保存フォルダを開く" }).click();
+
+    await expect(page.getByText("保存フォルダを開きました")).toBeVisible();
+    const commands = (await calls(page)).map((call) => call.cmd);
+    expect(commands).toContain("open_save_folder");
+  });
+
   test("reports a config folder launch failure", async ({ page }) => {
     await installTauriMock(page, {
       label: "settings",

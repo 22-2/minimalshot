@@ -81,6 +81,7 @@ export async function installTauriMock(page: Page, options: MockOptions) {
         return count;
       },
       open_config_folder: () => undefined,
+      open_save_folder: () => undefined,
       save_config: () => undefined,
       export_config: () => opts.exportPath === undefined ? "D:/backup/MinimalShot-settings.toml" : opts.exportPath,
       import_config: () => opts.importConfig ?? null,

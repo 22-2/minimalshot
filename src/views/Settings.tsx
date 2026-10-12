@@ -191,12 +191,15 @@ function CapturePage({ draft, defaults, update }: ConfigPageProps) {
   );
 }
 
-function StoragePage({ draft, defaults, update }: ConfigPageProps) {
+function StoragePage({ draft, defaults, update, onOpenSaveFolder }: ConfigPageProps & { onOpenSaveFolder: () => void }) {
   return (
     <SettingPage title={t("settings.storage")}>
       <SettingGroup>
         <SettingItem name={t("settings.directory")} description={t("settings.directoryNote")} stacked modified={draft.storage.directory !== defaults.storage.directory}>
           {(ids) => <TextInput {...ids} value={draft.storage.directory} onChange={(v) => update("storage", "directory", v)} />}
+        </SettingItem>
+        <SettingItem name={t("settings.saveFolder")} description={t("settings.saveFolderNote")}>
+          {() => <button type="button" className="button" onClick={onOpenSaveFolder}>{t("settings.openSaveFolder")}</button>}
         </SettingItem>
         <SettingItem name={t("settings.format")} description={t("settings.formatNote")} stacked modified={draft.storage.format !== defaults.storage.format}>
           {(ids) => <TextInput {...ids} value={draft.storage.format} onChange={(v) => update("storage", "format", v)} />}
@@ -325,7 +328,7 @@ function ToolsPage({ tools, defaults, onChange }: { tools: ExternalTool[]; defau
 }
 
 export function Settings() {
-  const { draft, defaults, status, load, openConfigFolder, openAbout, update, flush, reset } = useSettings();
+  const { draft, defaults, status, load, openConfigFolder, openSaveFolder, openAbout, update, flush, reset } = useSettings();
   const [presentation, setPresentation] = useState(0);
   const [tab, setTab] = useState<TabId>("capture");
   const [resetting, setResetting] = useState(false);
@@ -381,7 +384,7 @@ export function Settings() {
           {/* 各ページは同じ領域に描くので、パネルの id は選択中のタブに合わせて付け替える */}
           <div id={panelId(tab)} className="settings-panel" role="tabpanel" aria-labelledby={tabId(tab)}>
             {draft && defaults && tab === "capture" && <CapturePage draft={draft} defaults={defaults} update={update} />}
-            {draft && defaults && tab === "storage" && <StoragePage draft={draft} defaults={defaults} update={update} />}
+            {draft && defaults && tab === "storage" && <StoragePage draft={draft} defaults={defaults} update={update} onOpenSaveFolder={() => void openSaveFolder()} />}
             {draft && defaults && tab === "viewer" && <ViewerPage draft={draft} defaults={defaults} update={update} />}
             {draft && defaults && tab === "tools" && <ToolsPage tools={draft.external.tools} defaults={defaults.external.tools} onChange={(tools) => update("external", "tools", tools)} />}
             {draft && tab === "data" && <DataPage resetting={resetting} onReset={() => void resetSettings("all")} />}

@@ -6,6 +6,15 @@ use crate::error::{AppError, AppResult};
 
 pub const APP_NAME: &str = "MinimalShot";
 
+/// `{pictures}` と `{appname}` を展開した保存先ディレクトリ。
+pub fn render_directory(directory: &str, pictures: &Path) -> PathBuf {
+    let dir = directory
+        .replace("{pictures}", &pictures.to_string_lossy())
+        .replace("{appname}", APP_NAME);
+    // 区切りを揃えないと、書式由来の "/" が残ったときにエクスプローラーが場所を見つけられない
+    PathBuf::from(dir).components().collect()
+}
+
 /// `{pictures}` と `{appname}` を展開した保存先ディレクトリに、日付書式で作ったファイル名を連結する。
 pub fn render_save_path<Tz: TimeZone>(
     directory: &str,
@@ -16,15 +25,15 @@ pub fn render_save_path<Tz: TimeZone>(
 where
     Tz::Offset: std::fmt::Display,
 {
-    let dir = directory
-        .replace("{pictures}", &pictures.to_string_lossy())
-        .replace("{appname}", APP_NAME);
     let relative = format_date(format, now)?;
     if relative.trim().is_empty() {
         return Err(AppError::msg("保存ファイル名の書式が空です"));
     }
     // 書式の "/" はそのまま残るとエクスプローラーが対象を見つけられないため、区切りを揃える
-    Ok(PathBuf::from(dir).join(relative).components().collect())
+    Ok(render_directory(directory, pictures)
+        .join(relative)
+        .components()
+        .collect())
 }
 
 fn format_date<Tz: TimeZone>(format: &str, now: &DateTime<Tz>) -> AppResult<String>
@@ -98,6 +107,14 @@ mod tests {
         assert_eq!(
             path.to_string_lossy(),
             r"E:\Pictures\MinimalShot\2026-10\2026-10-09_12-34-56.png"
+        );
+    }
+
+    #[test]
+    fn renders_directory_placeholders() {
+        assert_eq!(
+            render_directory("{pictures}/{appname}", Path::new("/home/me/Pictures")),
+            PathBuf::from("/home/me/Pictures/MinimalShot")
         );
     }
 

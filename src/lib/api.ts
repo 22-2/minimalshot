@@ -41,6 +41,7 @@ export const api = {
   getConfig: () => invoke<Config>("get_config"),
   getDefaultConfig: () => invoke<Config>("get_default_config"),
   openConfigFolder: () => invoke<void>("open_config_folder"),
+  openSaveFolder: () => invoke<void>("open_save_folder"),
   saveConfig: (config: Config) => invoke<void>("save_config", { config }),
   exportConfig: (config: Config) => invoke<string | null>("export_config", { config }),
   importConfig: () => invoke<Config | null>("import_config"),

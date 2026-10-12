@@ -70,6 +70,13 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     let clipboard = MenuItem::with_id(app, "clipboard", t("tray.clipboard"), true, None::<&str>)?;
     let settings = MenuItem::with_id(app, "settings", t("tray.settings"), true, None::<&str>)?;
     let about = MenuItem::with_id(app, "about", t("about.menu"), true, None::<&str>)?;
+    let save_folder = MenuItem::with_id(
+        app,
+        "save_folder",
+        t("settings.openSaveFolder"),
+        true,
+        None::<&str>,
+    )?;
     let config_folder = MenuItem::with_id(
         app,
         "config_folder",
@@ -89,6 +96,7 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
             &clipboard,
             &separator,
             &settings,
+            &save_folder,
             &config_folder,
             &about,
             &quit,
@@ -107,6 +115,7 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
             "clipboard" => capture_in_background(app, CaptureKind::Clipboard),
             "settings" => report(windows::open_settings(app)),
             "about" => report(windows::open_about(app)),
+            "save_folder" => report(actions::open_save_folder(app)),
             "config_folder" => report(actions::open_config_folder(app)),
             "quit" => app.exit(0),
             _ => {}
@@ -196,6 +205,7 @@ pub fn run() {
             commands::get_default_config,
             commands::take_capture_sounds,
             commands::open_config_folder,
+            commands::open_save_folder,
             commands::save_config,
             commands::export_config,
             commands::import_config,

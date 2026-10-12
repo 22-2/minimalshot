@@ -13,6 +13,7 @@ type SettingsState = {
   transferring: "import" | "export" | null;
   load: () => Promise<void>;
   openConfigFolder: () => Promise<void>;
+  openSaveFolder: () => Promise<void>;
   openAbout: () => Promise<void>;
   exportConfig: () => Promise<void>;
   importConfig: () => Promise<void>;
@@ -88,6 +89,15 @@ export const useSettings = create<SettingsState>((set, get) => {
         set({ status: { tone: "info", text: t("settings.openedConfigFolder") } });
       } catch (error) {
         set({ status: { tone: "error", text: `${t("settings.openConfigFolderFailed")}: ${errorMessage(error)}` } });
+      }
+    },
+
+    openSaveFolder: async () => {
+      try {
+        await api.openSaveFolder();
+        set({ status: { tone: "info", text: t("settings.openedSaveFolder") } });
+      } catch (error) {
+        set({ status: { tone: "error", text: `${t("settings.openSaveFolderFailed")}: ${errorMessage(error)}` } });
       }
     },
 

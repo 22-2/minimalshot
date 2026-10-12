@@ -380,6 +380,17 @@ pub fn open_config_folder(app: &AppHandle) -> AppResult<()> {
         .config_path
         .parent()
         .ok_or_else(|| AppError::msg("設定フォルダが見つかりません"))?;
+    open_directory(directory)
+}
+
+/// 現在の保存先フォルダを開く。まだ無ければ作る。
+pub fn open_save_folder(app: &AppHandle) -> AppResult<()> {
+    let config = app.state::<AppState>().config();
+    let directory = paths::render_directory(&config.storage.directory, &app.path().picture_dir()?);
+    open_directory(&directory)
+}
+
+fn open_directory(directory: &Path) -> AppResult<()> {
     std::fs::create_dir_all(directory)?;
     #[cfg(windows)]
     Command::new("explorer.exe").arg(directory).spawn()?;
