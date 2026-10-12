@@ -86,7 +86,6 @@ impl Default for Capture {
             desktop: None,
             // 取り込んだ画像は開くだけにし、元のクリップボードや保存先を変更しない。
             clipboard: Some(CaptureOverride {
-                enabled: None,
                 auto_save: Some(false),
                 auto_copy: Some(AutoCopy::None),
                 open_viewer: Some(true),
@@ -99,8 +98,6 @@ impl Default for Capture {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct CaptureOverride {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub enabled: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub auto_save: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -117,25 +114,14 @@ pub struct CaptureActions {
 }
 
 impl Capture {
-    fn override_for(&self, kind: crate::state::CaptureKind) -> Option<&CaptureOverride> {
-        match kind {
+    pub fn actions_for(&self, kind: crate::state::CaptureKind) -> CaptureActions {
+        let override_ = match kind {
             crate::state::CaptureKind::Region => &self.region,
             crate::state::CaptureKind::Window => &self.window,
             crate::state::CaptureKind::Fullscreen => &self.fullscreen,
             crate::state::CaptureKind::Desktop => &self.desktop,
             crate::state::CaptureKind::Clipboard => &self.clipboard,
-        }
-        .as_ref()
-    }
-
-    pub fn enabled_for(&self, kind: crate::state::CaptureKind) -> bool {
-        self.override_for(kind)
-            .and_then(|v| v.enabled)
-            .unwrap_or(true)
-    }
-
-    pub fn actions_for(&self, kind: crate::state::CaptureKind) -> CaptureActions {
-        let override_ = self.override_for(kind);
+        };
         CaptureActions {
             open_viewer: override_
                 .as_ref()
@@ -185,6 +171,8 @@ pub struct External {
 /// 「外部ツールで開く」に並ぶ1項目。`args` は `${file}` などの変数を含む1行の引数。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExternalTool {
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
     pub name: String,
     pub command: String,
     #[serde(default = "default_args")]
@@ -199,6 +187,10 @@ pub struct ExternalTool {
 
 fn default_args() -> String {
     "\"${file}\"".into()
+}
+
+fn default_enabled() -> bool {
+    true
 }
 
 /// 読み込み専用の形。0.0.3 までの `editor = "..."` も受け付け、ツール1件として扱う。
@@ -216,6 +208,7 @@ impl From<ExternalFile> for External {
         match file.editor {
             Some(editor) if !editor.trim().is_empty() => Self {
                 tools: vec![ExternalTool {
+                    enabled: true,
                     name: editor.clone(),
                     command: editor,
                     args: default_args(),
@@ -256,6 +249,7 @@ impl Default for External {
         Self {
             tools: vec![
                 ExternalTool {
+                    enabled: true,
                     name: "ペイント".into(),
                     command: "mspaint.exe".into(),
                     args: default_args(),
@@ -263,6 +257,7 @@ impl Default for External {
                     copy_stdout: false,
                 },
                 ExternalTool {
+                    enabled: true,
                     name: "文字認識してメモ帳で開く".into(),
                     command: "powershell.exe".into(),
                     args: r#"-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "${configDirname}/ocr.ps1" -ImagePath "${file}" -Scale 3 -PageSegmentationMode 3"#.into(),
@@ -275,24 +270,6 @@ impl Default for External {
 }
 
 impl Config {
-    /// 無効なモードの割り当ては設定に残し、OS への登録だけを外す。
-    pub fn active_hotkeys(&self) -> Hotkeys {
-        use crate::state::CaptureKind;
-        let mut hotkeys = self.hotkeys.clone();
-        for (keys, kind) in [
-            (&mut hotkeys.region, CaptureKind::Region),
-            (&mut hotkeys.window, CaptureKind::Window),
-            (&mut hotkeys.fullscreen, CaptureKind::Fullscreen),
-            (&mut hotkeys.desktop, CaptureKind::Desktop),
-            (&mut hotkeys.clipboard, CaptureKind::Clipboard),
-        ] {
-            if !self.capture.enabled_for(kind) {
-                keys.clear();
-            }
-        }
-        hotkeys
-    }
-
     /// 保存とインポートで同じ検証を行い、不正な内容を実行中の設定へ反映しない。
     pub fn validate(&self) -> AppResult<()> {
         crate::hotkeys::parse_hotkeys(&self.hotkeys)?;
@@ -409,22 +386,6 @@ copy_stdout = false
     }
 
     #[test]
-    fn disabled_modes_keep_settings_but_release_their_hotkeys() {
-        use crate::state::CaptureKind;
-        let mut config =
-            Config::parse("[capture.region]\nenabled = false\nauto_save = true\n").unwrap();
-        assert!(!config.capture.enabled_for(CaptureKind::Region));
-        assert!(config.capture.enabled_for(CaptureKind::Window));
-        assert!(config.active_hotkeys().region.is_empty());
-        assert_eq!(config.hotkeys.region, Hotkeys::default().region);
-        assert_eq!(config.active_hotkeys().window, config.hotkeys.window);
-        assert!(config.capture.actions_for(CaptureKind::Region).auto_save);
-        assert_eq!(Config::parse(&config.to_toml().unwrap()).unwrap(), config);
-        config.capture.region.as_mut().unwrap().enabled = Some(true);
-        assert_eq!(config.active_hotkeys(), config.hotkeys);
-    }
-
-    #[test]
     fn viewer_visibility_is_inherited_and_overridden_per_mode() {
         let config =
             Config::parse("[capture]\nopen_viewer = false\n[capture.region]\nopen_viewer = true\n")
@@ -509,6 +470,7 @@ copy_stdout = false
         assert_eq!(
             config.external.tools,
             [ExternalTool {
+                enabled: true,
                 name: "C:/Tools/paint.net.exe".into(),
                 command: "C:/Tools/paint.net.exe".into(),
                 args: "\"${file}\"".into(),
@@ -551,7 +513,20 @@ args = '"${file}"'
         .unwrap();
         assert_eq!(config.external.tools.len(), 1);
         assert_eq!(config.external.tools[0].command, "custom.exe");
+        assert!(config.external.tools[0].enabled);
         assert_eq!(Config::parse(&config.to_toml().unwrap()).unwrap(), config);
+    }
+
+    #[test]
+    fn disabled_tools_round_trip_without_losing_their_command() {
+        let mut config = Config::default();
+        config.external.tools[0].enabled = false;
+        config.validate().unwrap();
+        let restored = Config::parse(&config.to_toml().unwrap()).unwrap();
+        assert_eq!(restored, config);
+        assert!(!restored.external.tools[0].enabled);
+        assert!(restored.external.tools[1].enabled);
+        assert_eq!(restored.external.tools[0].command, "mspaint.exe");
     }
 
     #[test]

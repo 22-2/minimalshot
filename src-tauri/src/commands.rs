@@ -69,14 +69,19 @@ pub fn save_config(app: AppHandle, config: Config) -> AppResult<()> {
     let state = app.state::<AppState>();
     // 先に全項目を検証し、不正な設定はファイルに書かない
     config.validate()?;
-    let previous_hotkeys = state.config().active_hotkeys();
-    hotkeys::register(&app, &config.active_hotkeys())?;
+    let previous = state.config();
+    let tools_changed = previous.external != config.external;
+    let previous_hotkeys = previous.hotkeys;
+    hotkeys::register(&app, &config.hotkeys)?;
     if let Err(error) = config.save(&state.config_path) {
         let _ = hotkeys::register(&app, &previous_hotkeys);
         return Err(error);
     }
+    let tools = config.external.tools.clone();
     *state.config.lock().unwrap() = config;
-    crate::refresh_tray(&app)?;
+    if tools_changed {
+        app.emit("external-tools-changed", tools)?;
+    }
     Ok(())
 }
 

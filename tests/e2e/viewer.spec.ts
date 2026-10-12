@@ -147,6 +147,26 @@ test.describe("viewer", () => {
     expect(call?.args).toEqual({ tool: 1 });
   });
 
+  test("hides disabled tools, keeps command indices and updates existing viewers", async ({ page }) => {
+    const tools = [
+      { name: "ペイント", command: "mspaint.exe", args: "", hide_console: false, copy_stdout: false, enabled: false },
+      { name: "GIMP", command: "gimp.exe", args: "", hide_console: false, copy_stdout: false, enabled: true },
+    ];
+    await openViewer(page, { label: "viewer-1", config: { external: { tools } } });
+    const trigger = page.locator(".titlebar").getByRole("button", { name: "外部ツールで開く" });
+    await trigger.click();
+    await expect(page.getByRole("menuitem")).toHaveText(["GIMP"]);
+    await page.getByRole("menuitem", { name: "GIMP" }).click();
+    expect((await calls(page)).find((call) => call.cmd === "open_shot_with")?.args).toEqual({ tool: 1 });
+    await page.evaluate((tools) => {
+      const mock = window as unknown as { __emit: (event: string, payload: unknown) => void };
+      mock.__emit("external-tools-changed", tools.map((tool) => ({ ...tool, enabled: false })));
+    }, tools);
+    await trigger.click();
+    await expect(page.getByRole("menuitem")).toHaveText(["設定で外部ツールを有効にしてください"]);
+    expect((await calls(page)).filter((call) => call.cmd === "shot_png")).toHaveLength(1);
+  });
+
   test("tools that copy their output report it", async ({ page }) => {
     await openViewer(page, {
       label: "viewer-1",

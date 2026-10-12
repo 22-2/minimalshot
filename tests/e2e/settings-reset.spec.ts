@@ -8,7 +8,7 @@ const changedConfig = () => ({
   capture: { auto_save: true, auto_copy: "none", open_viewer: true, region: { auto_copy: "path" }, clipboard: { auto_save: true, auto_copy: "image" } },
   storage: { directory: "D:/shots", format: "%Y.png" },
   viewer: { always_on_top: true, confirm_on_close: true, layout: "framed" },
-  external: { tools: [{ name: "Custom", command: "custom.exe", args: "", hide_console: true, copy_stdout: true }] },
+  external: { tools: [{ name: "Custom", command: "custom.exe", enabled: false, args: "", hide_console: true, copy_stdout: true }] },
 });
 
 for (const [tab, sections] of [
@@ -26,7 +26,8 @@ for (const [tab, sections] of [
     if (tab === "キャプチャ") await page.getByRole("button", { name: "領域をキャプチャ" }).click();
     if (tab === "外部ツール") await page.getByRole("button", { name: "Custom" }).click();
     await expect(page.locator(".setting-item[data-modified]").first()).toBeVisible();
-    if (tab === "キャプチャ" || tab === "外部ツール") await page.getByRole("button", { expanded: true }).click();
+    if (tab === "キャプチャ") await page.getByRole("button", { expanded: true }).click();
+    if (tab === "外部ツール") await page.getByRole("button", { name: "設定を閉じる" }).click();
     const reset = page.getByRole("button", { name: "このタブをデフォルトに戻す", exact: true });
     const folder = page.getByRole("button", { name: "設定フォルダを開く", exact: true });
     expect((await reset.boundingBox())!.y).toBeLessThan((await folder.boundingBox())!.y);

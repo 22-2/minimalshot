@@ -18,9 +18,6 @@ use crate::windows;
 pub fn start_capture(app: &AppHandle, kind: CaptureKind) -> AppResult<()> {
     let state = app.state::<AppState>();
     let _capture = state.capture_lock.lock().unwrap();
-    if !state.config().capture.enabled_for(kind) {
-        return Ok(());
-    }
     match kind {
         CaptureKind::Window => finish_capture(app, capture::focused_window()?, None, kind),
         CaptureKind::Fullscreen => {
@@ -308,6 +305,9 @@ pub fn open_with(app: &AppHandle, id: u32, tool_index: usize) -> AppResult<ToolO
         .get(tool_index)
         .cloned()
         .ok_or_else(|| AppError::msg("外部ツールが見つかりません"))?;
+    if !tool.enabled {
+        return Err(AppError::msg("この外部ツールは無効になっています"));
+    }
     let path = path_for_tool(app, id)?;
     let state = app.state::<AppState>();
     let config_dir = state

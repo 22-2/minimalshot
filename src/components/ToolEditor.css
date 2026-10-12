@@ -1,0 +1,83 @@
+.tool-editor-overlay {
+  position: fixed;
+  inset: var(--size-titlebar) 0 0;
+  background: var(--color-scrim);
+}
+
+.tool-editor {
+  position: fixed;
+  inset: calc(var(--size-titlebar) + var(--space-4)) var(--space-4) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  width: calc(100% - var(--space-6));
+  max-width: var(--size-setting-editor);
+  height: fit-content;
+  max-height: calc(100dvh - var(--size-titlebar) - var(--space-6));
+  margin: auto;
+  overflow: hidden;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-medium);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-popover);
+}
+
+.tool-editor-header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-block-end: var(--border-width) solid var(--color-hairline);
+}
+
+.tool-editor-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-strong);
+}
+
+.tool-editor-header .icon-button {
+  flex: none;
+}
+
+.tool-editor-header svg {
+  width: var(--size-icon);
+  height: var(--size-icon);
+  stroke-width: var(--stroke-icon);
+}
+
+.tool-editor-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.tool-editor-description {
+  margin: var(--space-4) var(--space-4) 0;
+}
+
+.tool-editor-footer {
+  flex: none;
+  padding: var(--space-2) var(--space-4);
+  border-block-start: var(--border-width) solid var(--color-hairline);
+}
+
+@media (max-width: 420px), (max-height: 320px) {
+  .tool-editor {
+    inset: calc(var(--size-titlebar) + var(--space-2)) var(--space-2) var(--space-2);
+    width: calc(100% - var(--space-4));
+    max-height: calc(100dvh - var(--size-titlebar) - var(--space-4));
+  }
+
+  .tool-editor-header,
+  .tool-editor-footer {
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .tool-editor-description {
+    margin: var(--space-3) var(--space-3) 0;
+  }
+}

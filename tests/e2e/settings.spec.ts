@@ -21,19 +21,13 @@ test.describe("settings", () => {
     await page.screenshot({ path: testInfo.outputPath("navigation-fallback-font.png"), animations: "disabled" });
   });
 
-  test("toggles inline settings from the row and keeps the checkbox independent", async ({ page }, testInfo) => {
+  test("toggles capture settings from the full row without checkboxes", async ({ page }, testInfo) => {
     await installTauriMock(page, { label: "settings" });
     await page.goto("/");
     const trigger = page.getByRole("button", { name: "領域をキャプチャ", exact: true });
     await expect(page.locator(".setting-disclosure")).toHaveCount(5);
     await expect(trigger).toHaveAttribute("aria-expanded", "false");
-    const checkbox = page.getByRole("checkbox", { name: "領域をキャプチャを有効にする", exact: true });
-    await checkbox.uncheck();
-    await expect(trigger).toHaveAttribute("aria-expanded", "false");
-    await expect(trigger).toHaveCSS("color", "rgb(154, 158, 168)");
-    await expect.poll(async () => (await calls(page)).filter((call) => call.cmd === "save_config").at(-1)?.args.config).toMatchObject({
-      capture: { region: { enabled: false } }, hotkeys: { region: ["Ctrl+PrintScreen"] },
-    });
+    await expect(page.getByRole("checkbox")).toHaveCount(0);
     await page.screenshot({ path: testInfo.outputPath("capture-modes.png") });
     const box = (await trigger.boundingBox())!;
     await trigger.click({ position: { x: box.width - 8, y: box.height / 2 } });
@@ -48,12 +42,6 @@ test.describe("settings", () => {
     await expect(panel).toBeVisible();
     await expect(panel.getByText("キーを押してください")).toHaveCount(0);
     await panel.getByRole("switch", { name: "撮影後にウィンドウを開かない" }).click();
-    await expect(checkbox).not.toBeChecked();
-    await expect.poll(async () => (await calls(page)).filter((call) => call.cmd === "save_config").at(-1)?.args.config).toMatchObject({
-      capture: { region: { enabled: false, open_viewer: false } },
-    });
-    await checkbox.check();
-    await expect(panel).toBeVisible();
     await trigger.focus();
     await page.keyboard.press("Space");
     await expect(panel).toHaveCount(0);
@@ -72,10 +60,42 @@ test.describe("settings", () => {
     const trigger = page.getByRole("button", { name: "ペイント", exact: true });
     await trigger.click();
     await page.getByRole("button", { name: "このツールを削除", exact: true }).click();
-    await expect(page.getByRole("region")).toHaveCount(0);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(trigger).toHaveCount(0);
     await expect(page.getByRole("button", { name: "ツールを追加", exact: true })).toBeFocused();
     await expect(page.getByRole("button", { name: "GIMP", exact: true })).toBeVisible();
+  });
+
+  test("toggles tools independently and edits disabled tools in a modal", async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 800, height: 600 });
+    await installTauriMock(page, { label: "settings" });
+    await page.goto("/");
+    await page.getByRole("tab", { name: "外部ツール", exact: true }).click();
+    const checkbox = page.getByRole("checkbox", { name: "ペイントを有効にする", exact: true });
+    const trigger = page.getByRole("button", { name: "ペイント", exact: true });
+    await checkbox.uncheck();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(trigger).toHaveCSS("color", "rgb(154, 158, 168)");
+    await expect.poll(async () => (await calls(page)).filter((call) => call.cmd === "save_config").at(-1)?.args.config)
+      .toMatchObject({ external: { tools: [{ name: "ペイント", command: "mspaint.exe", enabled: false }, { name: "GIMP" }] } });
+    await page.screenshot({ path: testInfo.outputPath("disabled-tool.png") });
+    await trigger.click();
+    const dialog = page.getByRole("dialog", { name: "ペイント", exact: true });
+    await expect(dialog.getByLabel("名前", { exact: true })).toBeFocused();
+    await dialog.getByLabel("コマンド", { exact: true }).fill("paint.net");
+    await expect.poll(async () => (await calls(page)).filter((call) => call.cmd === "save_config").at(-1)?.args.config)
+      .toMatchObject({ external: { tools: [{ enabled: false, command: "paint.net" }, { name: "GIMP" }] } });
+    for (let index = 0; index < 10; index++) {
+      await page.keyboard.press("Tab");
+      expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+    }
+    await page.screenshot({ path: testInfo.outputPath("tool-modal.png") });
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+    await checkbox.check();
+    await expect.poll(async () => (await calls(page)).filter((call) => call.cmd === "save_config").at(-1)?.args.config)
+      .toMatchObject({ external: { tools: [{ enabled: true, command: "paint.net" }, { name: "GIMP" }] } });
   });
 
   for (const width of [800, 395, 240]) {
@@ -101,7 +121,7 @@ test.describe("settings", () => {
       expect(chevron.x - title!.x - title!.width).toBeLessThanOrEqual(5);
       expect(chevron.x).toBeGreaterThanOrEqual(title!.x + title!.width - 1);
       await expect(row.locator("svg")).toHaveCount(1);
-      await expect(row.getByRole("checkbox")).toBeVisible();
+      await expect(row.getByRole("checkbox")).toHaveCount(0);
       expect(headerBox.width).toBeGreaterThan((await row.boundingBox())!.width / 2);
       if (width > 420) {
         const resetLabel = page.getByRole("button", { name: "このタブをデフォルトに戻す", exact: true }).locator(".settings-nav-label");

@@ -94,4 +94,15 @@ describe("viewerMenu", () => {
     if (only.type === "item") only.onSelect();
     expect(handlers.openSettings).toHaveBeenCalled();
   });
+
+  it("skips disabled tools while retaining the original command index", () => {
+    const handlers = actions();
+    const registered = [{ ...tools[0], enabled: false }, { ...tools[0], name: "GIMP" }];
+    const entries = subEntries(viewerMenu({ saved: false, pinned: false, tools: registered }, handlers));
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ id: "tool-1", label: "GIMP" });
+    if (entries[0].type === "item") entries[0].onSelect();
+    expect(handlers.openWith).toHaveBeenCalledWith(1);
+    expect(subEntries(viewerMenu({ saved: false, pinned: false, tools: [{ ...tools[0], enabled: false }] }, handlers))).toMatchObject([{ id: "no-tools" }]);
+  });
 });

@@ -9,7 +9,7 @@ import { ContextMenuArea, DropdownMenuButton } from "../components/Menu";
 import { TitleBar } from "../components/TitleBar";
 import { useZoom } from "../lib/useZoom";
 import { useWindowReady } from "../lib/useWindowReady";
-import { api, errorMessage, type CompletedActions } from "../lib/api";
+import { api, errorMessage, type CompletedActions, type ExternalTool } from "../lib/api";
 import { isDevelopmentBuild } from "../lib/build";
 import { playCaptureSound } from "../lib/captureSound";
 import { openWithEntries, viewerMenu } from "../lib/viewerMenu";
@@ -65,6 +65,9 @@ export function Viewer() {
       if (!disposed) useViewer.setState({ status: { tone: "error", text: errorMessage(error) } });
     };
     const listeners = [
+      listen<ExternalTool[]>("external-tools-changed", ({ payload }) => {
+        if (!disposed) useViewer.setState({ tools: payload });
+      }),
       listen<number>("viewer-load", ({ payload }) => void loadCapture(payload).catch(reportError)),
       listen<string>("shot-saved", ({ payload }) => {
         if (!disposed) useViewer.getState().setSavedPath(payload);

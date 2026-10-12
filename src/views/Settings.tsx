@@ -19,6 +19,7 @@ import { TitleBar } from "../components/TitleBar";
 import { HotkeyInput } from "../components/HotkeyInput";
 import { Dropdown, SettingGroup, SettingItem, SettingNotice, SettingPage, TextInput, Toggle } from "../components/Setting";
 import { SettingEditor } from "../components/SettingEditor";
+import { ToolEditor } from "../components/ToolEditor";
 import type { AutoCopy, CaptureActions, CaptureKind, Config, ExternalTool, ViewerLayout } from "../lib/api";
 import { duplicatedHotkeys } from "../lib/hotkey";
 import { useSettings, type ResetTarget } from "../stores/settings";
@@ -141,7 +142,6 @@ function CaptureModeSettings(props: ConfigPageProps & { kind: CaptureKind; title
   const actions = effectiveActions(props.draft, props.kind);
   const defaultActions = effectiveActions(props.defaults, props.kind);
   const hotkeys = props.draft.hotkeys[props.kind];
-  const enabled = props.draft.capture[props.kind]?.enabled ?? true;
   const importImage = props.kind === "clipboard";
   const shortcutsChanged = JSON.stringify(hotkeys.filter((value) => value.trim())) !== JSON.stringify(props.defaults.hotkeys[props.kind]);
   // 画面には実際に適用される値を出し、触ったモードだけをモード別の設定として書き出す
@@ -151,9 +151,7 @@ function CaptureModeSettings(props: ConfigPageProps & { kind: CaptureKind; title
   return (
     <SettingEditor
       title={props.title}
-      modified={shortcutsChanged || enabled !== (props.defaults.capture[props.kind]?.enabled ?? true) || JSON.stringify(actions) !== JSON.stringify(defaultActions)}
-      enabled={enabled}
-      onEnabledChange={(value) => props.update("capture", props.kind, { ...props.draft.capture[props.kind], enabled: value })}
+      modified={shortcutsChanged || JSON.stringify(actions) !== JSON.stringify(defaultActions)}
       description={importImage ? t("settings.clipboardNote") : t("settings.hotkeyNote")}
     >
       <div className="setting-item hotkey-setting" data-modified={shortcutsChanged || undefined}>
@@ -249,9 +247,11 @@ function ToolsPage({ tools, defaults, onChange }: { tools: ExternalTool[]; defau
         : (
           <div className="setting-row-list">
             {tools.map((tool, index) => (
-              <SettingEditor
+              <ToolEditor
                 key={index}
                 title={tool.name || `${t("settings.untitledTool")} ${index + 1}`}
+                enabled={tool.enabled !== false}
+                onEnabledChange={(enabled) => edit(index, { enabled })}
                 description={t("settings.externalNote")}
                 modified={JSON.stringify(tool) !== JSON.stringify(defaults[index])}
                 fallbackFocus={addButton}
@@ -297,7 +297,7 @@ function ToolsPage({ tools, defaults, onChange }: { tools: ExternalTool[]; defau
                     </button>
                   </div>
                 </>}
-              </SettingEditor>
+              </ToolEditor>
             ))}
           </div>
         )}

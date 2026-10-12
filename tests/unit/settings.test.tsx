@@ -50,10 +50,10 @@ describe("Settings", () => {
     expect(command).toHaveValue("mspaint.exe");
     await user.clear(command);
     await user.type(command, "paint.net");
-    await user.click(screen.getByRole("button", { expanded: true }));
+    await user.click(screen.getByRole("button", { name: "設定を閉じる" }));
     await user.click(screen.getByRole("button", { name: "ツールを追加" }));
     // 名前とコマンドが揃うまでは、検証エラーにせず保存を待つ
-    expect(await screen.findByText("外部ツールの名前とコマンドを入力すると保存します")).toBeInTheDocument();
+    expect(await within(screen.getByRole("dialog")).findByText("外部ツールの名前とコマンドを入力すると保存します")).toBeInTheDocument();
     await user.type(screen.getByLabelText("名前"), "GIMP");
     await user.type(screen.getByLabelText("コマンド"), "gimp.exe");
     // 出力をコピーするツールは、コンソール非表示が強制される
@@ -61,7 +61,7 @@ describe("Settings", () => {
     expect(screen.getByRole("switch", { name: "コンソールを表示しない" })).toBeDisabled();
     expect(screen.getByRole("switch", { name: "コンソールを表示しない" })).toBeChecked();
 
-    expect(await screen.findByText("設定を保存しました")).toBeInTheDocument();
+    expect(await within(screen.getByRole("dialog")).findByText("設定を保存しました")).toBeInTheDocument();
     await expectSaved({
       external: {
         tools: [
@@ -145,7 +145,7 @@ describe("Settings", () => {
     // ツール名の行から設定を開く
     await user.click(screen.getByRole("button", { name: "ペイント" }));
     expect(screen.queryByRole("button", { name: "設定を保存" })).not.toBeInTheDocument();
-    await user.click(within(screen.getByRole("region", { name: "ペイント" })).getByRole("button", { name: "このツールを削除" }));
+    await user.click(within(screen.getByRole("dialog", { name: "ペイント" })).getByRole("button", { name: "このツールを削除" }));
     expect(screen.getByRole("button", { name: "文字認識してメモ帳で開く" })).toBeInTheDocument();
 
     await expectSaved({ external: { tools: [defaultConfig().external.tools[1]] } });

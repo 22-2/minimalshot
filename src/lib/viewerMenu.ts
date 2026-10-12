@@ -72,10 +72,12 @@ export function viewerMenu({ saved, pinned, tools }: MenuState, actions: ViewerA
 
 /** 「外部ツールで開く」の一覧。右クリックのサブメニューとタイトルバーのボタンで共通。 */
 export function openWithEntries(tools: ExternalTool[], actions: Pick<ViewerActions, "openWith" | "openSettings">): MenuEntry[] {
-  if (tools.length === 0) {
-    return [{ type: "item", id: "no-tools", label: t("viewer.noTools"), icon: Settings, onSelect: actions.openSettings }];
+  // 元の配列の添字を保ち、無効なツールを飛ばしても別のコマンドを起動しない。
+  const enabledTools = tools.map((tool, index) => ({ tool, index })).filter(({ tool }) => tool.enabled !== false);
+  if (enabledTools.length === 0) {
+    return [{ type: "item", id: "no-tools", label: t(tools.length ? "viewer.noEnabledTools" : "viewer.noTools"), icon: Settings, onSelect: actions.openSettings }];
   }
-  return tools.map((tool, index) => ({
+  return enabledTools.map(({ tool, index }) => ({
     type: "item",
     id: `tool-${index}`,
     label: tool.name,
