@@ -34,9 +34,9 @@ describe("Settings", () => {
   // 保存ボタンは無く、変更が止まると自動で保存される
   const expectSaved = (expected: object) => waitFor(() => expect(saved.at(-1)).toMatchObject(expected));
 
-  // 撮影モードの見出しは「処理 モード名」と読まれる。登録キーは中身だけに出す。
+  // 撮影モードの見出しは「モード名 処理」と読まれる。登録キーは中身だけに出す。
   const openMode = async (user: ReturnType<typeof userEvent.setup>, name: string) => {
-    await user.click(await screen.findByRole("button", { name: new RegExp(`${name}$`), expanded: false }));
+    await user.click(await screen.findByRole("button", { name: new RegExp(`^${name} `), expanded: false }));
     return screen.getByRole("region", { name });
   };
 
@@ -76,13 +76,13 @@ describe("Settings", () => {
     const user = userEvent.setup();
     render(<Settings />);
     // 閉じていても撮影後の処理を読める。キーはヘッダーに表示しない。
-    const trigger = await screen.findByRole("button", { name: "画像をコピー 領域をキャプチャ" });
+    const trigger = await screen.findByRole("button", { name: "領域をキャプチャ 画像をコピー" });
     const region = await openMode(user, "領域をキャプチャ");
 
     await user.click(within(region).getByRole("combobox", { name: "クリップボードへコピー" }));
     await user.click(await screen.findByRole("option", { name: "パス（保存時のみ）" }));
     await user.click(within(region).getByRole("switch", { name: "自動で画像を保存する" }));
-    expect(trigger).toHaveAccessibleName("パスをコピー 画像を保存 領域をキャプチャ");
+    expect(trigger).toHaveAccessibleName("領域をキャプチャ パスをコピー 画像を保存");
 
     await expectSaved({ capture: { region: { auto_save: true, auto_copy: "path" } } });
     const config = saved.at(-1) as ReturnType<typeof defaultConfig>;

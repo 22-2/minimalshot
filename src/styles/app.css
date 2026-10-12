@@ -598,16 +598,6 @@ button {
   color: var(--color-text);
 }
 
-.settings-nav-item[data-wrap] {
-  height: auto;
-  min-height: var(--size-settings-nav-item);
-  padding-block: var(--space-1);
-}
-
-.settings-nav-item[data-wrap] .settings-nav-label {
-  white-space: normal;
-}
-
 .settings-nav-item:disabled {
   color: var(--color-text-disabled);
   cursor: default;
@@ -779,24 +769,12 @@ button {
 }
 
 .setting-disclosure-title {
-  flex: none;
-  max-width: 60%;
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   font-weight: var(--font-weight-medium);
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.setting-disclosure-leading {
-  display: flex;
-  flex: none;
-  color: var(--color-text-muted);
-}
-
-.setting-disclosure-leading + .setting-disclosure-title {
-  flex: 1;
-  min-width: 0;
-  max-width: none;
 }
 
 .setting-disclosure-summary {

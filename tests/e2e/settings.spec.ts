@@ -16,12 +16,19 @@ test.describe("settings", () => {
         },
       });
       await page.goto("/");
-      const header = page.getByRole("button", { name: "画像をコピー 領域をキャプチャ", exact: true });
+      const header = page.getByRole("button", { name: "領域をキャプチャ 画像をコピー", exact: true });
       await expect(page.locator(".setting-disclosure-heading kbd")).toHaveCount(0);
-      await expect(page.getByRole("button", { name: "画像をコピー 全画面をキャプチャ", exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: "全画面をキャプチャ 画像をコピー", exact: true })).toBeVisible();
       const icons = await header.locator(".summary-effects").boundingBox();
       const title = await header.locator(".setting-disclosure-title").boundingBox();
-      expect(icons!.x + icons!.width).toBeLessThan(title!.x);
+      expect(icons!.x).toBeGreaterThanOrEqual(title!.x + title!.width);
+      const headerBox = (await header.boundingBox())!;
+      expect(headerBox.x + headerBox.width - icons!.x - icons!.width).toBeLessThanOrEqual(16);
+      if (width > 420) {
+        const resetLabel = page.getByRole("button", { name: "このタブをデフォルトに戻す", exact: true }).locator(".settings-nav-label");
+        expect(await resetLabel.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+        expect(await resetLabel.evaluate((element) => element.getBoundingClientRect().height)).toBeLessThan(24);
+      }
       await header.click();
       const panel = page.getByRole("region", { name: "領域をキャプチャ", exact: true });
       const chips = await panel.locator(".hotkey-chip").all();
@@ -40,7 +47,7 @@ test.describe("settings", () => {
   test("configures shortcuts and actions for the entire desktop", async ({ page }) => {
     await installTauriMock(page, { label: "settings" });
     await page.goto("/");
-    await page.getByRole("button", { name: "画像をコピー 全画面をキャプチャ", exact: true }).click();
+    await page.getByRole("button", { name: "全画面をキャプチャ 画像をコピー", exact: true }).click();
     const panel = page.getByRole("region", { name: "全画面をキャプチャ", exact: true });
     await expect(panel.getByText("未設定")).toBeVisible();
     await panel.getByRole("button", { name: "全画面をキャプチャ: ショートカットを追加", exact: true }).click();
@@ -90,7 +97,7 @@ test.describe("settings", () => {
     await page.getByRole("combobox", { name: "初期表示" }).click();
     await page.getByRole("option", { name: "16:9 の窓に余白付きで開く" }).click();
     await page.getByRole("tab", { name: "アクション" }).click();
-    await page.getByRole("button", { name: /アクティブなウィンドウをキャプチャ$/ }).click();
+    await page.getByRole("button", { name: /^アクティブなウィンドウをキャプチャ / }).click();
     await page.getByRole("region", { name: "アクティブなウィンドウをキャプチャ" }).getByRole("combobox", { name: "クリップボードへコピー" }).click();
     await page.getByRole("option", { name: "しない" }).click();
 
@@ -107,7 +114,7 @@ test.describe("settings", () => {
     await installTauriMock(page, { label: "settings" });
     await page.goto("/");
 
-    await page.getByRole("button", { name: /領域をキャプチャ$/ }).click();
+    await page.getByRole("button", { name: /^領域をキャプチャ / }).click();
     await page.getByRole("button", { name: "領域をキャプチャ: ショートカットを追加" }).click();
     await page.keyboard.press("Control+Shift+KeyZ");
     await expect(page.getByText("Ctrl + Shift + Z")).toBeVisible();

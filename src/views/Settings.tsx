@@ -108,7 +108,7 @@ function SettingsTabs(props: { selected: TabId; onSelect: (id: TabId) => void; o
       </div>
       {/* めったに使わない操作なので、タブの流れから離して末尾に置く */}
       <div className="settings-nav-group settings-nav-footer">
-        <button type="button" className="settings-nav-item" data-wrap title={t("settings.resetTab")} disabled={props.resetDisabled} onClick={props.onResetTab}>
+        <button type="button" className="settings-nav-item" title={t("settings.resetTab")} disabled={props.resetDisabled} onClick={props.onResetTab}>
           <RotateCcw aria-hidden />
           <span className="settings-nav-label">{t("settings.resetTab")}</span>
         </button>
@@ -183,7 +183,7 @@ function CaptureModeSettings(props: ConfigPageProps & { kind: CaptureKind; title
   return (
     <SettingDisclosure
       title={props.title}
-      leading={<SummaryEffects effects={actionEffects(actions)} />}
+      summary={<SummaryEffects effects={actionEffects(actions)} />}
     >
       <div className="setting-item" data-stacked data-modified={shortcutsChanged || undefined}>
         <div className="setting-info">
