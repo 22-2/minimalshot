@@ -27,7 +27,8 @@ test.describe("settings", () => {
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
     await expect(trigger).toBeFocused();
-    await expect(page.locator(".setting-row").first().getByTitle("撮影後にウィンドウを開かない")).toBeVisible();
+    await expect(page.locator(".setting-row svg")).toHaveCount(5);
+    await expect(page.locator(".setting-row svg:not(.lucide-settings)")).toHaveCount(0);
     expect((await calls(page)).filter((call) => ["open_settings", "capture"].includes(call.cmd))).toHaveLength(0);
   });
 
@@ -63,11 +64,11 @@ test.describe("settings", () => {
       const header = row.getByRole("button", { name: "領域をキャプチャの設定", exact: true });
       await expect(page.locator(".setting-row kbd")).toHaveCount(0);
       await expect(page.getByRole("button", { name: "全画面をキャプチャの設定", exact: true })).toBeVisible();
-      const icons = await row.locator(".summary-effects").boundingBox();
       const title = await row.locator(".setting-row-title").boundingBox();
-      expect(icons!.x).toBeGreaterThanOrEqual(title!.x + title!.width);
       const headerBox = (await header.boundingBox())!;
-      expect(icons!.x + icons!.width).toBeLessThanOrEqual(headerBox.x);
+      expect(title!.x + title!.width).toBeLessThanOrEqual(headerBox.x);
+      await expect(row.locator("svg")).toHaveCount(1);
+      await expect(row.locator(".lucide-settings")).toBeVisible();
       expect((await row.boundingBox())!.x + (await row.boundingBox())!.width - headerBox.x - headerBox.width).toBeLessThanOrEqual(12);
       if (width > 420) {
         const resetLabel = page.getByRole("button", { name: "このタブをデフォルトに戻す", exact: true }).locator(".settings-nav-label");

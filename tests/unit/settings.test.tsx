@@ -76,14 +76,11 @@ describe("Settings", () => {
   it("stores actions for one capture mode without touching the others", async () => {
     const user = userEvent.setup();
     render(<Settings />);
-    // 閉じていても撮影後の処理を読める。キーはヘッダーに表示しない。
-    const row = (await screen.findByRole("heading", { name: "領域をキャプチャ" })).closest("section")!;
     const region = await openMode(user, "領域をキャプチャ");
 
     await user.click(within(region).getByRole("combobox", { name: "クリップボードへコピー" }));
     await user.click(await screen.findByRole("option", { name: "パス（保存時のみ）" }));
     await user.click(within(region).getByRole("switch", { name: "自動で画像を保存する" }));
-    expect(row).toHaveTextContent("パスをコピー 画像を保存");
 
     await expectSaved({ capture: { region: { auto_save: true, auto_copy: "path" } } });
     const config = saved.at(-1) as ReturnType<typeof defaultConfig>;

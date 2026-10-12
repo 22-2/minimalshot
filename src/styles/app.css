@@ -750,22 +750,6 @@ button {
   color: var(--color-danger);
 }
 
-/* 処理の数が違っても右端に寄せる */
-.summary-effects {
-  display: flex;
-  flex: none;
-  justify-content: flex-end;
-  gap: var(--space-1);
-  min-width: calc(var(--size-icon) * 2 + var(--space-1));
-}
-
-.summary-effects svg {
-  display: block;
-  width: var(--size-icon);
-  height: var(--size-icon);
-  stroke-width: var(--stroke-icon);
-}
-
 /* 削除などの取り消しにくい操作は、まとまりの最後に離して置く */
 .setting-item-actions {
   justify-content: flex-end;

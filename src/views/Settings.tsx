@@ -1,19 +1,15 @@
-import { Fragment, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   Camera,
-  Copy,
   Database,
-  EyeOff,
   FolderOpen,
   HardDrive,
   Image,
   Info,
-  Link,
   Plus,
   RotateCcw,
-  Save,
   SquareTerminal,
   Trash2,
   type LucideIcon,
@@ -141,41 +137,6 @@ function effectiveActions(draft: Config, kind: CaptureKind): CaptureActions {
   };
 }
 
-type Effect = { label: string; icon: LucideIcon };
-
-/** 有効な処理をアイコンで並べる。名前はツールチップと読み上げで伝える。 */
-function SummaryEffects({ effects }: { effects: Effect[] }) {
-  return (
-    <>
-      {/* 読み上げで語がつながらないよう空白を挟む。flex の中なので見た目には影響しない */}
-      {" "}
-      <span className="summary-effects">
-        {effects.map((effect) => (
-          <Fragment key={effect.label}>
-            {" "}
-            <span title={effect.label}>
-              <effect.icon aria-hidden />
-              <span className="visually-hidden">{effect.label}</span>
-            </span>
-          </Fragment>
-        ))}
-      </span>
-    </>
-  );
-}
-
-/** 撮影直後の処理を、ビューアのメニューと同じアイコンで表す。 */
-function actionEffects(actions: CaptureActions): Effect[] {
-  const copy = {
-    none: null,
-    image: { label: t("settings.summaryCopyImage"), icon: Copy },
-    path: { label: t("settings.summaryCopyPath"), icon: Link },
-  }[actions.auto_copy];
-  const save = actions.auto_save ? { label: t("settings.summarySave"), icon: Save } : null;
-  const hidden = !actions.open_viewer ? { label: t("settings.hideViewer"), icon: EyeOff } : null;
-  return [copy, save, hidden].filter((effect) => effect !== null);
-}
-
 function CaptureModeSettings(props: ConfigPageProps & { kind: CaptureKind; title: string; conflicts: Set<string> }) {
   const actions = effectiveActions(props.draft, props.kind);
   const defaultActions = effectiveActions(props.defaults, props.kind);
@@ -188,7 +149,6 @@ function CaptureModeSettings(props: ConfigPageProps & { kind: CaptureKind; title
   return (
     <SettingEditor
       title={props.title}
-      summary={<SummaryEffects effects={actionEffects(actions)} />}
       modified={shortcutsChanged || JSON.stringify(actions) !== JSON.stringify(defaultActions)}
       description={t("settings.hotkeyNote")}
     >

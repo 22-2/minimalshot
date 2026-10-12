@@ -26,7 +26,7 @@ export function SettingEditor(props: {
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <section className="setting-row" data-modified={props.modified || undefined}>
         <h3 className="setting-row-title">{props.title}</h3>
-        <div className="setting-row-summary">{props.summary}</div>
+        {props.summary && <div className="setting-row-summary">{props.summary}</div>}
         <Dialog.Trigger asChild>
           <button ref={trigger} type="button" className="button icon-button setting-row-edit" data-variant="quiet" title={name} aria-label={name}>
             <Settings aria-hidden />
