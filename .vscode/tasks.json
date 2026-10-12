@@ -20,11 +20,11 @@
     },
     {
       // dev版を取得して C:\Applications\bins の MinimalShot.exe を差し替え、起動中のものは止めてから再起動する
-      // スクリプトは User 設定フォルダの scripts/update-minimalshot.ps1 を参照する
+      // スクリプトはプロジェクト内の .vscode/update-minimalshot.ps1 を参照する
       "label": "MinimalShot: Update dev build and restart",
       "type": "process",
       "command": "pwsh.exe",
-      "args": ["-NoLogo", "-NoProfile", "-File", "${env:APPDATA}\\Code\\User\\scripts\\update-minimalshot.ps1"],
+      "args": ["-NoLogo", "-NoProfile", "-File", "${workspaceFolder}\\.vscode\\update-minimalshot.ps1"],
       "presentation": { "clear": true, "panel": "shared" },
       "problemMatcher": []
     }
