@@ -3,6 +3,24 @@ import { expect, test } from "@playwright/test";
 import { calls, installTauriMock } from "./tauri-mock";
 
 test.describe("settings", () => {
+  test("keeps navigation labels fully visible with wider fallback fonts", async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 800, height: 600 });
+    await installTauriMock(page, { label: "settings" });
+    await page.goto("/");
+    await page.addStyleTag({ content: ":root { --font-ui: monospace; }" });
+    await page.evaluate(() => document.fonts.ready);
+
+    const labels = page.locator(".settings-nav-label");
+    await expect(labels).toHaveCount(8);
+    for (const label of await labels.all()) {
+      await expect(label).toBeVisible();
+      expect(await label.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+      expect(await label.evaluate((element) => element.getBoundingClientRect().height)).toBeLessThan(24);
+    }
+    expect(await page.locator(".settings-body").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath("navigation-fallback-font.png"), animations: "disabled" });
+  });
+
   test("edits in a focused modal and restores focus without opening another window", async ({ page }) => {
     await installTauriMock(page, { label: "settings" });
     await page.goto("/");

@@ -542,7 +542,8 @@ button {
 
 .settings-body {
   display: grid;
-  grid-template-columns: var(--size-settings-nav) minmax(0, 1fr);
+  /* OS の代替フォントで文字が広くなっても、タブ名と操作名を省略しない。 */
+  grid-template-columns: minmax(var(--size-settings-nav), max-content) minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
 }
