@@ -6,7 +6,7 @@ import { useWindowReady } from "../lib/useWindowReady";
 import { isMeaningfulSelection, rectFromPoints, toImagePixels, type Point } from "../lib/region";
 import { t } from "../i18n";
 
-/** 撮影済みのモニター画像を全面に敷き、その上で範囲を選ばせる。 */
+/** 全ディスプレイの撮影画像を全面に敷き、その上で範囲を選ばせる。 */
 export function RegionSelect() {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [start, setStart] = useState<Point | null>(null);
@@ -104,7 +104,10 @@ export function RegionSelect() {
     };
   }, []);
 
-  const point = (event: PointerEvent): Point => ({ x: event.clientX, y: event.clientY });
+  const point = (event: PointerEvent<HTMLDivElement>): Point => ({
+    x: Math.max(0, Math.min(event.clientX, event.currentTarget.clientWidth)),
+    y: Math.max(0, Math.min(event.clientY, event.currentTarget.clientHeight)),
+  });
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0 || !imageReady || session === null) return;
@@ -113,10 +116,10 @@ export function RegionSelect() {
     setEnd(point(event));
   };
 
-  const onPointerUp = () => {
+  const onPointerUp = (event: PointerEvent<HTMLDivElement>) => {
     const image = imageRef.current;
     if (!start || !end || !image || session === null) return;
-    const rect = rectFromPoints(start, end);
+    const rect = rectFromPoints(start, point(event));
     setStart(null);
     setEnd(null);
     if (!isMeaningfulSelection(rect)) return;
@@ -126,7 +129,10 @@ export function RegionSelect() {
   };
 
   const selection = start && end ? rectFromPoints(start, end) : null;
-  const scale = window.devicePixelRatio;
+  const image = imageRef.current;
+  const selectionPixels = selection && image
+    ? toImagePixels(selection, image.naturalWidth / image.clientWidth, image.naturalHeight / image.clientHeight)
+    : null;
 
   return (
     <div
@@ -134,6 +140,7 @@ export function RegionSelect() {
       onPointerDown={onPointerDown}
       onPointerMove={(event) => start && setEnd(point(event))}
       onPointerUp={onPointerUp}
+      onPointerCancel={() => { setStart(null); setEnd(null); }}
       onContextMenu={(event) => {
         event.preventDefault();
         void api.cancelRegion();
@@ -167,7 +174,7 @@ export function RegionSelect() {
           }}
         >
           <span className="region-size">
-            {Math.round(selection.width * scale)} × {Math.round(selection.height * scale)}
+            {selectionPixels?.width} × {selectionPixels?.height}
           </span>
         </div>
       )}

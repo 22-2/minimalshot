@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 
 use tauri_plugin_global_shortcut::Shortcut;
 
-use crate::capture::Captured;
+use crate::capture::{Captured, ScreenBounds};
 use crate::config::Config;
 use crate::store::{Shot, ShotStore};
 use crate::viewer_pool::ViewerPool;
@@ -22,6 +22,7 @@ pub enum CaptureKind {
 pub struct PendingRegion {
     pub id: u32,
     pub captured: Captured,
+    pub bounds: ScreenBounds,
 }
 
 pub struct PendingCapture {
@@ -43,7 +44,7 @@ pub struct AppState {
     pub pending_captures: Mutex<HashMap<u32, PendingCapture>>,
     pub save_lock: Mutex<()>,
     pub auto_copy_lock: Mutex<u32>,
-    /// 領域選択中のモニター画像。選択が確定するまで保持する。
+    /// 領域選択中の全画面画像。選択が確定するまで保持する。
     pub pending_region: Mutex<Option<PendingRegion>>,
     next_region_id: AtomicU32,
     pub hotkeys: Mutex<Vec<(Shortcut, CaptureKind)>>,

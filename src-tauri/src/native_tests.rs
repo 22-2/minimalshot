@@ -284,6 +284,33 @@ fn prewarmed_windows_display_captures_before_auto_save() {
                     frontend.region_frames.lock().unwrap().len() == count
                 });
                 assert_eq!(region.hwnd().unwrap(), region_handle);
+                let bounds = state
+                    .pending_region
+                    .lock()
+                    .unwrap()
+                    .as_ref()
+                    .unwrap()
+                    .bounds;
+                assert_eq!(
+                    region.outer_position().unwrap(),
+                    tauri::PhysicalPosition::new(bounds.x, bounds.y)
+                );
+                assert_eq!(
+                    region.inner_size().unwrap(),
+                    tauri::PhysicalSize::new(bounds.width, bounds.height)
+                );
+                let monitors = handle.available_monitors().unwrap();
+                for monitor in monitors {
+                    assert!(monitor.position().x >= bounds.x && monitor.position().y >= bounds.y);
+                    assert!(
+                        i64::from(monitor.position().x) + i64::from(monitor.size().width)
+                            <= i64::from(bounds.x) + i64::from(bounds.width)
+                    );
+                    assert!(
+                        i64::from(monitor.position().y) + i64::from(monitor.size().height)
+                            <= i64::from(bounds.y) + i64::from(bounds.height)
+                    );
+                }
                 commands::cancel_region(region.clone(), handle.state()).unwrap();
                 assert!(is_cloaked(region_handle.0 as isize));
                 assert_ne!(

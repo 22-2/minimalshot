@@ -10,6 +10,7 @@ type MockOptions = {
   holdFirst?: string[];
   viewerSession?: number | null;
   regionSession?: number | null;
+  regionImageSize?: { width: number; height: number };
 };
 
 export type Call = { cmd: string; args: Record<string, unknown> };
@@ -99,7 +100,7 @@ export async function installTauriMock(page: Page, options: MockOptions) {
       },
       region_session: () => regionSession,
       prepare_region: () => ({ width: window.innerWidth, height: window.innerHeight, renderWhileHidden: true }),
-      region_png: () => png(window.innerWidth, window.innerHeight),
+      region_png: () => png(opts.regionImageSize?.width ?? window.innerWidth, opts.regionImageSize?.height ?? window.innerHeight),
       finish_region: () => { regionSession = null; emit("region-reset"); },
       cancel_region: () => { regionSession = null; emit("region-reset"); },
       "plugin:event|listen": (args) => {

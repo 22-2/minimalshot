@@ -4,7 +4,7 @@ use tauri::{
     WebviewWindowBuilder,
 };
 
-use crate::capture::MonitorGeometry;
+use crate::capture::{MonitorGeometry, ScreenBounds};
 use crate::config::ViewerLayout;
 use crate::error::AppResult;
 use crate::i18n::t;
@@ -78,11 +78,17 @@ fn region_window(app: &AppHandle) -> AppResult<WebviewWindow> {
         .background_color(BACKGROUND)
         .build()?;
     let prepare = || -> AppResult<()> {
-        let cursor = app.cursor_position()?;
-        if let Some(monitor) = app.monitor_from_point(cursor.x, cursor.y)? {
-            window.set_position(*monitor.position())?;
-            window.set_size(*monitor.size())?;
-        }
+        let monitors = app.available_monitors()?;
+        let bounds = ScreenBounds::covering(monitors.iter().map(|monitor| {
+            (
+                monitor.position().x,
+                monitor.position().y,
+                monitor.size().width,
+                monitor.size().height,
+            )
+        }))?;
+        window.set_position(PhysicalPosition::new(bounds.x, bounds.y))?;
+        window.set_size(PhysicalSize::new(bounds.width, bounds.height))?;
         crate::region_window::prepare(&window)
     };
     if let Err(error) = prepare() {
@@ -196,15 +202,11 @@ pub fn open_viewer(
     Ok(())
 }
 
-pub fn open_region_overlay(
-    app: &AppHandle,
-    monitor: &MonitorGeometry,
-    session: u32,
-) -> AppResult<()> {
+pub fn open_region_overlay(app: &AppHandle, bounds: &ScreenBounds, session: u32) -> AppResult<()> {
     let window = region_window(app)?;
     crate::region_window::hide(&window)?;
-    let position = PhysicalPosition::new(monitor.x, monitor.y);
-    let size = PhysicalSize::new(monitor.width, monitor.height);
+    let position = PhysicalPosition::new(bounds.x, bounds.y);
+    let size = PhysicalSize::new(bounds.width, bounds.height);
     if window.outer_position()? != position {
         window.set_position(position)?;
     }

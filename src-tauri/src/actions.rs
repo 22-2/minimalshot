@@ -26,7 +26,7 @@ pub fn start_capture(app: &AppHandle, kind: CaptureKind) -> AppResult<()> {
         }
         CaptureKind::Desktop => {
             let (x, y) = cursor(app)?;
-            finish_capture(app, capture::desktop_at(x, y)?, None, kind)
+            finish_capture(app, capture::desktop_at(x, y)?.captured, None, kind)
         }
         CaptureKind::Region => {
             // 選択中のオーバーレイを再撮影しない。初回の読み込み中も重複を避ける。
@@ -34,14 +34,15 @@ pub fn start_capture(app: &AppHandle, kind: CaptureKind) -> AppResult<()> {
                 return Ok(());
             }
             let (x, y) = cursor(app)?;
-            let captured = capture::monitor_at(x, y)?;
-            let monitor = captured.monitor;
+            let desktop = capture::desktop_at(x, y)?;
+            let bounds = desktop.bounds;
             let session = state.next_region_id();
             *state.pending_region.lock().unwrap() = Some(PendingRegion {
                 id: session,
-                captured,
+                captured: desktop.captured,
+                bounds,
             });
-            if let Err(error) = windows::open_region_overlay(app, &monitor, session) {
+            if let Err(error) = windows::open_region_overlay(app, &bounds, session) {
                 state.pending_region.lock().unwrap().take();
                 return Err(error);
             }

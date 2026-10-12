@@ -308,27 +308,30 @@ pub async fn finish_region(
     rect: Rect,
     session: u32,
 ) -> AppResult<()> {
-    let captured = {
+    let pending_region = {
         let state = app.state::<AppState>();
         let mut pending = state.pending_region.lock().unwrap();
         if pending.as_ref().map(|p| p.id) != Some(session) {
             return Err(AppError::msg("領域選択中ではありません"));
         }
-        pending.take().unwrap().captured
+        pending.take().unwrap()
     };
     crate::region_window::hide(&window)?;
     window.emit("region-reset", ())?;
-    let image = imaging::crop(&captured.image, rect.x, rect.y, rect.width, rect.height)?;
-    let origin = (
-        captured.monitor.x + rect.x as i32,
-        captured.monitor.y + rect.y as i32,
-    );
+    let image = imaging::crop(
+        &pending_region.captured.image,
+        rect.x,
+        rect.y,
+        rect.width,
+        rect.height,
+    )?;
+    let origin = pending_region.bounds.selection_origin(rect.x, rect.y)?;
     tauri::async_runtime::spawn_blocking(move || {
         actions::finish_capture(
             &app,
             Captured {
                 image,
-                monitor: captured.monitor,
+                monitor: pending_region.captured.monitor,
             },
             Some(origin),
             CaptureKind::Region,

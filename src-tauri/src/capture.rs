@@ -39,7 +39,54 @@ pub struct Captured {
     pub monitor: MonitorGeometry,
 }
 
-/// カーソルのあるモニター全体を撮る。領域キャプチャもこの画像から切り出す。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ScreenBounds {
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
+}
+
+impl ScreenBounds {
+    pub fn covering(screens: impl IntoIterator<Item = (i32, i32, u32, u32)>) -> AppResult<Self> {
+        let mut screens = screens.into_iter();
+        let (x, y, width, height) = screens
+            .next()
+            .ok_or_else(|| AppError::msg("ディスプレイが見つかりません"))?;
+        let (mut left, mut top) = (x, y);
+        let mut right = i64::from(x) + i64::from(width);
+        let mut bottom = i64::from(y) + i64::from(height);
+        for (x, y, width, height) in screens {
+            left = left.min(x);
+            top = top.min(y);
+            right = right.max(i64::from(x) + i64::from(width));
+            bottom = bottom.max(i64::from(y) + i64::from(height));
+        }
+        Ok(Self {
+            x: left,
+            y: top,
+            width: u32::try_from(right - i64::from(left))
+                .map_err(|_| AppError::msg("全画面の幅が大きすぎます"))?,
+            height: u32::try_from(bottom - i64::from(top))
+                .map_err(|_| AppError::msg("全画面の高さが大きすぎます"))?,
+        })
+    }
+
+    pub fn selection_origin(&self, x: u32, y: u32) -> AppResult<(i32, i32)> {
+        let x = i32::try_from(i64::from(self.x) + i64::from(x))
+            .map_err(|_| AppError::msg("選択位置が画面の範囲外です"))?;
+        let y = i32::try_from(i64::from(self.y) + i64::from(y))
+            .map_err(|_| AppError::msg("選択位置が画面の範囲外です"))?;
+        Ok((x, y))
+    }
+}
+
+pub struct DesktopCapture {
+    pub captured: Captured,
+    pub bounds: ScreenBounds,
+}
+
+/// カーソルのあるモニター全体を撮る。
 pub fn monitor_at(x: i32, y: i32) -> AppResult<Captured> {
     let monitor = Monitor::from_point(x, y)?;
     Ok(Captured {
@@ -49,7 +96,7 @@ pub fn monitor_at(x: i32, y: i32) -> AppResult<Captured> {
 }
 
 /// 全モニターを物理座標どおりに合成する。ビューアはカーソルのあるモニターに開く。
-pub fn desktop_at(x: i32, y: i32) -> AppResult<Captured> {
+pub fn desktop_at(x: i32, y: i32) -> AppResult<DesktopCapture> {
     let monitor = MonitorGeometry::of(&Monitor::from_point(x, y)?)?;
     let screens = Monitor::all()?
         .iter()
@@ -60,43 +107,30 @@ pub fn desktop_at(x: i32, y: i32) -> AppResult<Captured> {
             ))
         })
         .collect::<AppResult<Vec<_>>>()?;
-    Ok(Captured {
-        image: compose_desktop(&screens)?,
-        monitor,
+    let (image, bounds) = compose_desktop(&screens)?;
+    Ok(DesktopCapture {
+        captured: Captured { image, monitor },
+        bounds,
     })
 }
 
-fn compose_desktop(screens: &[((i32, i32), RgbaImage)]) -> AppResult<RgbaImage> {
-    let left = screens.iter().map(|((x, _), _)| i64::from(*x)).min();
-    let top = screens.iter().map(|((_, y), _)| i64::from(*y)).min();
-    let (Some(left), Some(top)) = (left, top) else {
-        return Err(AppError::msg("ディスプレイが見つかりません"));
-    };
-    let right = screens
-        .iter()
-        .map(|((x, _), image)| i64::from(*x) + i64::from(image.width()))
-        .max()
-        .unwrap();
-    let bottom = screens
-        .iter()
-        .map(|((_, y), image)| i64::from(*y) + i64::from(image.height()))
-        .max()
-        .unwrap();
-    let width =
-        u32::try_from(right - left).map_err(|_| AppError::msg("全画面の幅が大きすぎます"))?;
-    let height =
-        u32::try_from(bottom - top).map_err(|_| AppError::msg("全画面の高さが大きすぎます"))?;
+fn compose_desktop(screens: &[((i32, i32), RgbaImage)]) -> AppResult<(RgbaImage, ScreenBounds)> {
+    let bounds = ScreenBounds::covering(
+        screens
+            .iter()
+            .map(|((x, y), image)| (*x, *y, image.width(), image.height())),
+    )?;
     // 配置に隙間がある部分も、保存・コピー時に透明にならないよう黒で埋める。
-    let mut image = RgbaImage::from_pixel(width, height, image::Rgba([0, 0, 0, 255]));
+    let mut image = RgbaImage::from_pixel(bounds.width, bounds.height, image::Rgba([0, 0, 0, 255]));
     for ((x, y), screen) in screens {
         image::imageops::replace(
             &mut image,
             screen,
-            i64::from(*x) - left,
-            i64::from(*y) - top,
+            i64::from(*x) - i64::from(bounds.x),
+            i64::from(*y) - i64::from(bounds.y),
         );
     }
-    Ok(image)
+    Ok((image, bounds))
 }
 
 /// ホットキーを押した時点で前面にあるウィンドウを撮る。
@@ -126,16 +160,29 @@ mod tests {
     fn composes_monitors_with_negative_origins_and_gaps() {
         let red = Rgba([255, 0, 0, 255]);
         let blue = Rgba([0, 0, 255, 255]);
-        let image = compose_desktop(&[
+        let (image, bounds) = compose_desktop(&[
             ((-2, -1), RgbaImage::from_pixel(2, 2, red)),
             ((0, 0), RgbaImage::from_pixel(3, 1, blue)),
         ])
         .unwrap();
+        assert_eq!(
+            bounds,
+            ScreenBounds {
+                x: -2,
+                y: -1,
+                width: 5,
+                height: 2
+            }
+        );
         assert_eq!(image.dimensions(), (5, 2));
         assert_eq!(*image.get_pixel(0, 0), red);
         assert_eq!(*image.get_pixel(1, 1), red);
         assert_eq!(*image.get_pixel(2, 0), Rgba([0, 0, 0, 255]));
         assert_eq!(*image.get_pixel(4, 1), blue);
+        let selected = crate::imaging::crop(&image, 1, 1, 3, 1).unwrap();
+        assert_eq!(bounds.selection_origin(1, 1).unwrap(), (-1, 0));
+        assert_eq!(*selected.get_pixel(0, 0), red);
+        assert_eq!(*selected.get_pixel(2, 0), blue);
     }
 
     #[test]
@@ -174,7 +221,9 @@ mod tests {
             .map(|monitor| i64::from(monitor.y) + i64::from(monitor.height))
             .max()
             .unwrap();
-        let captured = desktop_at(0, 0).unwrap();
+        let desktop = desktop_at(0, 0).unwrap();
+        assert_eq!((desktop.bounds.x, desktop.bounds.y), (left, top));
+        let captured = desktop.captured;
         assert_eq!(
             captured.image.dimensions(),
             (
@@ -183,5 +232,26 @@ mod tests {
             )
         );
         assert!(captured.image.pixels().all(|pixel| pixel.0[3] == 255));
+    }
+
+    #[test]
+    fn desktop_bounds_include_different_monitor_sizes_and_vertical_offsets() {
+        let bounds = ScreenBounds::covering([
+            (-2560, -400, 2560, 1440),
+            (0, 0, 1920, 1080),
+            (1920, 200, 3840, 2160),
+        ])
+        .unwrap();
+        assert_eq!(
+            bounds,
+            ScreenBounds {
+                x: -2560,
+                y: -400,
+                width: 8320,
+                height: 2760
+            }
+        );
+        assert_eq!(bounds.selection_origin(2560, 400).unwrap(), (0, 0));
+        assert!(ScreenBounds::covering([(i32::MIN, 0, 1, 1), (i32::MAX, 0, 1, 1)]).is_err());
     }
 }
