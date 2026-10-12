@@ -128,6 +128,19 @@ cargo test --features native-ui-test prewarmed_windows_display_captures_before_a
 
 UI の文言は `src/locales/ja.json` にまとめ、Rust 側（トレイメニュー）も同じファイルを読みます。色や寸法は `src/styles/tokens.css` のトークンだけを使います。
 
+### README 用のページ撮影
+
+`pnpm readme:shots` で、設定一覧・歯車から開くモーダル・データタブ・ビューアをページから直接 PNG に撮影します。Playwright の Chromium が必要です（未導入なら `pnpm exec playwright install chromium`）。アプリ本体や実画面のキャプチャは使わず、サンプル設定・画像と Tauri IPC のモックで撮影するため、普段の設定やクリップボードには触れません。
+
+出力先は一時フォルダ内の `minimalshot-readme-screenshots` です。各 PNG のパスは実行時に表示されます。出力先を変更する場合は PowerShell で次のように指定します。
+
+```powershell
+$env:README_SHOT_DIR = "V:/tmp/minimalshot-readme"
+pnpm readme:shots
+```
+
+スクリプトは `scripts/readme/readme-screenshots.spec.ts`、専用設定は `playwright.readme.config.ts` にあります。通常の E2E テストとは別に実行します。
+
 ## リリース
 
 ### 開発版（develop の更新ごと）
