@@ -35,6 +35,8 @@ test.describe("settings", () => {
     await installTauriMock(page, { label: "settings" });
     await page.goto("/");
     await page.getByRole("tab", { name: "外部ツール", exact: true }).click();
+    await expect(page.locator(".setting-row .summary-effects")).toHaveCount(0);
+    await expect(page.locator(".setting-row .summary-chip").first()).toHaveText("mspaint.exe");
     const trigger = page.getByRole("button", { name: "ペイントの設定", exact: true });
     await trigger.click();
     await page.getByRole("button", { name: "このツールを削除", exact: true }).click();

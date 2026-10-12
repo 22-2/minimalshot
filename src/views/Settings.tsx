@@ -3,7 +3,6 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   Camera,
-  ClipboardType,
   Copy,
   Database,
   EyeOff,
@@ -267,16 +266,7 @@ function ViewerPage({ draft, defaults, update }: ConfigPageProps) {
   );
 }
 
-function toolEffects(tool: ExternalTool): Effect[] {
-  // 出力をコピーするツールは、設定に関わらずコンソールを出さずに起動する
-  const hidden = tool.hide_console || tool.copy_stdout;
-  return [
-    hidden ? { label: t("settings.toolHideConsole"), icon: EyeOff } : null,
-    tool.copy_stdout ? { label: t("settings.toolCopyStdout"), icon: ClipboardType } : null,
-  ].filter((effect) => effect !== null);
-}
-
-/** 撮影モードと同じく、チップに起動するコマンド、右端に有効な動作を並べる。 */
+/** 起動するコマンドは一覧で確認できるよう、ファイル名をチップに出す。 */
 function ToolSummary({ tool }: { tool: ExternalTool }) {
   const command = tool.command.trim();
   // フルパスは長く、見分けるのに要るのはファイル名なので末尾だけを出す
@@ -286,7 +276,6 @@ function ToolSummary({ tool }: { tool: ExternalTool }) {
       {program
         ? <code className="summary-chip" title={command}>{program}</code>
         : <span className="summary-chip" data-empty>{t("settings.noCommand")}</span>}
-      <SummaryEffects effects={toolEffects(tool)} />
     </>
   );
 }
