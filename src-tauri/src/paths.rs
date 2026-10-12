@@ -23,7 +23,8 @@ where
     if relative.trim().is_empty() {
         return Err(AppError::msg("保存ファイル名の書式が空です"));
     }
-    Ok(PathBuf::from(dir).join(relative))
+    // 書式の "/" はそのまま残るとエクスプローラーが対象を見つけられないため、区切りを揃える
+    Ok(PathBuf::from(dir).join(relative).components().collect())
 }
 
 fn format_date<Tz: TimeZone>(format: &str, now: &DateTime<Tz>) -> AppResult<String>
@@ -81,6 +82,22 @@ mod tests {
         assert_eq!(
             path,
             PathBuf::from("/home/me/Pictures/MinimalShot/2026-10/2026-10-09_12-34-56.png")
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn uses_backslashes_for_nested_format_on_windows() {
+        let path = render_save_path(
+            "{pictures}/{appname}",
+            "%Y-%m/%Y-%m-%d_%H-%M-%S.png",
+            Path::new(r"E:\Pictures"),
+            &sample_time(),
+        )
+        .unwrap();
+        assert_eq!(
+            path.to_string_lossy(),
+            r"E:\Pictures\MinimalShot\2026-10\2026-10-09_12-34-56.png"
         );
     }
 
