@@ -110,6 +110,20 @@ test.describe("viewer", () => {
     await expect(toast(page)).toHaveText("保存しました");
   });
 
+  test("copies the image with Ctrl+C and ignores repeats and confirmation dialogs", async ({ page }) => {
+    await openViewer(page, { label: "viewer-1", config: { viewer: { confirm_on_close: true } } });
+    await page.keyboard.press("Control+c");
+    await expect(toast(page)).toHaveText("画像をコピーしました");
+    const copies = async () => (await calls(page)).filter((call) => call.cmd === "copy_shot_image").length;
+    expect(await copies()).toBe(1);
+    await page.evaluate(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "c", ctrlKey: true, repeat: true, bubbles: true })));
+    await page.keyboard.press("Control+Shift+c");
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("alertdialog")).toBeVisible();
+    await page.keyboard.press("Control+c");
+    expect(await copies()).toBe(1);
+  });
+
   test("opens a registered tool from the submenu", async ({ page }) => {
     await openViewer(page);
     await choose(page, "外部ツールで開く", "GIMP");

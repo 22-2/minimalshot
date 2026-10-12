@@ -51,7 +51,7 @@ export function viewerMenu({ saved, pinned, tools }: MenuState, actions: ViewerA
   return [
     {
       type: "icon-row", id: "quick-actions", entries: [
-        { type: "item", id: "copy-image", label: t("viewer.copyImage"), caption: t("viewer.copyImageShort"), icon: Copy, onSelect: actions.copyImage },
+        { type: "item", id: "copy-image", label: t("viewer.copyImage"), caption: t("viewer.copyImageShort"), icon: Copy, onSelect: actions.copyImage, hint: "Ctrl+C" },
         { type: "item", id: "copy-path", label: t("viewer.copyPath"), caption: t("viewer.copyPathShort"), icon: Link, onSelect: actions.copyPath, disabled: !saved },
         { type: "item", id: "delete", label: t("viewer.deleteSaved"), caption: t("viewer.deleteShort"), icon: Trash2, onSelect: actions.deleteSaved, disabled: !saved, danger: saved },
       ],

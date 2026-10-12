@@ -90,6 +90,11 @@ export function Viewer() {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey && event.key.toLowerCase() === "c") {
+        event.preventDefault();
+        if (!confirming && !event.repeat && useViewer.getState().info) void useViewer.getState().copyImage();
+        return;
+      }
       if (event.ctrlKey && !event.altKey && !event.metaKey && event.key.toLowerCase() === "s") {
         event.preventDefault();
         if (!confirming && !event.repeat) {
