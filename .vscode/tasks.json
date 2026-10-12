@@ -2,6 +2,26 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "MinimalShot: Capture UI screenshots",
+      "detail": "UI確認用のページ撮影を一括実行し、成功したらPNGの出力フォルダを開く",
+      "type": "process",
+      "command": "pwsh.exe",
+      "args": [
+        "-NoLogo",
+        "-NoProfile",
+        "-Command",
+        "pnpm readme:shots; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Invoke-Item -LiteralPath $env:README_SHOT_DIR"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "README_SHOT_DIR": "${env:TEMP}\\minimalshot-readme-screenshots"
+        }
+      },
+      "presentation": { "clear": true, "panel": "dedicated", "reveal": "always" },
+      "problemMatcher": []
+    },
+    {
       // dev版を取得して C:\Applications\bins の MinimalShot.exe を差し替え、起動中のものは止めてから再起動する
       // スクリプトは User 設定フォルダの scripts/update-minimalshot.ps1 を参照する
       "label": "MinimalShot: Update dev build and restart",

@@ -141,6 +141,8 @@ pnpm readme:shots
 
 スクリプトは `scripts/readme/readme-screenshots.spec.ts`、専用設定は `playwright.readme.config.ts` にあります。通常の E2E テストとは別に実行します。
 
+VS Code では「ターミナル → タスクの実行 → MinimalShot: Capture UI screenshots」から一括撮影できます。`.vscode/tasks.json` のタスクが開発サーバーの起動とページ撮影を行い、成功したら `%TEMP%\minimalshot-readme-screenshots` を開きます。
+
 ## リリース
 
 ### 開発版（develop の更新ごと）
