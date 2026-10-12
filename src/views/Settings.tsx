@@ -20,7 +20,7 @@ import { HotkeyInput } from "../components/HotkeyInput";
 import { Dropdown, SettingGroup, SettingItem, SettingNotice, SettingPage, TextInput, Toggle } from "../components/Setting";
 import { SettingEditor } from "../components/SettingEditor";
 import { ToolEditor } from "../components/ToolEditor";
-import type { AutoCopy, CaptureActions, CaptureKind, Config, ExternalTool, ViewerLayout } from "../lib/api";
+import type { AutoCopy, CaptureActions, CaptureKind, Config, ExternalTool, ScreenCaptureKind, ViewerLayout } from "../lib/api";
 import { duplicatedHotkeys } from "../lib/hotkey";
 import { useSettings, type ResetTarget } from "../stores/settings";
 import { DataPage } from "./DataPage";
@@ -30,12 +30,11 @@ import { t } from "../i18n";
 type TabId = "capture" | "storage" | "viewer" | "tools" | "data";
 type Tab = { id: TabId; label: string; icon: LucideIcon };
 
-const captureModes: { kind: CaptureKind; action: string }[] = [
+const captureModes: { kind: ScreenCaptureKind; action: string }[] = [
   { kind: "region", action: t("tray.region") },
   { kind: "window", action: t("tray.window") },
   { kind: "fullscreen", action: t("tray.fullscreen") },
   { kind: "desktop", action: t("tray.desktop") },
-  { kind: "clipboard", action: t("tray.clipboard") },
 ];
 
 // 見出しは置かず、余白だけでまとまりを分ける
@@ -129,7 +128,7 @@ type Update = ReturnType<typeof useSettings.getState>["update"];
 type ConfigPageProps = { draft: Config; defaults: Config; update: Update };
 
 /** モードごとの上書きが無ければ、共通の既定値で動く。 */
-function effectiveActions(draft: Config, kind: CaptureKind): CaptureActions {
+function effectiveActions(draft: Config, kind: ScreenCaptureKind): CaptureActions {
   const override = draft.capture[kind];
   return {
     auto_save: override?.auto_save ?? draft.capture.auto_save,
@@ -138,12 +137,31 @@ function effectiveActions(draft: Config, kind: CaptureKind): CaptureActions {
   };
 }
 
-function CaptureModeSettings(props: ConfigPageProps & { kind: CaptureKind; title: string; conflicts: Set<string> }) {
+function shortcutsChanged(draft: Config, defaults: Config, kind: CaptureKind): boolean {
+  return JSON.stringify(draft.hotkeys[kind].filter((value) => value.trim())) !== JSON.stringify(defaults.hotkeys[kind]);
+}
+
+function CaptureHotkeys(props: ConfigPageProps & { kind: CaptureKind; title: string; conflicts: Set<string> }) {
+  return (
+    <div className="setting-item hotkey-setting" data-modified={shortcutsChanged(props.draft, props.defaults, props.kind) || undefined}>
+      <div className="setting-info">
+        <span className="setting-name">{t("settings.hotkeys")}</span>
+      </div>
+      <div className="setting-control">
+        <HotkeyInput
+          label={props.title}
+          values={props.draft.hotkeys[props.kind]}
+          conflicts={props.conflicts}
+          onChange={(values) => props.update("hotkeys", props.kind, values)}
+        />
+      </div>
+    </div>
+  );
+}
+
+function CaptureModeSettings(props: ConfigPageProps & { kind: ScreenCaptureKind; title: string; conflicts: Set<string> }) {
   const actions = effectiveActions(props.draft, props.kind);
   const defaultActions = effectiveActions(props.defaults, props.kind);
-  const hotkeys = props.draft.hotkeys[props.kind];
-  const importImage = props.kind === "clipboard";
-  const shortcutsChanged = JSON.stringify(hotkeys.filter((value) => value.trim())) !== JSON.stringify(props.defaults.hotkeys[props.kind]);
   // 画面には実際に適用される値を出し、触ったモードだけをモード別の設定として書き出す
   const change = <K extends keyof CaptureActions>(key: K, value: CaptureActions[K]) =>
     props.update("capture", props.kind, { ...props.draft.capture[props.kind], ...actions, [key]: value });
@@ -151,43 +169,51 @@ function CaptureModeSettings(props: ConfigPageProps & { kind: CaptureKind; title
   return (
     <SettingEditor
       title={props.title}
-      modified={shortcutsChanged || JSON.stringify(actions) !== JSON.stringify(defaultActions)}
-      description={importImage ? t("settings.clipboardNote") : t("settings.hotkeyNote")}
+      modified={shortcutsChanged(props.draft, props.defaults, props.kind) || JSON.stringify(actions) !== JSON.stringify(defaultActions)}
+      description={t("settings.hotkeyNote")}
     >
-      <div className="setting-item hotkey-setting" data-modified={shortcutsChanged || undefined}>
-        <div className="setting-info">
-          <span className="setting-name">{t("settings.hotkeys")}</span>
-        </div>
-        <div className="setting-control">
-          <HotkeyInput
-            label={props.title}
-            values={hotkeys}
-            conflicts={props.conflicts}
-            onChange={(values) => props.update("hotkeys", props.kind, values)}
-          />
-        </div>
-      </div>
+      <CaptureHotkeys {...props} />
       <SettingItem name={t("settings.autoCopy")} modified={actions.auto_copy !== defaultActions.auto_copy}>
         {(ids) => <Dropdown {...ids} value={actions.auto_copy} options={autoCopyOptions} onChange={(v) => change("auto_copy", v)} />}
       </SettingItem>
       <SettingItem name={t("settings.autoSave")} modified={actions.auto_save !== defaultActions.auto_save}>
         {(ids) => <Toggle {...ids} checked={actions.auto_save} onChange={(v) => change("auto_save", v)} />}
       </SettingItem>
-      <SettingItem name={t(importImage ? "settings.hideImportedViewer" : "settings.hideViewer")} description={t("settings.hideViewerNote")} modified={actions.open_viewer !== defaultActions.open_viewer}>
+      <SettingItem name={t("settings.hideViewer")} description={t("settings.hideViewerNote")} modified={actions.open_viewer !== defaultActions.open_viewer}>
         {(ids) => <Toggle {...ids} checked={!actions.open_viewer} onChange={(v) => change("open_viewer", !v)} />}
       </SettingItem>
     </SettingEditor>
   );
 }
 
+function ClipboardSettings(props: ConfigPageProps & { conflicts: Set<string> }) {
+  const autoSave = props.draft.capture.clipboard?.auto_save ?? false;
+  const defaultAutoSave = props.defaults.capture.clipboard?.auto_save ?? false;
+  return (
+    <SettingEditor
+      title={t("tray.clipboard")}
+      description={t("settings.clipboardNote")}
+      modified={shortcutsChanged(props.draft, props.defaults, "clipboard") || autoSave !== defaultAutoSave}
+    >
+      <CaptureHotkeys {...props} kind="clipboard" title={t("tray.clipboard")} />
+      <SettingItem name={t("settings.autoSave")} modified={autoSave !== defaultAutoSave}>
+        {(ids) => <Toggle {...ids} checked={autoSave} onChange={(auto_save) => props.update("capture", "clipboard", { auto_save })} />}
+      </SettingItem>
+    </SettingEditor>
+  );
+}
+
 function CapturePage({ draft, defaults, update }: ConfigPageProps) {
-  const conflicts = duplicatedHotkeys(captureModes.map(({ kind }) => draft.hotkeys[kind]));
+  const conflicts = duplicatedHotkeys([...captureModes.map(({ kind }) => draft.hotkeys[kind]), draft.hotkeys.clipboard]);
   return (
     <SettingPage title={t("settings.capture")} description={t("settings.captureNote")}>
       <div className="setting-row-list">
         {captureModes.map(({ kind, action }) => (
           <CaptureModeSettings key={kind} draft={draft} defaults={defaults} kind={kind} title={action} conflicts={conflicts} update={update} />
         ))}
+      </div>
+      <div className="setting-row-list">
+        <ClipboardSettings draft={draft} defaults={defaults} update={update} conflicts={conflicts} />
       </div>
     </SettingPage>
   );

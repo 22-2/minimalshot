@@ -3,13 +3,14 @@ import { invoke } from "@tauri-apps/api/core";
 export type AutoCopy = "none" | "image" | "path";
 export type ViewerLayout = "source" | "framed";
 export type CaptureKind = "region" | "window" | "fullscreen" | "desktop" | "clipboard";
+export type ScreenCaptureKind = Exclude<CaptureKind, "clipboard">;
 export type CaptureActions = { auto_save: boolean; auto_copy: AutoCopy; open_viewer: boolean };
 export type CaptureOverride = Partial<CaptureActions>;
 
 /** Rust 側の `config::Config` と同じ形。 */
 export type Config = {
   hotkeys: Record<CaptureKind, string[]>;
-  capture: CaptureActions & Partial<Record<CaptureKind, CaptureOverride>>;
+  capture: CaptureActions & Partial<Record<ScreenCaptureKind, CaptureOverride>> & { clipboard?: { auto_save: boolean } };
   storage: { directory: string; format: string };
   viewer: { always_on_top: boolean; confirm_on_close: boolean; layout: ViewerLayout };
   external: { tools: ExternalTool[] };

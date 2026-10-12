@@ -71,7 +71,7 @@ pub struct Capture {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub desktop: Option<CaptureOverride>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub clipboard: Option<CaptureOverride>,
+    pub clipboard: Option<ClipboardImport>,
 }
 
 impl Default for Capture {
@@ -84,12 +84,7 @@ impl Default for Capture {
             window: None,
             fullscreen: None,
             desktop: None,
-            // 取り込んだ画像は開くだけにし、元のクリップボードや保存先を変更しない。
-            clipboard: Some(CaptureOverride {
-                auto_save: Some(false),
-                auto_copy: Some(AutoCopy::None),
-                open_viewer: Some(true),
-            }),
+            clipboard: Some(ClipboardImport::default()),
         }
     }
 }
@@ -106,6 +101,13 @@ pub struct CaptureOverride {
     pub open_viewer: Option<bool>,
 }
 
+/// 取り込みは必ずビューアを開き、クリップボードを書き換えない。保存だけを任意にする。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(default)]
+pub struct ClipboardImport {
+    pub auto_save: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CaptureActions {
     pub auto_save: bool,
@@ -120,7 +122,16 @@ impl Capture {
             crate::state::CaptureKind::Window => &self.window,
             crate::state::CaptureKind::Fullscreen => &self.fullscreen,
             crate::state::CaptureKind::Desktop => &self.desktop,
-            crate::state::CaptureKind::Clipboard => &self.clipboard,
+            crate::state::CaptureKind::Clipboard => {
+                return CaptureActions {
+                    auto_save: self
+                        .clipboard
+                        .as_ref()
+                        .is_some_and(|options| options.auto_save),
+                    auto_copy: AutoCopy::None,
+                    open_viewer: true,
+                };
+            }
         };
         CaptureActions {
             open_viewer: override_
@@ -412,25 +423,43 @@ copy_stdout = false
     }
 
     #[test]
-    fn clipboard_import_opens_only_unless_its_actions_are_configured() {
-        let config = Config::parse("[capture]\nauto_save = true\nauto_copy = \"path\"\n").unwrap();
+    fn clipboard_import_only_allows_optional_auto_save() {
+        let mut config = Config::parse(
+            "[capture]\nauto_save = true\nauto_copy = \"path\"\nopen_viewer = false\n",
+        )
+        .unwrap();
         assert!(config.hotkeys.clipboard.is_empty());
         let actions = config
             .capture
             .actions_for(crate::state::CaptureKind::Clipboard);
         assert!(!actions.auto_save);
         assert_eq!(actions.auto_copy, AutoCopy::None);
-        let configured = Config::parse("[hotkeys]\nclipboard = \"Ctrl+Alt+V\"\n[capture.clipboard]\nauto_save = true\nauto_copy = \"image\"\n").unwrap();
-        assert_eq!(configured.hotkeys.clipboard, ["Ctrl+Alt+V"]);
-        let actions = configured
-            .capture
-            .actions_for(crate::state::CaptureKind::Clipboard);
-        assert!(actions.auto_save);
-        assert_eq!(actions.auto_copy, AutoCopy::Image);
-        assert_eq!(
-            Config::parse(&configured.to_toml().unwrap()).unwrap(),
-            configured
+        assert!(actions.open_viewer);
+        config.capture.clipboard = None;
+        assert!(
+            !config
+                .capture
+                .actions_for(crate::state::CaptureKind::Clipboard)
+                .auto_save
         );
+        for legacy_copy in ["image", "path"] {
+            let configured = Config::parse(&format!("[hotkeys]\nclipboard = \"Ctrl+Alt+V\"\n[capture.clipboard]\nauto_save = true\nauto_copy = \"{legacy_copy}\"\nopen_viewer = false\n")).unwrap();
+            assert_eq!(configured.hotkeys.clipboard, ["Ctrl+Alt+V"]);
+            let actions = configured
+                .capture
+                .actions_for(crate::state::CaptureKind::Clipboard);
+            assert!(actions.auto_save);
+            assert!(actions.open_viewer);
+            assert_eq!(actions.auto_copy, AutoCopy::None);
+            assert_eq!(
+                serde_json::to_value(&configured.capture.clipboard).unwrap(),
+                serde_json::json!({ "auto_save": true })
+            );
+            assert_eq!(
+                Config::parse(&configured.to_toml().unwrap()).unwrap(),
+                configured
+            );
+        }
     }
 
     #[test]

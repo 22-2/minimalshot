@@ -47,7 +47,7 @@ export async function installTauriMock(page: Page, options: MockOptions) {
     };
     const config = {
       hotkeys: { region: ["Ctrl+PrintScreen"], window: ["Shift+PrintScreen"], fullscreen: ["Alt+PrintScreen"], desktop: [], clipboard: [] },
-      capture: { auto_save: false, auto_copy: "image", open_viewer: true, clipboard: { auto_save: false, auto_copy: "none", open_viewer: true } },
+      capture: { auto_save: false, auto_copy: "image", open_viewer: true, clipboard: { auto_save: false } },
       storage: { directory: "{pictures}/{appname}", format: "%Y-%m/%Y-%m-%d_%H-%M-%S.png" },
       viewer: { always_on_top: false, confirm_on_close: false, layout: "source" },
       external: {

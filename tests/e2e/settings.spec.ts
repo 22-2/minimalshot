@@ -164,19 +164,42 @@ test.describe("settings", () => {
     });
   });
 
-  test("configures clipboard import with no automatic save or copy by default", async ({ page }, testInfo) => {
-    await installTauriMock(page, { label: "settings" });
+  for (const width of [800, 240]) {
+    test(`clipboard import only offers shortcuts and auto-save at ${width}px`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: 700 });
+      await installTauriMock(page, { label: "settings" });
+      await page.goto("/");
+      const groups = page.locator(".setting-row-list");
+      await expect(groups).toHaveCount(2);
+      await expect(groups.nth(0).locator(".setting-disclosure")).toHaveCount(4);
+      await expect(groups.nth(1).locator(".setting-disclosure")).toHaveCount(1);
+      const firstGroup = (await groups.nth(0).boundingBox())!;
+      const secondGroup = (await groups.nth(1).boundingBox())!;
+      expect(secondGroup.y - firstGroup.y - firstGroup.height).toBeGreaterThanOrEqual(24);
+      await page.getByRole("button", { name: "クリップボードの画像を開く", exact: true }).click();
+      const panel = page.getByRole("region", { name: "クリップボードの画像を開く", exact: true });
+      await expect(panel.getByRole("combobox")).toHaveCount(0);
+      await expect(panel.getByRole("switch")).toHaveCount(1);
+      await expect(panel.locator(".setting-item")).toHaveCount(2);
+      await expect(panel.getByRole("switch", { name: "自動で画像を保存する" })).not.toBeChecked();
+      await panel.getByRole("button", { name: "クリップボードの画像を開く: ショートカットを追加", exact: true }).click();
+      await page.keyboard.press("Control+Alt+KeyV");
+      await panel.getByRole("switch", { name: "自動で画像を保存する" }).click();
+      await expect.poll(async () => (await calls(page)).filter((call) => call.cmd === "save_config").at(-1)?.args.config)
+        .toMatchObject({ hotkeys: { clipboard: ["Ctrl+Alt+V"] }, capture: { clipboard: { auto_save: true } } });
+      const saved = (await calls(page)).filter((call) => call.cmd === "save_config").at(-1)?.args.config as { capture: { clipboard: unknown } };
+      expect(saved.capture.clipboard).toEqual({ auto_save: true });
+      expect(await page.locator(".settings-content").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+      await page.screenshot({ path: testInfo.outputPath("clipboard-settings.png") });
+    });
+  }
+
+  test("clipboard auto-save does not inherit the screen capture setting", async ({ page }) => {
+    await installTauriMock(page, { label: "settings", config: { capture: { auto_save: true, auto_copy: "path", open_viewer: false } } });
     await page.goto("/");
     await page.getByRole("button", { name: "クリップボードの画像を開く", exact: true }).click();
     const panel = page.getByRole("region", { name: "クリップボードの画像を開く", exact: true });
-    await expect(panel.getByRole("combobox", { name: "クリップボードへコピー" })).toHaveText("しない");
     await expect(panel.getByRole("switch", { name: "自動で画像を保存する" })).not.toBeChecked();
-    await panel.getByRole("button", { name: "クリップボードの画像を開く: ショートカットを追加", exact: true }).click();
-    await page.keyboard.press("Control+Alt+KeyV");
-    await panel.getByRole("switch", { name: "自動で画像を保存する" }).click();
-    await expect.poll(async () => (await calls(page)).filter((call) => call.cmd === "save_config").at(-1)?.args.config)
-      .toMatchObject({ hotkeys: { clipboard: ["Ctrl+Alt+V"] }, capture: { clipboard: { auto_save: true, auto_copy: "none" } } });
-    await page.screenshot({ path: testInfo.outputPath("clipboard-settings.png") });
   });
 
   test("opens the config folder without saving or discarding edits", async ({ page }) => {
