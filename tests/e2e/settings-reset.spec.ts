@@ -12,7 +12,7 @@ const changedConfig = () => ({
 });
 
 for (const [tab, sections] of [
-  ["アクション", ["hotkeys", "capture"]],
+  ["キャプチャ", ["hotkeys", "capture"]],
   ["保存先", ["storage"]],
   ["ビューア", ["viewer"]],
   ["外部ツール", ["external"]],
@@ -23,7 +23,7 @@ for (const [tab, sections] of [
     await installTauriMock(page, { label: "settings", config });
     await page.goto("/");
     await page.getByRole("tab", { name: tab, exact: true }).click();
-    if (tab === "アクション") await page.getByRole("button", { name: /^領域をキャプチャ / }).click();
+    if (tab === "キャプチャ") await page.getByRole("button", { name: /^領域をキャプチャ / }).click();
     if (tab === "外部ツール") await page.getByRole("button", { name: /Custom/ }).click();
     await expect(page.locator(".setting-item[data-modified]").first()).toBeVisible();
     const reset = page.getByRole("button", { name: "このタブをデフォルトに戻す", exact: true });

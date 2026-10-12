@@ -4,7 +4,7 @@ import { api, errorMessage, type Config } from "../lib/api";
 import { t } from "../i18n";
 
 type Status = { tone: "info" | "error"; text: string } | null;
-export type ResetTarget = "actions" | "storage" | "viewer" | "tools" | "all";
+export type ResetTarget = "capture" | "storage" | "viewer" | "tools" | "all";
 
 type SettingsState = {
   draft: Config | null;
@@ -101,7 +101,7 @@ export const useSettings = create<SettingsState>((set, get) => {
         const draft = get().draft;
         if (!draft) return;
         const sections: Record<Exclude<ResetTarget, "all">, Partial<Config>> = {
-          actions: { hotkeys: defaults.hotkeys, capture: defaults.capture },
+          capture: { hotkeys: defaults.hotkeys, capture: defaults.capture },
           storage: { storage: defaults.storage },
           viewer: { viewer: defaults.viewer },
           tools: { external: defaults.external },

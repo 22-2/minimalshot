@@ -2,6 +2,7 @@ import { Fragment, useEffect, useRef, useState, type KeyboardEvent } from "react
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
+  Camera,
   ClipboardType,
   Copy,
   EyeOff,
@@ -15,7 +16,6 @@ import {
   Save,
   SquareTerminal,
   Trash2,
-  Zap,
   type LucideIcon,
 } from "lucide-react";
 
@@ -28,7 +28,7 @@ import { useSettings, type ResetTarget } from "../stores/settings";
 import { useWindowReady } from "../lib/useWindowReady";
 import { t } from "../i18n";
 
-type TabId = "actions" | "storage" | "viewer" | "tools" | "reset";
+type TabId = "capture" | "storage" | "viewer" | "tools" | "reset";
 type Tab = { id: TabId; label: string; icon: LucideIcon };
 
 const captureModes: { kind: CaptureKind; action: string }[] = [
@@ -41,7 +41,7 @@ const captureModes: { kind: CaptureKind; action: string }[] = [
 
 // 見出しは置かず、余白だけでまとまりを分ける
 const tabGroups: Tab[][] = [
-  [{ id: "actions", label: t("settings.actions"), icon: Zap }],
+  [{ id: "capture", label: t("settings.capture"), icon: Camera }],
   [
     { id: "storage", label: t("settings.storage"), icon: HardDrive },
     { id: "viewer", label: t("settings.viewer"), icon: Image },
@@ -209,10 +209,10 @@ function CaptureModeSettings(props: ConfigPageProps & { kind: CaptureKind; title
   );
 }
 
-function ActionsPage({ draft, defaults, update }: ConfigPageProps) {
+function CapturePage({ draft, defaults, update }: ConfigPageProps) {
   const conflicts = duplicatedHotkeys(captureModes.map(({ kind }) => draft.hotkeys[kind]));
   return (
-    <SettingPage title={t("settings.actions")} description={`${t("settings.actionsNote")}${t("settings.hotkeyNote")}`}>
+    <SettingPage title={t("settings.capture")} description={`${t("settings.captureNote")}${t("settings.hotkeyNote")}`}>
       <div className="setting-disclosure-list">
         {captureModes.map(({ kind, action }) => (
           <CaptureModeSettings key={kind} draft={draft} defaults={defaults} kind={kind} title={action} conflicts={conflicts} update={update} />
@@ -358,7 +358,7 @@ function ToolsPage({ tools, defaults, onChange }: { tools: ExternalTool[]; defau
 export function Settings() {
   const { draft, defaults, status, load, openConfigFolder, openAbout, update, flush, reset } = useSettings();
   const [presentation, setPresentation] = useState(0);
-  const [tab, setTab] = useState<TabId>("actions");
+  const [tab, setTab] = useState<TabId>("capture");
   const [resetting, setResetting] = useState(false);
   const content = useRef<HTMLDivElement>(null);
   useWindowReady(presentation > 0, presentation);
@@ -411,7 +411,7 @@ export function Settings() {
         <div ref={content} className="settings-content">
           {/* 各ページは同じ領域に描くので、パネルの id は選択中のタブに合わせて付け替える */}
           <div id={panelId(tab)} className="settings-panel" role="tabpanel" aria-labelledby={tabId(tab)}>
-            {draft && defaults && tab === "actions" && <ActionsPage draft={draft} defaults={defaults} update={update} />}
+            {draft && defaults && tab === "capture" && <CapturePage draft={draft} defaults={defaults} update={update} />}
             {draft && defaults && tab === "storage" && <StoragePage draft={draft} defaults={defaults} update={update} />}
             {draft && defaults && tab === "viewer" && <ViewerPage draft={draft} defaults={defaults} update={update} />}
             {draft && defaults && tab === "tools" && <ToolsPage tools={draft.external.tools} defaults={defaults.external.tools} onChange={(tools) => update("external", "tools", tools)} />}
