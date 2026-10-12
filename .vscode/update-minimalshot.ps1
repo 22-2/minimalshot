@@ -6,6 +6,27 @@ $executablePath = 'C:\Applications\bins\MinimalShot.exe'
 $downloadPath = Join-Path (Split-Path -Parent $executablePath) "MinimalShot.$([guid]::NewGuid()).new"
 
 try {
+  # develop の CI が進行中なら、完了するまで待つ。
+  while ($true) {
+    $runsJson = gh run list --workflow ci.yml --branch develop --event push --status in_progress --json databaseId
+    if ($LASTEXITCODE -ne 0) {
+      throw 'develop の CI 状態を取得できませんでした。gh auth status で認証状態を確認してください。'
+    }
+
+    $runs = @($runsJson | ConvertFrom-Json)
+    if ($runs.Count -eq 0) {
+      break
+    }
+
+    foreach ($run in $runs) {
+      Write-Host "develop の CI (#$($run.databaseId)) の完了を待っています..."
+      gh run watch $run.databaseId --exit-status
+      if ($LASTEXITCODE -ne 0) {
+        throw "develop の CI (#$($run.databaseId)) が成功しませんでした。開発版の更新を中止します。"
+      }
+    }
+  }
+
   # 非公開リポジトリのリリースは GitHub CLI の認証を使って取得する。
   gh release download v0.0.0-dev --repo 22-2/minimalshot --pattern MinimalShot_dev_x64.exe --output $downloadPath
   if ($LASTEXITCODE -ne 0) {
