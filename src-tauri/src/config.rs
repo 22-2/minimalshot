@@ -3,7 +3,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 
 /// アプリ設定。`config.toml` と1対1に対応し、そのままフロントエンドにも渡す。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -261,6 +261,45 @@ impl Default for External {
 }
 
 impl Config {
+    /// 保存とインポートで同じ検証を行い、不正な内容を実行中の設定へ反映しない。
+    pub fn validate(&self) -> AppResult<()> {
+        crate::hotkeys::parse_hotkeys(&self.hotkeys)?;
+        crate::paths::render_save_path(
+            &self.storage.directory,
+            &self.storage.format,
+            Path::new(""),
+            &chrono::Local::now(),
+        )?;
+        let mut names = std::collections::HashSet::new();
+        for tool in &self.external.tools {
+            if tool.name.trim().is_empty() || tool.command.trim().is_empty() {
+                return Err(AppError::msg("外部ツールには名前とコマンドが必要です"));
+            }
+            crate::external::split_args(&tool.args)?;
+            if !names.insert(&tool.name) {
+                return Err(AppError::msg(format!(
+                    "外部ツール「{}」の名前が重複しています",
+                    tool.name
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn read_import(path: &Path) -> AppResult<Self> {
+        let text = fs::read_to_string(path)?;
+        let table: toml::Table = toml::from_str(&text)?;
+        if !["hotkeys", "capture", "storage", "viewer", "external"]
+            .iter()
+            .any(|key| table.contains_key(*key))
+        {
+            return Err(AppError::msg("MinimalShot の設定項目が見つかりません。エクスポートした TOML ファイルを選択してください"));
+        }
+        let config = Self::parse(&text)?;
+        config.validate()?;
+        Ok(config)
+    }
+
     pub fn parse(text: &str) -> AppResult<Self> {
         Ok(toml::from_str(text)?)
     }
@@ -504,6 +543,46 @@ auto_tools = []
     #[test]
     fn rejects_unknown_auto_copy() {
         assert!(Config::parse("[capture]\nauto_copy = \"both\"\n").is_err());
+    }
+
+    #[test]
+    fn imports_exported_settings_and_migrates_legacy_settings() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("設定.toml");
+        let mut config = Config::default();
+        config.capture.open_viewer = false;
+        config.storage.directory = "D:/画像/バックアップ".into();
+        config.external.tools.clear();
+        config.save(&path).unwrap();
+        assert_eq!(Config::read_import(&path).unwrap(), config);
+        fs::write(
+            &path,
+            "[hotkeys]\nregion = \"Ctrl+Shift+Z\"\n[external]\neditor = \"paint.exe\"\n",
+        )
+        .unwrap();
+        let legacy = Config::read_import(&path).unwrap();
+        assert_eq!(legacy.hotkeys.region, ["Ctrl+Shift+Z"]);
+        assert_eq!(legacy.external.tools[0].command, "paint.exe");
+        assert!(legacy.capture.open_viewer);
+    }
+
+    #[test]
+    fn rejects_invalid_imports_before_applying_them() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("import.toml");
+        for text in [
+            "", "[unrelated]\nvalue = 1", "[capture", "[capture]\nauto_copy = \"both\"",
+            "[hotkeys]\nregion = \"PrintScreen\"",
+            "[hotkeys]\nregion = \"Alt+PrintScreen\"",
+            "[storage]\nformat = \"\"",
+            "[[external.tools]]\nname = \"\"\ncommand = \"paint.exe\"",
+            "[[external.tools]]\nname = \"Paint\"\ncommand = \"paint.exe\"\nargs = '\"unclosed'",
+            "[[external.tools]]\nname = \"Paint\"\ncommand = \"paint.exe\"\n[[external.tools]]\nname = \"Paint\"\ncommand = \"other.exe\"",
+        ] {
+            fs::write(&path, text).unwrap();
+            assert!(Config::read_import(&path).is_err(), "accepted invalid import: {text}");
+        }
+        assert!(Config::read_import(&directory.path().join("missing.toml")).is_err());
     }
 
     #[test]

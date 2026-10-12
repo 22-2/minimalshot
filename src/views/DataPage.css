@@ -1,0 +1,25 @@
+.data-action .setting-name {
+  margin: 0;
+  font-size: inherit;
+  font-weight: var(--font-weight-medium);
+}
+
+.data-action .setting-control {
+  flex: none;
+}
+
+.data-reset {
+  margin-block-start: var(--space-6);
+  padding-block-start: var(--space-5);
+  border-block-start: var(--border-width) solid var(--color-hairline);
+}
+
+.data-reset-title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+}
+
+.data-reset > .setting-description {
+  margin: 0 0 var(--space-3);
+}

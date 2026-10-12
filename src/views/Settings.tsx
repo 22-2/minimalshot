@@ -5,6 +5,7 @@ import {
   Camera,
   ClipboardType,
   Copy,
+  Database,
   EyeOff,
   FolderOpen,
   HardDrive,
@@ -26,10 +27,11 @@ import { SettingEditor } from "../components/SettingEditor";
 import type { AutoCopy, CaptureActions, CaptureKind, Config, ExternalTool, ViewerLayout } from "../lib/api";
 import { duplicatedHotkeys } from "../lib/hotkey";
 import { useSettings, type ResetTarget } from "../stores/settings";
+import { DataPage } from "./DataPage";
 import { useWindowReady } from "../lib/useWindowReady";
 import { t } from "../i18n";
 
-type TabId = "capture" | "storage" | "viewer" | "tools" | "reset";
+type TabId = "capture" | "storage" | "viewer" | "tools" | "data";
 type Tab = { id: TabId; label: string; icon: LucideIcon };
 
 const captureModes: { kind: CaptureKind; action: string }[] = [
@@ -48,7 +50,7 @@ const tabGroups: Tab[][] = [
     { id: "viewer", label: t("settings.viewer"), icon: Image },
     { id: "tools", label: t("settings.external"), icon: SquareTerminal },
   ],
-  [{ id: "reset", label: t("settings.reset"), icon: RotateCcw }],
+  [{ id: "data", label: t("settings.data"), icon: Database }],
 ];
 const tabs = tabGroups.flat();
 
@@ -421,8 +423,8 @@ export function Settings() {
         <SettingsTabs
           selected={tab}
           onSelect={selectTab}
-          onResetTab={() => { if (tab !== "reset") void resetSettings(tab); }}
-          resetDisabled={!draft || resetting || tab === "reset"}
+          onResetTab={() => { if (tab !== "data") void resetSettings(tab); }}
+          resetDisabled={!draft || resetting || tab === "data"}
           onOpenConfigFolder={() => void openConfigFolder()}
           onOpenAbout={() => void openAbout()}
         />
@@ -433,14 +435,7 @@ export function Settings() {
             {draft && defaults && tab === "storage" && <StoragePage draft={draft} defaults={defaults} update={update} />}
             {draft && defaults && tab === "viewer" && <ViewerPage draft={draft} defaults={defaults} update={update} />}
             {draft && defaults && tab === "tools" && <ToolsPage tools={draft.external.tools} defaults={defaults.external.tools} onChange={(tools) => update("external", "tools", tools)} />}
-            {draft && tab === "reset" && (
-              <SettingPage title={t("settings.reset")} description={t("settings.resetAllNote")}>
-                <button type="button" className="button" data-variant="danger" disabled={resetting} onClick={() => void resetSettings("all")}>
-                  <RotateCcw size={14} aria-hidden />
-                  {t("settings.resetAll")}
-                </button>
-              </SettingPage>
-            )}
+            {draft && tab === "data" && <DataPage resetting={resetting} onReset={() => void resetSettings("all")} />}
           </div>
         </div>
       </div>

@@ -197,6 +197,8 @@ pub fn run() {
             commands::take_capture_sounds,
             commands::open_config_folder,
             commands::save_config,
+            commands::export_config,
+            commands::import_config,
             commands::capture,
             commands::shot_info,
             commands::viewer_session,

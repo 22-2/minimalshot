@@ -1,6 +1,7 @@
 use serde::Serialize;
 use tauri::ipc::Response;
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
+use tauri_plugin_dialog::DialogExt;
 
 use crate::actions;
 use crate::capture::Captured;
@@ -62,28 +63,7 @@ pub fn open_config_folder(app: AppHandle) -> AppResult<()> {
 pub fn save_config(app: AppHandle, config: Config) -> AppResult<()> {
     let state = app.state::<AppState>();
     // 先に全項目を検証し、不正な設定はファイルに書かない
-    hotkeys::parse_hotkeys(&config.hotkeys)?;
-    crate::paths::render_save_path(
-        &config.storage.directory,
-        &config.storage.format,
-        std::path::Path::new(""),
-        &chrono::Local::now(),
-    )?;
-    for tool in &config.external.tools {
-        if tool.name.trim().is_empty() || tool.command.trim().is_empty() {
-            return Err(AppError::msg("外部ツールには名前とコマンドが必要です"));
-        }
-        crate::external::split_args(&tool.args)?;
-    }
-    let mut names = std::collections::HashSet::new();
-    for tool in &config.external.tools {
-        if !names.insert(&tool.name) {
-            return Err(AppError::msg(format!(
-                "外部ツール「{}」の名前が重複しています",
-                tool.name
-            )));
-        }
-    }
+    config.validate()?;
     let previous_hotkeys = state.config().hotkeys;
     hotkeys::register(&app, &config.hotkeys)?;
     if let Err(error) = config.save(&state.config_path) {
@@ -92,6 +72,61 @@ pub fn save_config(app: AppHandle, config: Config) -> AppResult<()> {
     }
     *state.config.lock().unwrap() = config;
     Ok(())
+}
+
+#[tauri::command]
+pub async fn export_config(
+    app: AppHandle,
+    window: WebviewWindow,
+    config: Config,
+) -> AppResult<Option<String>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        config.validate()?;
+        let Some(chosen) = app
+            .dialog()
+            .file()
+            .set_parent(&window)
+            .add_filter("MinimalShot 設定", &["toml"])
+            .set_file_name("MinimalShot-settings.toml")
+            .blocking_save_file()
+        else {
+            return Ok(None);
+        };
+        let mut path = chosen
+            .into_path()
+            .map_err(|e| AppError::msg(e.to_string()))?;
+        if path.extension().is_none() {
+            path.set_extension("toml");
+        }
+        config.save(&path)?;
+        Ok(Some(path.to_string_lossy().into_owned()))
+    })
+    .await
+    .map_err(|e| AppError::msg(e.to_string()))?
+}
+
+#[tauri::command]
+pub async fn import_config(app: AppHandle, window: WebviewWindow) -> AppResult<Option<Config>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(chosen) = app
+            .dialog()
+            .file()
+            .set_parent(&window)
+            .add_filter("MinimalShot 設定", &["toml"])
+            .blocking_pick_file()
+        else {
+            return Ok(None);
+        };
+        let path = chosen
+            .into_path()
+            .map_err(|e| AppError::msg(e.to_string()))?;
+        let config = Config::read_import(&path)?;
+        // ホットキー登録や書き込みが失敗した場合も、通常の保存と同じ扱いにする。
+        save_config(app, config.clone())?;
+        Ok(Some(config))
+    })
+    .await
+    .map_err(|e| AppError::msg(e.to_string()))?
 }
 
 #[tauri::command]

@@ -42,6 +42,8 @@ export const api = {
   getDefaultConfig: () => invoke<Config>("get_default_config"),
   openConfigFolder: () => invoke<void>("open_config_folder"),
   saveConfig: (config: Config) => invoke<void>("save_config", { config }),
+  exportConfig: (config: Config) => invoke<string | null>("export_config", { config }),
+  importConfig: () => invoke<Config | null>("import_config"),
   capture: (kind: CaptureKind) => invoke<void>("capture", { kind }),
 
   shotInfo: () => invoke<ShotInfo>("shot_info"),

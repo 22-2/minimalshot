@@ -10,9 +10,12 @@ type SettingsState = {
   draft: Config | null;
   defaults: Config | null;
   status: Status;
+  transferring: "import" | "export" | null;
   load: () => Promise<void>;
   openConfigFolder: () => Promise<void>;
   openAbout: () => Promise<void>;
+  exportConfig: () => Promise<void>;
+  importConfig: () => Promise<void>;
   reset: (target: ResetTarget) => Promise<void>;
   update: <S extends keyof Config, K extends keyof Config[S]>(
     section: S,
@@ -66,6 +69,7 @@ export const useSettings = create<SettingsState>((set, get) => {
     draft: null,
     defaults: null,
     status: null,
+    transferring: null,
 
     load: async () => {
       await flush();
@@ -92,6 +96,37 @@ export const useSettings = create<SettingsState>((set, get) => {
         await api.openAbout();
       } catch (error) {
         set({ status: { tone: "error", text: errorMessage(error) } });
+      }
+    },
+
+    exportConfig: async () => {
+      if (get().transferring) return;
+      set({ transferring: "export" });
+      try {
+        await flush();
+        const draft = get().draft;
+        if (!draft) return;
+        const path = await api.exportConfig(draft);
+        if (path !== null) set({ status: { tone: "info", text: `${t("settings.exported")}: ${path}` } });
+      } catch (error) {
+        set({ status: { tone: "error", text: `${t("settings.exportFailed")}: ${errorMessage(error)}` } });
+      } finally {
+        set({ transferring: null });
+      }
+    },
+
+    importConfig: async () => {
+      if (get().transferring) return;
+      set({ transferring: "import" });
+      try {
+        await flush();
+        const config = await api.importConfig();
+        // バックエンドで検証・保存・ホットキー登録を完了したものだけに置き換える。
+        if (config !== null) set({ draft: config, status: { tone: "info", text: t("settings.imported") } });
+      } catch (error) {
+        set({ status: { tone: "error", text: `${t("settings.importFailed")}: ${errorMessage(error)}` } });
+      } finally {
+        set({ transferring: null });
       }
     },
 

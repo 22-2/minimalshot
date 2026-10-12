@@ -40,7 +40,7 @@ for (const [tab, sections] of [
 test("resets all settings from the dedicated tab", async ({ page }) => {
   await installTauriMock(page, { label: "settings", config: changedConfig() });
   await page.goto("/");
-  await page.getByRole("tab", { name: "初期化", exact: true }).click();
+  await page.getByRole("tab", { name: "データ", exact: true }).click();
   await expect(page.getByRole("button", { name: "このタブをデフォルトに戻す", exact: true })).toBeDisabled();
   await page.getByRole("button", { name: "すべてをデフォルトに戻す", exact: true }).click();
   await expect.poll(async () => (await calls(page)).filter((call) => call.cmd === "save_config").at(-1)?.args.config).toEqual(defaultConfig());

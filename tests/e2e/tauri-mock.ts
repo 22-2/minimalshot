@@ -12,6 +12,8 @@ type MockOptions = {
   regionSession?: number | null;
   regionImageSize?: { width: number; height: number };
   pendingCaptureSounds?: number;
+  importConfig?: ReturnType<typeof defaultConfig> | null;
+  exportPath?: string | null;
 };
 
 export type Call = { cmd: string; args: Record<string, unknown> };
@@ -80,6 +82,8 @@ export async function installTauriMock(page: Page, options: MockOptions) {
       },
       open_config_folder: () => undefined,
       save_config: () => undefined,
+      export_config: () => opts.exportPath === undefined ? "D:/backup/MinimalShot-settings.toml" : opts.exportPath,
+      import_config: () => opts.importConfig ?? null,
       viewer_session: () => viewerSession,
       shot_info: () => ({ id: viewerSession, width: 640, height: 360, savedPath }),
       shot_png: () => png(640, 360),
