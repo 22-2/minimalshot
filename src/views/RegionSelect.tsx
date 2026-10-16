@@ -6,7 +6,7 @@ import { playCaptureSound } from "../lib/captureSound";
 import { isMeaningfulSelection, rectFromPoints, toImagePixels, type Point } from "../lib/region";
 import { t } from "../i18n";
 
-/** 現在の DOM を含むフレームが合成されるまで待つ。 */
+/** DOM 更新後の描画タイミングを待つ。OS の画面合成完了は保証しない。 */
 const nextPaint = () =>
   new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
 

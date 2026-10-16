@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:overlay": "pnpm build && cargo test --manifest-path src-tauri/Cargo.toml --release --locked --features native-ui-test,tauri/custom-protocol --lib native_tests::overlay_flicker -- --include-ignored --nocapture --test-threads=1",
     "readme:shots": "node scripts/readme/capture-screenshots.mjs",
     "tauri": "tauri"
   },

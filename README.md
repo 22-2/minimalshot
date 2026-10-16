@@ -126,6 +126,10 @@ cd src-tauri
 cargo test --features native-ui-test prewarmed_windows_display_captures_before_auto_save -- --ignored --nocapture
 ```
 
+領域選択のフェード前のチラつきは `pnpm test:overlay` で検査します。Windows のメイン画面に単色の背景を表示し、初回と待機時間を変えた再表示を合計8回試します。DXGI の画面フレームから明るさを測り、暗くなった直後の逆戻り・急な暗転・フェードの中間状態の欠落を検出します。開発サーバーは不要で、本番用の画面データを埋め込んで実行します。
+
+結果の HTML・CSV・検査領域の PNG は一時フォルダの `minimalshot-flicker-*` に保存し、パスを実行時に表示します。保存する画像は単色背景内の小さな検査領域だけです。保存先を指定する場合は環境変数 `MINIMALSHOT_FLICKER_ARTIFACTS` を使います。通常の設定・ホットキー・クリップボードは使いません。実画面を測るため、画面のロックを解除した状態で実行してください。
+
 UI の文言は `src/locales/ja.json` にまとめ、Rust 側（トレイメニュー）も同じファイルを読みます。色や寸法は `src/styles/tokens.css` のトークンだけを使います。
 
 ### README 用のページ撮影

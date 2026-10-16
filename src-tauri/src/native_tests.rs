@@ -1,4 +1,6 @@
 //! Vite と実際の WebView2 を使う検証。ユーザーの設定・ホットキー・クリップボードは使わない。
+mod overlay_flicker;
+
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};

@@ -12,7 +12,9 @@ const views = {
   settings: lazy(() => import("./views/Settings").then((module) => ({ default: module.Settings }))),
   about: lazy(() => import("./views/About").then((module) => ({ default: module.About }))),
 };
-const View = views[resolveView(getCurrentWindow().label)];
+const view = resolveView(getCurrentWindow().label);
+document.documentElement.dataset.view = view;
+const View = views[view];
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

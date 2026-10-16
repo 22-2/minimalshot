@@ -480,6 +480,14 @@ button {
 
 /* ---- 領域選択 ---- */
 
+/* 撮影画像が合成される前の空フレームでも、背後の画面を覆わない。 */
+html[data-view="region"],
+html[data-view="region"] body,
+html[data-view="region"] #root {
+  background: transparent;
+  color-scheme: normal;
+}
+
 .region {
   position: fixed;
   inset: 0;
@@ -499,11 +507,11 @@ button {
   inset: 0;
   opacity: 0;
   pointer-events: none;
+  transition: opacity var(--duration-overlay) var(--easing-standard);
 }
 
 .region[data-presented="true"] .region-guides {
   opacity: 1;
-  transition: opacity var(--duration-overlay) var(--easing-standard);
 }
 
 .region-dim {

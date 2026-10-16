@@ -25,10 +25,7 @@ try {
       continue
     }
 
-    if (-not $waitedForCi) {
-      break
-    }
-
+    # 起動時点ですでに終了している CI も確認し、失敗した版の代わりに古い exe を入れない。
     $latestRun = $runs | Select-Object -First 1
     if ($null -eq $latestRun) {
       throw 'develop の CI 実行を確認できませんでした。開発版の更新を中止します。'

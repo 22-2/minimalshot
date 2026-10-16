@@ -43,19 +43,17 @@ const MIN_WIDTH: f64 = 240.0;
 const MIN_HEIGHT: f64 = 160.0;
 
 fn build_viewer(app: &AppHandle, label: &str) -> AppResult<WebviewWindow> {
-    Ok(
-        window_builder(app, label)
-            .title(t("app.name"))
-            .decorations(false)
-            // Windows 11 の枠なし窓に付く白い1px枠を避ける。枠線は CSS 側で描く。
-            .shadow(false)
-            .skip_taskbar(true)
-            .visible(false)
-            .focused(false)
-            .background_color(BACKGROUND)
-            .min_inner_size(MIN_WIDTH, MIN_HEIGHT)
-            .build()?,
-    )
+    Ok(window_builder(app, label)
+        .title(t("app.name"))
+        .decorations(false)
+        // Windows 11 の枠なし窓に付く白い1px枠を避ける。枠線は CSS 側で描く。
+        .shadow(false)
+        .skip_taskbar(true)
+        .visible(false)
+        .focused(false)
+        .background_color(BACKGROUND)
+        .min_inner_size(MIN_WIDTH, MIN_HEIGHT)
+        .build()?)
 }
 
 /// build は UI スレッドとの往復を伴うので、pool のロックを保持せず実行する。
@@ -81,7 +79,7 @@ fn region_window(app: &AppHandle) -> AppResult<WebviewWindow> {
     if let Some(existing) = app.get_webview_window(REGION_LABEL) {
         return Ok(existing);
     }
-    let window = window_builder(app, REGION_LABEL)
+    let builder = window_builder(app, REGION_LABEL)
         .title(t("app.name"))
         .decorations(false)
         .shadow(false)
@@ -91,8 +89,13 @@ fn region_window(app: &AppHandle) -> AppResult<WebviewWindow> {
         .visible(false)
         .focused(false)
         .focusable(!cfg!(windows))
-        .background_color(BACKGROUND)
-        .build()?;
+        .background_color(BACKGROUND);
+    // 表示直後に WebView2 の空フレームが合成されても、撮影前の画面をそのまま見せる。
+    #[cfg(windows)]
+    let builder = builder
+        .transparent(true)
+        .background_color(Color(0, 0, 0, 0));
+    let window = builder.build()?;
     let prepare = || -> AppResult<()> {
         let monitors = app.available_monitors()?;
         let bounds = ScreenBounds::covering(monitors.iter().map(|monitor| {
