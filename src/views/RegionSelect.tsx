@@ -3,7 +3,6 @@ import { listen } from "@tauri-apps/api/event";
 
 import { api, errorMessage, pngUrl } from "../lib/api";
 import { playCaptureSound } from "../lib/captureSound";
-import { useWindowReady } from "../lib/useWindowReady";
 import { isMeaningfulSelection, rectFromPoints, toImagePixels, type Point } from "../lib/region";
 import { t } from "../i18n";
 
@@ -16,8 +15,24 @@ export function RegionSelect() {
   const [session, setSession] = useState<number | null>(null);
   const [loadedImageUrl, setLoadedImageUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [presentedSession, setPresentedSession] = useState<number | null>(null);
   const imageReady = imageUrl !== null && loadedImageUrl === imageUrl;
-  useWindowReady(session !== null && (imageReady || error !== null), session ?? 0, session ?? undefined);
+  const ready = session !== null && (imageReady || error !== null);
+
+  useEffect(() => {
+    if (!ready || session === null) return;
+    let disposed = false;
+    let frame = 0;
+    void api.showWindow(session).then(() => {
+      if (disposed) return;
+      // cloak 中にフェードを消費しないよう、実際の表示後から暗い幕を重ねる。
+      frame = requestAnimationFrame(() => setPresentedSession(session));
+    }).catch(console.error);
+    return () => {
+      disposed = true;
+      cancelAnimationFrame(frame);
+    };
+  }, [ready, session]);
 
   useEffect(() => {
     let disposed = false;
@@ -50,6 +65,7 @@ export function RegionSelect() {
       setSession(null);
       setLoadedImageUrl(null);
       setError(null);
+      setPresentedSession(null);
       setStart(null);
       setEnd(null);
     };
@@ -155,6 +171,7 @@ export function RegionSelect() {
   return (
     <div
       className="region"
+      data-presented={session !== null && presentedSession === session}
       onPointerDown={onPointerDown}
       onPointerMove={(event) => start && setEnd(point(event))}
       onPointerUp={onPointerUp}
@@ -176,26 +193,28 @@ export function RegionSelect() {
           onError={() => setError(t("viewer.loadFailed"))}
         />
       )}
-      {!selection && <div className="region-dim" />}
-      {!selection && <p className="region-hint">{error ?? t("region.hint")}</p>}
-      {selection && (
-        <div
-          className="region-selection"
-          data-testid="region-selection"
-          style={{
-            left: selection.x,
-            top: selection.y,
-            width: selection.width,
-            height: selection.height,
-            // 選択範囲の外側だけを暗くする
-            boxShadow: `0 0 0 100vmax var(--color-scrim)`,
-          }}
-        >
-          <span className="region-size">
-            {selectionPixels?.width} × {selectionPixels?.height}
-          </span>
-        </div>
-      )}
+      <div className="region-guides">
+        {!selection && <div className="region-dim" />}
+        {!selection && <p className="region-hint">{error ?? t("region.hint")}</p>}
+        {selection && (
+          <div
+            className="region-selection"
+            data-testid="region-selection"
+            style={{
+              left: selection.x,
+              top: selection.y,
+              width: selection.width,
+              height: selection.height,
+              // 選択範囲の外側だけを暗くする
+              boxShadow: `0 0 0 100vmax var(--color-scrim)`,
+            }}
+          >
+            <span className="region-size">
+              {selectionPixels?.width} × {selectionPixels?.height}
+            </span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

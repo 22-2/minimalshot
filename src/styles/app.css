@@ -494,6 +494,18 @@ button {
   pointer-events: none;
 }
 
+.region-guides {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.region[data-presented="true"] .region-guides {
+  opacity: 1;
+  transition: opacity var(--duration-overlay) var(--easing-standard);
+}
+
 .region-dim {
   position: absolute;
   inset: 0;
