@@ -87,8 +87,7 @@ fn region_window(app: &AppHandle) -> AppResult<WebviewWindow> {
                 monitor.size().height,
             )
         }))?;
-        window.set_position(PhysicalPosition::new(bounds.x, bounds.y))?;
-        window.set_size(PhysicalSize::new(bounds.width, bounds.height))?;
+        crate::region_window::set_bounds(&window, &bounds)?;
         crate::region_window::prepare(&window)
     };
     if let Err(error) = prepare() {
@@ -205,14 +204,7 @@ pub fn open_viewer(
 pub fn open_region_overlay(app: &AppHandle, bounds: &ScreenBounds, session: u32) -> AppResult<()> {
     let window = region_window(app)?;
     crate::region_window::hide(&window)?;
-    let position = PhysicalPosition::new(bounds.x, bounds.y);
-    let size = PhysicalSize::new(bounds.width, bounds.height);
-    if window.outer_position()? != position {
-        window.set_position(position)?;
-    }
-    if window.inner_size()? != size {
-        window.set_size(size)?;
-    }
+    crate::region_window::set_bounds(&window, bounds)?;
     // 新規 WebView の listener が間に合わない場合は region_session で取得する。
     window.emit("region-load", session)?;
     Ok(())

@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 use tauri::{Manager, State, WebviewWindow};
 
-use crate::capture::{Captured, MonitorGeometry};
+use crate::capture::{Captured, MonitorGeometry, ScreenBounds};
 use crate::config::{AutoCopy, Config};
 use crate::state::AppState;
 use crate::{actions, commands, windows};
@@ -42,6 +42,13 @@ unsafe extern "system" {
     fn GetWindowRect(window: isize, rect: *mut Rect) -> i32;
     fn GetClassNameW(window: isize, name: *mut u16, length: i32) -> i32;
     fn GetForegroundWindow() -> *mut std::ffi::c_void;
+    fn GetDpiForWindow(window: *mut std::ffi::c_void) -> u32;
+    fn SendMessageW(
+        window: *mut std::ffi::c_void,
+        message: u32,
+        wparam: usize,
+        lparam: isize,
+    ) -> isize;
 }
 
 #[link(name = "dwmapi")]
@@ -300,6 +307,35 @@ fn prewarmed_windows_display_captures_before_auto_save() {
                     region.inner_size().unwrap(),
                     tauri::PhysicalSize::new(bounds.width, bounds.height)
                 );
+                // DPI 変更時に1画面内の推奨矩形が来ても、全画面の配置を維持する。
+                let dpi = unsafe { GetDpiForWindow(region_handle.0) };
+                let changed_dpi = if dpi == 96 { 144 } else { 96 };
+                for next_dpi in [changed_dpi, dpi] {
+                    let mut suggested = Rect {
+                        left: geometry.x,
+                        top: geometry.y,
+                        right: geometry.x + geometry.width as i32 / 2,
+                        bottom: geometry.y + geometry.height as i32 / 2,
+                    };
+                    unsafe {
+                        SendMessageW(
+                            region_handle.0,
+                            0x02e0, // WM_DPICHANGED
+                            (next_dpi | (next_dpi << 16)) as usize,
+                            (&mut suggested as *mut Rect) as isize,
+                        );
+                    }
+                    assert_eq!(
+                        region.outer_position().unwrap(),
+                        tauri::PhysicalPosition::new(bounds.x, bounds.y),
+                        "DPI change moved the overlay onto one monitor"
+                    );
+                    assert_eq!(
+                        region.inner_size().unwrap(),
+                        tauri::PhysicalSize::new(bounds.width, bounds.height),
+                        "DPI change compressed the desktop image"
+                    );
+                }
                 let monitors = handle.available_monitors().unwrap();
                 for monitor in monitors {
                     assert!(monitor.position().x >= bounds.x && monitor.position().y >= bounds.y);
@@ -319,6 +355,25 @@ fn prewarmed_windows_display_captures_before_auto_save() {
                     region_handle.0,
                     "cancel left the invisible region focused"
                 );
+                if count == 1 {
+                    // 画面構成が変わった後も同じ窓を使い回し、次の撮影で配置を更新できる。
+                    let changed_bounds = ScreenBounds {
+                        x: -640,
+                        y: -360,
+                        width: 640,
+                        height: 360,
+                    };
+                    crate::region_window::set_bounds(&region, &changed_bounds).unwrap();
+                    assert_eq!(
+                        region.outer_position().unwrap(),
+                        tauri::PhysicalPosition::new(-640, -360)
+                    );
+                    assert_eq!(
+                        region.inner_size().unwrap(),
+                        tauri::PhysicalSize::new(640, 360)
+                    );
+                    assert!(is_cloaked(region_handle.0 as isize));
+                }
             }
             // 保存先を意図的に待たせても、2枚とも先に表示できることを確認する。
             let saving = state.save_lock.lock().unwrap();
