@@ -6,6 +6,10 @@ import { playCaptureSound } from "../lib/captureSound";
 import { isMeaningfulSelection, rectFromPoints, toImagePixels, type Point } from "../lib/region";
 import { t } from "../i18n";
 
+/** 現在の DOM を含むフレームが合成されるまで待つ。 */
+const nextPaint = () =>
+  new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+
 /** 全ディスプレイの撮影画像を全面に敷き、その上で範囲を選ばせる。 */
 export function RegionSelect() {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -16,6 +20,7 @@ export function RegionSelect() {
   const [loadedImageUrl, setLoadedImageUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [presentedSession, setPresentedSession] = useState<number | null>(null);
+  const renderWhileHidden = useRef(false);
   const imageReady = imageUrl !== null && loadedImageUrl === imageUrl;
   const ready = session !== null && (imageReady || error !== null);
 
@@ -23,7 +28,13 @@ export function RegionSelect() {
     if (!ready || session === null) return;
     let disposed = false;
     let frame = 0;
-    void api.showWindow(session).then(() => {
+    // 画像の読み込み直後はまだ合成前のことがある。cloak 解除の瞬間に
+    // 前回の空の画面が1フレーム見えないよう、撮影画像を描いてから表示する。
+    const painted = renderWhileHidden.current ? nextPaint() : Promise.resolve();
+    void painted.then(() => {
+      if (disposed) return;
+      return api.showWindow(session);
+    }).then(() => {
       if (disposed) return;
       // cloak 中にフェードを消費しないよう、実際の表示後から暗い幕を重ねる。
       frame = requestAnimationFrame(() => setPresentedSession(session));
@@ -88,8 +99,10 @@ export function RegionSelect() {
       listen("region-reset", () => { if (!disposed) reset(); }),
     ];
     const prepare = async () => {
-      const { width, height, renderWhileHidden } = await api.prepareRegion();
+      const prepared = await api.prepareRegion();
+      const { width, height } = prepared;
       if (disposed || revision !== 0) return;
+      renderWhileHidden.current = prepared.renderWhileHidden;
       // 実画面を保存せず、実寸のダミー画像で PNG のデコードと初回合成を済ませる。
       const canvas = document.createElement("canvas");
       canvas.width = width;
@@ -110,9 +123,7 @@ export function RegionSelect() {
         url = preparedUrl;
         setImageUrl(url);
         // Windows では cloak 中も描画できる。非表示 WebView の rAF は待たない。
-        if (renderWhileHidden) {
-          await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-        }
+        if (renderWhileHidden.current) await nextPaint();
       } finally {
         if (url !== preparedUrl) URL.revokeObjectURL(preparedUrl);
       }
