@@ -16,6 +16,22 @@ pub const ABOUT_LABEL: &str = "about";
 pub const VIEWER_PREFIX: &str = "viewer-";
 // src/styles/tokens.css の --color-canvas。WebView の最初のフレームも白くしない。
 const BACKGROUND: Color = Color(22, 23, 26, 255);
+/// wry の既定値に CalculateNativeWinOcclusion を加える。WebView2 は cloak した窓を
+/// 隠れたものとみなして描画を止めるため、領域選択を表示した瞬間に前回の画面が残る。
+/// 同じプロファイルの WebView2 は引数を揃える必要があるので、全窓に同じ値を渡す。
+#[cfg(windows)]
+const BROWSER_ARGS: &str =
+    "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,CalculateNativeWinOcclusion";
+
+fn window_builder<'a>(
+    app: &'a AppHandle,
+    label: &str,
+) -> WebviewWindowBuilder<'a, tauri::Wry, AppHandle> {
+    let builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()));
+    #[cfg(windows)]
+    let builder = builder.additional_browser_args(BROWSER_ARGS);
+    builder
+}
 
 const VIEWER_WIDTH: f64 = 960.0;
 const VIEWER_HEIGHT: f64 = 540.0;
@@ -28,7 +44,7 @@ const MIN_HEIGHT: f64 = 160.0;
 
 fn build_viewer(app: &AppHandle, label: &str) -> AppResult<WebviewWindow> {
     Ok(
-        WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
+        window_builder(app, label)
             .title(t("app.name"))
             .decorations(false)
             // Windows 11 の枠なし窓に付く白い1px枠を避ける。枠線は CSS 側で描く。
@@ -65,7 +81,7 @@ fn region_window(app: &AppHandle) -> AppResult<WebviewWindow> {
     if let Some(existing) = app.get_webview_window(REGION_LABEL) {
         return Ok(existing);
     }
-    let window = WebviewWindowBuilder::new(app, REGION_LABEL, WebviewUrl::App("index.html".into()))
+    let window = window_builder(app, REGION_LABEL)
         .title(t("app.name"))
         .decorations(false)
         .shadow(false)
@@ -221,7 +237,7 @@ pub fn open_settings(app: &AppHandle) -> AppResult<()> {
         }
         return Ok(());
     }
-    WebviewWindowBuilder::new(app, SETTINGS_LABEL, WebviewUrl::App("index.html".into()))
+    window_builder(app, SETTINGS_LABEL)
         .title(format!("{} - {}", t("app.name"), t("settings.title")))
         .decorations(false)
         .shadow(false)
@@ -242,7 +258,7 @@ pub fn open_about(app: &AppHandle) -> AppResult<()> {
         existing.set_focus()?;
         return Ok(());
     }
-    WebviewWindowBuilder::new(app, ABOUT_LABEL, WebviewUrl::App("index.html".into()))
+    window_builder(app, ABOUT_LABEL)
         .title(format!("{} - {}", t("app.name"), t("about.title")))
         .decorations(false)
         .shadow(false)
