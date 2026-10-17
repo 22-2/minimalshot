@@ -33,8 +33,8 @@ fn window_builder<'a>(
     builder
 }
 
-const VIEWER_WIDTH: f64 = 960.0;
-const VIEWER_HEIGHT: f64 = 540.0;
+const VIEWER_WIDTH: f64 = 800.0;
+const VIEWER_HEIGHT: f64 = 450.0;
 /// タイトルバー32px（論理ピクセル）。CSS の --size-titlebar と揃える。
 const CHROME_HEIGHT: f64 = 32.0;
 /// ウィンドウ枠の線（左右・上下とも1px）。足さないと画像が等倍に収まらず 99% になる。
