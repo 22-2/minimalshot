@@ -16,8 +16,27 @@ test("editor loads the capture into Excalidraw", async ({ page }) => {
   await expect(page.locator(".editor-placeholder")).toHaveCount(0);
   await expect.poll(() => commandNames(page)).toEqual(expect.arrayContaining(["editor_session", "editor_png"]));
 
-  // モック画像の青がそのままの色で、余白を残してフィット表示されている。
+  // ダークテーマでも、モック画像の青が表示上ほぼ元の色で、余白を残してフィット表示されている。
+  // Excalidraw は画像を描画時に反転して canvas に書き込み、CSS の反転で打ち消すので、
+  // バッファ上の色は元の色ではない。同じフィルタを通した色を期待値にする。
   await expect.poll(() => page.evaluate(() => {
+    const source = [58, 110, 165];
+    const applyFilter = (rgb: number[], filter: string) => {
+      const input = document.createElement("canvas");
+      input.width = input.height = 1;
+      const inputContext = input.getContext("2d")!;
+      inputContext.fillStyle = `rgb(${rgb.join(",")})`;
+      inputContext.fillRect(0, 0, 1, 1);
+      const output = document.createElement("canvas");
+      output.width = output.height = 1;
+      const outputContext = output.getContext("2d")!;
+      outputContext.filter = filter;
+      outputContext.drawImage(input, 0, 0);
+      return [...outputContext.getImageData(0, 0, 1, 1).data].slice(0, 3);
+    };
+    const buffered = applyFilter(source, "invert(100%) hue-rotate(180deg) saturate(1.25)");
+    const displayed = applyFilter(buffered, "invert(93%) hue-rotate(180deg)");
+    if (displayed.some((value, channel) => Math.abs(value - source[channel]) > 40)) return false;
     const canvas = document.querySelector<HTMLCanvasElement>(".editor-stage canvas.static");
     const context = canvas?.getContext("2d");
     if (!canvas || !context) return false;
@@ -27,7 +46,7 @@ test("editor loads the capture into Excalidraw", async ({ page }) => {
     let maxX = -1;
     let maxY = -1;
     for (let index = 0; index < pixels.length; index += 4) {
-      if (pixels[index] !== 58 || pixels[index + 1] !== 110 || pixels[index + 2] !== 165) continue;
+      if (pixels[index] !== buffered[0] || pixels[index + 1] !== buffered[1] || pixels[index + 2] !== buffered[2]) continue;
       const pixel = index / 4;
       const x = pixel % canvas.width;
       const y = Math.floor(pixel / canvas.width);
