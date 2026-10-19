@@ -308,7 +308,7 @@ mod tests {
     fn framed_viewer_uses_fixed_sixteen_by_nine_size() {
         assert_eq!(
             viewer_size((400, 300), &MONITOR, ViewerLayout::Framed),
-            (960, 540)
+            (800, 450)
         );
     }
 
@@ -348,7 +348,7 @@ mod tests {
         };
         assert_eq!(
             viewer_size((800, 600), &hidpi, ViewerLayout::Framed),
-            (1920, 1080)
+            (1600, 900)
         );
         assert_eq!(
             viewer_size((800, 600), &hidpi, ViewerLayout::Source),
