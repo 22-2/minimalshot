@@ -141,10 +141,16 @@ test.describe("viewer", () => {
     expect(minimize.x - (box.x + box.width)).toBeLessThan(16);
 
     await button.click();
-    await expect(page.getByRole("menu").getByRole("menuitem")).toHaveText(["ペイント", "GIMP"]);
+    await expect(page.getByRole("menu").getByRole("menuitem")).toHaveText(["ペイント", "GIMP", "Excalidrawで編集"]);
     await page.getByRole("menuitem", { name: "GIMP" }).click();
     const call = (await calls(page)).find((c) => c.cmd === "open_shot_with");
     expect(call?.args).toEqual({ tool: 1 });
+  });
+
+  test("opens the Excalidraw editor from the open-with menu", async ({ page }) => {
+    await openViewer(page);
+    await choose(page, "外部ツールで開く", "Excalidrawで編集");
+    expect((await calls(page)).some((call) => call.cmd === "open_editor")).toBe(true);
   });
 
   test("hides disabled tools, keeps command indices and updates existing viewers", async ({ page }) => {
@@ -155,7 +161,7 @@ test.describe("viewer", () => {
     await openViewer(page, { label: "viewer-1", config: { external: { tools } } });
     const trigger = page.locator(".titlebar").getByRole("button", { name: "外部ツールで開く" });
     await trigger.click();
-    await expect(page.getByRole("menuitem")).toHaveText(["GIMP"]);
+    await expect(page.getByRole("menuitem")).toHaveText(["GIMP", "Excalidrawで編集"]);
     await page.getByRole("menuitem", { name: "GIMP" }).click();
     expect((await calls(page)).find((call) => call.cmd === "open_shot_with")?.args).toEqual({ tool: 1 });
     await page.evaluate((tools) => {
@@ -163,7 +169,7 @@ test.describe("viewer", () => {
       mock.__emit("external-tools-changed", tools.map((tool) => ({ ...tool, enabled: false })));
     }, tools);
     await trigger.click();
-    await expect(page.getByRole("menuitem")).toHaveText(["設定で外部ツールを有効にしてください"]);
+    await expect(page.getByRole("menuitem")).toHaveText(["設定で外部ツールを有効にしてください", "Excalidrawで編集"]);
     expect((await calls(page)).filter((call) => call.cmd === "shot_png")).toHaveLength(1);
   });
 
