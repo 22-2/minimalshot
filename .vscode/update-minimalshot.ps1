@@ -41,43 +41,42 @@ try {
     Start-Sleep -Seconds 5
   }
 
-  if ($waitedForCi) {
-    # CI 成功後に別 workflow が開発版をビルド・公開するため、その開始時刻以降の run を待つ。
-    $ciCompletedAt = [DateTimeOffset]::Parse($latestRun.updatedAt)
-    $waitedForRelease = $false
-    while ($true) {
-      $releaseRunsJson = gh run list --workflow development-release.yml --event workflow_run --json databaseId,status,conclusion,createdAt --limit 20
-      if ($LASTEXITCODE -ne 0) {
-        throw '開発版リリースの状態を取得できませんでした。'
-      }
-
-      $releaseRuns = @($releaseRunsJson | ConvertFrom-Json)
-      $releaseRun = $releaseRuns |
-        Where-Object { [DateTimeOffset]::Parse($_.createdAt) -ge $ciCompletedAt } |
-        Select-Object -First 1
-      if ($null -eq $releaseRun) {
-        if (-not $waitedForRelease) {
-          Write-Host 'CI は成功しました。対応する開発版ビルドの開始を待っています...'
-          $waitedForRelease = $true
-        }
-        Start-Sleep -Seconds 5
-        continue
-      }
-
-      if ($releaseRun.status -in @('queued', 'in_progress', 'requested', 'waiting', 'pending')) {
-        if (-not $waitedForRelease) {
-          Write-Host '開発版をビルド・公開しています。完了まで5秒間隔で確認します...'
-          $waitedForRelease = $true
-        }
-        Start-Sleep -Seconds 5
-        continue
-      }
-
-      if ($releaseRun.conclusion -ne 'success') {
-        throw "開発版リリース (#$($releaseRun.databaseId)) は $($releaseRun.conclusion) で終了しました。更新を中止します。"
-      }
-      break
+  # CI 成功後に別 workflow が開発版をビルド・公開するため、その開始時刻以降の run を待つ。
+  # 起動時にすでに CI が終わっていても、ビルド中の古い exe を取らないよう毎回確認する。
+  $ciCompletedAt = [DateTimeOffset]::Parse($latestRun.updatedAt)
+  $waitedForRelease = $false
+  while ($true) {
+    $releaseRunsJson = gh run list --workflow development-release.yml --event workflow_run --json databaseId,status,conclusion,createdAt --limit 20
+    if ($LASTEXITCODE -ne 0) {
+      throw '開発版リリースの状態を取得できませんでした。'
     }
+
+    $releaseRuns = @($releaseRunsJson | ConvertFrom-Json)
+    $releaseRun = $releaseRuns |
+      Where-Object { [DateTimeOffset]::Parse($_.createdAt) -ge $ciCompletedAt } |
+      Select-Object -First 1
+    if ($null -eq $releaseRun) {
+      if (-not $waitedForRelease) {
+        Write-Host 'CI は成功しました。対応する開発版ビルドの開始を待っています...'
+        $waitedForRelease = $true
+      }
+      Start-Sleep -Seconds 5
+      continue
+    }
+
+    if ($releaseRun.status -in @('queued', 'in_progress', 'requested', 'waiting', 'pending')) {
+      if (-not $waitedForRelease) {
+        Write-Host '開発版をビルド・公開しています。完了まで5秒間隔で確認します...'
+        $waitedForRelease = $true
+      }
+      Start-Sleep -Seconds 5
+      continue
+    }
+
+    if ($releaseRun.conclusion -ne 'success') {
+      throw "開発版リリース (#$($releaseRun.databaseId)) は $($releaseRun.conclusion) で終了しました。更新を中止します。"
+    }
+    break
   }
 
   # 非公開リポジトリのリリースは GitHub CLI の認証を使って取得する。
