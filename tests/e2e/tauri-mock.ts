@@ -9,6 +9,7 @@ type MockOptions = {
   delays?: Record<string, number>;
   holdFirst?: string[];
   viewerSession?: number | null;
+  editorSession?: { id: number; width: number; height: number } | null;
   regionSession?: number | null;
   regionImageSize?: { width: number; height: number };
   pendingCaptureSounds?: number;
@@ -86,6 +87,9 @@ export async function installTauriMock(page: Page, options: MockOptions) {
       export_config: () => opts.exportPath === undefined ? "D:/backup/MinimalShot-settings.toml" : opts.exportPath,
       import_config: () => opts.importConfig ?? null,
       viewer_session: () => viewerSession,
+      open_editor: () => undefined,
+      editor_session: () => opts.editorSession === undefined ? { id: 1, width: 640, height: 360 } : opts.editorSession,
+      editor_png: () => png(640, 360),
       shot_info: () => ({ id: viewerSession, width: 640, height: 360, savedPath }),
       shot_png: () => png(640, 360),
       save_shot: () => (savedPath = "C:\\Users\\me\\Pictures\\MinimalShot\\2026-10\\2026-10-09_12-00-00.png"),

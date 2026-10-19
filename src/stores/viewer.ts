@@ -19,6 +19,7 @@ type ViewerState = {
   save: () => Promise<void>;
   saveAs: () => Promise<void>;
   deleteSaved: () => Promise<void>;
+  openEditor: () => Promise<void>;
   openWith: (tool: number) => Promise<void>;
   reveal: () => Promise<void>;
   openSettings: () => Promise<void>;
@@ -71,6 +72,7 @@ export const useViewer = create<ViewerState>((set, get) => {
     clearStatus: () => set({ status: null }),
     copyImage: () => run(api.copyShotImage, "viewer.copiedImage"),
     copyPath: () => run(api.copyShotPath, "viewer.copiedPath"),
+    openEditor: () => run(api.openEditor, null),
     openWith: async (tool) => {
       try {
         const outcome = await api.openShotWith(tool);

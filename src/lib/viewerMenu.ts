@@ -1,4 +1,4 @@
-import { AppWindow, Copy, ExternalLink, FilePen, FolderOpen, Link, Pin, Save, Scan, Settings, Trash2, type LucideIcon } from "lucide-react";
+import { AppWindow, Copy, ExternalLink, FilePen, FolderOpen, Link, Pin, Save, Scan, Settings, SquarePen, Trash2, type LucideIcon } from "lucide-react";
 
 import type { ExternalTool } from "./api";
 import { t } from "../i18n";
@@ -35,6 +35,7 @@ export type ViewerActions = {
   save: () => void;
   saveAs: () => void;
   deleteSaved: () => void;
+  openEditor: () => void;
   openWith: (tool: number) => void;
   reveal: () => void;
   openSettings: () => void;
@@ -59,6 +60,7 @@ export function viewerMenu({ saved, pinned, tools }: MenuState, actions: ViewerA
     { type: "separator", id: "sep-quick" },
     { type: "item", id: "save", label: t("viewer.save"), icon: Save, onSelect: actions.save, disabled: saved, hint: "Ctrl+S" },
     { type: "item", id: "save-as", label: t("viewer.saveAs"), icon: FilePen, onSelect: actions.saveAs, hint: "Ctrl+Shift+S" },
+    { type: "item", id: "edit", label: t("viewer.edit"), icon: SquarePen, onSelect: actions.openEditor },
     { type: "sub", id: "open-with", label: t("viewer.openWith"), icon: ExternalLink, entries: openWith },
     ...(saved
       ? [{ type: "item" as const, id: "reveal", label: t("viewer.reveal"), icon: FolderOpen, onSelect: actions.reveal }]

@@ -7,6 +7,7 @@ use tauri_plugin_global_shortcut::Shortcut;
 
 use crate::capture::{Captured, ScreenBounds};
 use crate::config::Config;
+use crate::editor_pool::EditorPool;
 use crate::store::{Shot, ShotStore};
 use crate::viewer_pool::ViewerPool;
 
@@ -39,6 +40,7 @@ pub struct AppState {
     pub config_path: PathBuf,
     pub shots: ShotStore,
     pub viewers: Mutex<ViewerPool>,
+    pub editors: Mutex<EditorPool>,
     pub region_window_lock: Mutex<()>,
     #[cfg(windows)]
     pub region_previous_foreground: std::sync::atomic::AtomicIsize,
@@ -60,6 +62,7 @@ impl AppState {
             config_path,
             shots: ShotStore::default(),
             viewers: Mutex::new(ViewerPool::default()),
+            editors: Mutex::new(EditorPool::default()),
             region_window_lock: Mutex::new(()),
             #[cfg(windows)]
             region_previous_foreground: std::sync::atomic::AtomicIsize::new(0),

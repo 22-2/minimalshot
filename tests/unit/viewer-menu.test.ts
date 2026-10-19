@@ -8,6 +8,7 @@ const actions = (): ViewerActions => ({
   save: vi.fn(),
   saveAs: vi.fn(),
   deleteSaved: vi.fn(),
+  openEditor: vi.fn(),
   openWith: vi.fn(),
   reveal: vi.fn(),
   openSettings: vi.fn(),
@@ -34,6 +35,7 @@ describe("viewerMenu", () => {
       "sep-quick",
       "save",
       "save-as",
+      "edit",
       "open-with",
       "sep-view",
       "actual-size",
@@ -54,6 +56,7 @@ describe("viewerMenu", () => {
       "sep-quick",
       "save",
       "save-as",
+      "edit",
       "open-with",
       "reveal",
       "sep-view",
@@ -70,6 +73,13 @@ describe("viewerMenu", () => {
     expect(pin).toMatchObject({ type: "check", checked: true });
     if (pin?.type === "check") pin.onCheckedChange(false);
     expect(handlers.setPinned).toHaveBeenCalledWith(false);
+  });
+
+  it("opens the image in the annotation editor", () => {
+    const handlers = actions();
+    const edit = viewerMenu({ saved: false, pinned: false, tools }, handlers).find((entry) => entry.id === "edit");
+    if (edit?.type === "item") edit.onSelect();
+    expect(handlers.openEditor).toHaveBeenCalled();
   });
 
   it("returns to the source image size", () => {

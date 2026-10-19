@@ -5,6 +5,7 @@ import { resolveView } from "../../src/lib/route";
 describe("resolveView", () => {
   it("maps window labels to views", () => {
     expect(resolveView("viewer-12")).toBe("viewer");
+    expect(resolveView("editor-3")).toBe("editor");
     expect(resolveView("region")).toBe("region");
     expect(resolveView("settings")).toBe("settings");
     expect(resolveView("about")).toBe("about");
