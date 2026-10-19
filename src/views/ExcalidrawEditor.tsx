@@ -20,8 +20,9 @@ type AppState = ReturnType<ExcalidrawImperativeAPI["getAppState"]>;
 // Excalidraw 本体の MIN_ZOOM(0.1)/MAX_ZOOM(30) と揃える
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 30;
-// ダークテーマでは Excalidraw がラスター画像を反転するため、
-// スクリーンショットの色を保つ目的でライトテーマと白い背景を使う。
+// ダークテーマの Excalidraw は canvas 全体に CSS の invert をかけ、ラスター画像だけは
+// 描画時に逆向きのフィルタを先にかけて打ち消す。そのため背景は白のままにしておき、
+// ダークテーマの暗い背景はこの反転で作る。
 const CANVAS_COLOR = "#ffffff";
 
 // フォントは CSP で外部 CDN を許可していないため、同梱したものだけを使う。
@@ -73,7 +74,7 @@ function initialScene(session: EditorSession, dataURL: string): ExcalidrawInitia
   return {
     elements,
     files: { [fileId]: file },
-    appState: { theme: "light", viewBackgroundColor: CANVAS_COLOR },
+    appState: { theme: "dark", viewBackgroundColor: CANVAS_COLOR },
   };
 }
 
@@ -179,7 +180,7 @@ export function ExcalidrawEditor() {
             initialData={scene}
             excalidrawAPI={handleAPI}
             onChange={handleChange}
-            theme="light"
+            theme="dark"
             langCode="ja-JP"
           />
         ) : (
