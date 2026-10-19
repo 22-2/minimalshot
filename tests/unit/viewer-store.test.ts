@@ -21,6 +21,18 @@ describe("viewer store", () => {
     expect(useViewer.getState().status).toEqual({ tone: "info", text: "保存しました" });
   });
 
+  it("opens the annotation editor without changing viewer status", async () => {
+    let opened = false;
+    mockIPC((cmd) => {
+      if (cmd === "open_editor") opened = true;
+    });
+
+    await useViewer.getState().openEditor();
+
+    expect(opened).toBe(true);
+    expect(useViewer.getState().status).toBeNull();
+  });
+
   it("surfaces backend errors", async () => {
     mockIPC((cmd) => {
       if (cmd === "copy_shot_path") throw "まだ保存されていません";

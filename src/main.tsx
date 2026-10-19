@@ -8,6 +8,7 @@ import "./styles/app.css";
 // 起動する画面のモジュールだけを読み込み、領域選択でも設定 UI 一式を待たない。
 const views = {
   viewer: lazy(() => import("./views/Viewer").then((module) => ({ default: module.Viewer }))),
+  editor: lazy(() => import("./views/ExcalidrawEditor").then((module) => ({ default: module.ExcalidrawEditor }))),
   region: lazy(() => import("./views/RegionSelect").then((module) => ({ default: module.RegionSelect }))),
   settings: lazy(() => import("./views/Settings").then((module) => ({ default: module.Settings }))),
   about: lazy(() => import("./views/About").then((module) => ({ default: module.About }))),

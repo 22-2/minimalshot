@@ -37,6 +37,12 @@ export type ShotInfo = {
   savedPath: string | null;
 };
 
+export type EditorSession = {
+  id: number;
+  width: number;
+  height: number;
+};
+
 export type Rect = { x: number; y: number; width: number; height: number };
 
 export const api = {
@@ -51,6 +57,9 @@ export const api = {
 
   shotInfo: () => invoke<ShotInfo>("shot_info"),
   viewerSession: () => invoke<number | null>("viewer_session"),
+  openEditor: () => invoke<void>("open_editor"),
+  editorSession: () => invoke<EditorSession | null>("editor_session"),
+  editorPng: () => invoke<BinaryPayload>("editor_png").then(toBytes),
   shotPng: () => invoke<BinaryPayload>("shot_png").then(toBytes),
   saveShot: () => invoke<string>("save_shot"),
   copyShotImage: () => invoke<void>("copy_shot_image"),

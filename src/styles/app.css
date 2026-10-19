@@ -223,6 +223,33 @@ button {
   color: var(--color-danger);
 }
 
+/* ---- Excalidraw エディタ ---- */
+
+.editor-frame {
+  grid-template-rows: var(--size-titlebar) minmax(0, 1fr);
+}
+
+.editor-stage {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--color-canvas);
+  /* 本文の user-select: none を引き継ぐと、Excalidraw のテキスト編集ができない */
+  user-select: text;
+}
+
+.editor-stage > .excalidraw {
+  height: 100%;
+}
+
+.editor-placeholder {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  color: var(--color-text-muted);
+}
+
 /* ---- 確認ダイアログ ---- */
 
 .dialog-overlay {

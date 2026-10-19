@@ -4,7 +4,7 @@ use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 use tauri_plugin_dialog::DialogExt;
 
 use crate::actions;
-use crate::capture::Captured;
+use crate::capture::{Captured, MonitorGeometry};
 use crate::config::Config;
 use crate::error::{AppError, AppResult};
 use crate::hotkeys;
@@ -35,6 +35,77 @@ fn shot_id(window: &WebviewWindow) -> AppResult<u32> {
 #[tauri::command]
 pub fn viewer_session(window: WebviewWindow, state: State<'_, AppState>) -> Option<u32> {
     state.viewers.lock().unwrap().shot_id(window.label())
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EditorSession {
+    id: u32,
+    width: u32,
+    height: u32,
+}
+
+fn editor_shot_id(window: &WebviewWindow) -> AppResult<u32> {
+    window
+        .state::<AppState>()
+        .editors
+        .lock()
+        .unwrap()
+        .shot_id(window.label())
+        .ok_or_else(|| AppError::msg("エディタに画像が割り当てられていません"))
+}
+
+#[tauri::command]
+pub fn editor_session(
+    window: WebviewWindow,
+    state: State<'_, AppState>,
+) -> AppResult<Option<EditorSession>> {
+    let Some(id) = state.editors.lock().unwrap().shot_id(window.label()) else {
+        return Ok(None);
+    };
+    state
+        .shots
+        .with(id, |shot| {
+            Ok(EditorSession {
+                id,
+                width: shot.image.width(),
+                height: shot.image.height(),
+            })
+        })
+        .map(Some)
+}
+
+fn editor_monitor(app: &AppHandle, window: &WebviewWindow) -> AppResult<MonitorGeometry> {
+    let monitor = window
+        .current_monitor()?
+        .or(app.primary_monitor()?)
+        .ok_or_else(|| AppError::msg("ディスプレイが見つかりません"))?;
+    Ok(MonitorGeometry {
+        x: monitor.position().x,
+        y: monitor.position().y,
+        width: monitor.size().width,
+        height: monitor.size().height,
+        scale: monitor.scale_factor(),
+    })
+}
+
+/// ビューアとは別の画像コピーを持たせ、ビューアを閉じても編集を続けられるようにする。
+#[tauri::command]
+pub async fn open_editor(app: AppHandle, window: WebviewWindow) -> AppResult<()> {
+    let viewer_id = shot_id(&window)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let image = state.shots.with(viewer_id, |shot| Ok(shot.image.clone()))?;
+        let monitor = editor_monitor(&app, &window)?;
+        let editor_id = state.shots.insert(image);
+        if let Err(error) = crate::windows::open_editor(&app, editor_id, &monitor) {
+            state.shots.remove(editor_id);
+            return Err(error);
+        }
+        Ok(())
+    })
+    .await
+    .map_err(|e| AppError::msg(e.to_string()))?
 }
 
 #[tauri::command]
@@ -166,6 +237,13 @@ pub fn shot_info(window: WebviewWindow, state: State<'_, AppState>) -> AppResult
 #[tauri::command]
 pub async fn shot_png(window: WebviewWindow, state: State<'_, AppState>) -> AppResult<Response> {
     let id = shot_id(&window)?;
+    let image = state.shots.with(id, |shot| Ok(shot.image.clone()))?;
+    preview_png(image).await
+}
+
+#[tauri::command]
+pub async fn editor_png(window: WebviewWindow, state: State<'_, AppState>) -> AppResult<Response> {
+    let id = editor_shot_id(&window)?;
     let image = state.shots.with(id, |shot| Ok(shot.image.clone()))?;
     preview_png(image).await
 }
@@ -302,6 +380,18 @@ pub fn show_window(
             return Ok(());
         }
         crate::region_window::show(&window)?;
+    } else if window.label().starts_with(crate::windows::EDITOR_PREFIX) {
+        if state
+            .editors
+            .lock()
+            .unwrap()
+            .shot_id(window.label())
+            .is_none()
+        {
+            return Ok(());
+        }
+        window.show()?;
+        window.set_focus()?;
     } else if !window.is_visible()? {
         if window.label().starts_with(VIEWER_PREFIX)
             && state
@@ -415,6 +505,7 @@ mod tests {
         for name in [
             "capture",
             "finish_region",
+            "open_editor",
             "open_settings",
             "open_about",
             "save_shot_as",

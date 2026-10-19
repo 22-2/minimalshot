@@ -44,6 +44,7 @@
     "cancel": "キャンセル",
     "confirmClose": "閉じる",
     "saveAs": "名前を付けて保存",
+    "edit": "Excalidrawで編集",
     "deleteSaved": "保存したファイルを削除",
     "deleted": "ごみ箱に移動しました",
     "openWith": "外部ツールで開く",
@@ -56,6 +57,11 @@
     "autoSaved": "保存",
     "autoCopiedImage": "画像コピー",
     "autoCopiedPath": "パスコピー"
+  },
+  "editor": {
+    "title": "Excalidrawで編集",
+    "loading": "読み込み中",
+    "loadFailed": "画像を読み込めませんでした"
   },
   "region": {
     "hint": "ドラッグで範囲を選択 / Esc でキャンセル"

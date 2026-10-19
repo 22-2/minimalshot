@@ -2,6 +2,7 @@ mod actions;
 mod capture;
 mod commands;
 mod config;
+mod editor_pool;
 mod error;
 mod external;
 mod hotkeys;
@@ -199,6 +200,11 @@ pub fn run() {
                 state.pending_captures.lock().unwrap().remove(&id);
                 state.shots.remove(id);
             }
+            // エディタはビューアとは別の画像コピーを持つ。閉じたらそのコピーだけを捨てる。
+            let editor_id = state.editors.lock().unwrap().remove(window.label());
+            if let Some(id) = editor_id {
+                state.shots.remove(id);
+            }
         })
         .invoke_handler(tauri::generate_handler![
             commands::get_config,
@@ -212,7 +218,10 @@ pub fn run() {
             commands::capture,
             commands::shot_info,
             commands::viewer_session,
+            commands::editor_session,
+            commands::open_editor,
             commands::shot_png,
+            commands::editor_png,
             commands::save_shot,
             commands::copy_shot_image,
             commands::copy_shot_path,
@@ -247,13 +256,14 @@ pub fn run() {
 #[cfg(test)]
 mod config_tests {
     /// CSP で IPC プロトコルを許可しないと postMessage に落ち、画像のバイナリが壊れて届く。
+    /// Excalidraw は同じオリジンのフォントを fetch するため、connect-src に 'self' も必要。
     #[test]
-    fn csp_allows_ipc_protocol() {
+    fn csp_allows_ipc_protocol_and_local_fonts() {
         let conf: serde_json::Value =
             serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
         let csp = conf["app"]["security"]["csp"].as_str().unwrap();
         assert!(
-            csp.contains("connect-src ipc: http://ipc.localhost"),
+            csp.contains("connect-src 'self' ipc: http://ipc.localhost"),
             "{csp}"
         );
     }

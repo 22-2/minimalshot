@@ -3,7 +3,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
 
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import { ChevronDown, ExternalLink } from "lucide-react";
+import { ChevronDown, ExternalLink, SquarePen } from "lucide-react";
 
 import { ContextMenuArea, DropdownMenuButton } from "../components/Menu";
 import { TitleBar } from "../components/TitleBar";
@@ -160,6 +160,7 @@ export function Viewer() {
     save: () => void viewer.save(),
     saveAs: () => void viewer.saveAs(),
     deleteSaved: () => void viewer.deleteSaved(),
+    openEditor: () => void viewer.openEditor(),
     openWith: (tool: number) => void viewer.openWith(tool),
     reveal: () => void viewer.reveal(),
     openSettings: () => void viewer.openSettings(),
@@ -178,21 +179,33 @@ export function Viewer() {
           title={title}
           onClose={close}
           actions={
-            <DropdownMenuButton
-              entries={openWithEntries(tools, actions)}
-              trigger={
-                <button
-                  type="button"
-                  className="titlebar-action"
-                  aria-label={t("viewer.openWith")}
-                  title={t("viewer.openWith")}
-                >
-                  <ExternalLink className="titlebar-action-compact" aria-hidden />
-                  <span className="titlebar-action-label">{t("viewer.openWith")}</span>
-                  <ChevronDown className="titlebar-action-chevron" aria-hidden />
-                </button>
-              }
-            />
+            <>
+              <button
+                type="button"
+                className="titlebar-action"
+                aria-label={t("viewer.edit")}
+                title={t("viewer.edit")}
+                onClick={() => void viewer.openEditor()}
+              >
+                <SquarePen className="titlebar-action-compact" aria-hidden />
+                <span className="titlebar-action-label">{t("viewer.edit")}</span>
+              </button>
+              <DropdownMenuButton
+                entries={openWithEntries(tools, actions)}
+                trigger={
+                  <button
+                    type="button"
+                    className="titlebar-action"
+                    aria-label={t("viewer.openWith")}
+                    title={t("viewer.openWith")}
+                  >
+                    <ExternalLink className="titlebar-action-compact" aria-hidden />
+                    <span className="titlebar-action-label">{t("viewer.openWith")}</span>
+                    <ChevronDown className="titlebar-action-chevron" aria-hidden />
+                  </button>
+                }
+              />
+            </>
           }
         />
         <ContextMenuArea entries={menu}>

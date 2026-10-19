@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Windows of MinimalShot: viewers, region overlay, settings and about",
-  "windows": ["viewer-*", "region", "settings", "about"],
+  "description": "Windows of MinimalShot: viewers, editors, region overlay, settings and about",
+  "windows": ["viewer-*", "editor-*", "region", "settings", "about"],
   "permissions": [
     "core:default",
     "core:window:allow-close",

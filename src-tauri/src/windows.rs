@@ -14,6 +14,7 @@ pub const REGION_LABEL: &str = "region";
 pub const SETTINGS_LABEL: &str = "settings";
 pub const ABOUT_LABEL: &str = "about";
 pub const VIEWER_PREFIX: &str = "viewer-";
+pub const EDITOR_PREFIX: &str = "editor-";
 // src/styles/tokens.css の --color-canvas。WebView の最初のフレームも白くしない。
 const BACKGROUND: Color = Color(22, 23, 26, 255);
 /// wry の既定値に CalculateNativeWinOcclusion を加える。WebView2 は cloak した窓を
@@ -42,6 +43,11 @@ const FRAME_BORDER: f64 = 2.0;
 const MIN_WIDTH: f64 = 240.0;
 const MIN_HEIGHT: f64 = 160.0;
 
+const EDITOR_WIDTH: f64 = 960.0;
+const EDITOR_HEIGHT: f64 = 720.0;
+const EDITOR_MIN_WIDTH: f64 = 480.0;
+const EDITOR_MIN_HEIGHT: f64 = 360.0;
+
 fn build_viewer(app: &AppHandle, label: &str) -> AppResult<WebviewWindow> {
     Ok(window_builder(app, label)
         .title(t("app.name"))
@@ -53,6 +59,19 @@ fn build_viewer(app: &AppHandle, label: &str) -> AppResult<WebviewWindow> {
         .focused(false)
         .background_color(BACKGROUND)
         .min_inner_size(MIN_WIDTH, MIN_HEIGHT)
+        .build()?)
+}
+
+fn build_editor(app: &AppHandle, label: &str) -> AppResult<WebviewWindow> {
+    Ok(window_builder(app, label)
+        .title(format!("{} - {}", t("app.name"), t("editor.title")))
+        .decorations(false)
+        .shadow(false)
+        .visible(false)
+        .focused(false)
+        .background_color(BACKGROUND)
+        .min_inner_size(EDITOR_MIN_WIDTH, EDITOR_MIN_HEIGHT)
+        .prevent_overflow()
         .build()?)
 }
 
@@ -145,6 +164,16 @@ pub fn viewer_size(
     ((width * fit).round() as u32, (height * fit).round() as u32)
 }
 
+/// エディタは注釈を描く余地を優先し、撮影画像の大きさには合わせない。
+pub fn editor_size(monitor: &MonitorGeometry) -> (u32, u32) {
+    let width = EDITOR_WIDTH * monitor.scale;
+    let height = EDITOR_HEIGHT * monitor.scale;
+    let fit = 1.0_f64
+        .min(f64::from(monitor.width) * 0.9 / width)
+        .min(f64::from(monitor.height) * 0.9 / height);
+    ((width * fit).round() as u32, (height * fit).round() as u32)
+}
+
 /// 指定位置に置きたいが、モニターからはみ出す場合は内側へ寄せる。
 pub fn clamp_position(
     desired: (i32, i32),
@@ -214,6 +243,38 @@ pub fn open_viewer(
     };
     if let Err(error) = configure() {
         state.viewers.lock().unwrap().remove(&label);
+        window.destroy()?;
+        return Err(error);
+    }
+    Ok(())
+}
+
+pub fn open_editor(app: &AppHandle, id: u32, monitor: &MonitorGeometry) -> AppResult<()> {
+    let size = editor_size(monitor);
+    let position = (
+        monitor.x + (monitor.width as i32 - size.0 as i32) / 2,
+        monitor.y + (monitor.height as i32 - size.1 as i32) / 2,
+    );
+
+    let state = app.state::<AppState>();
+    let label = state.editors.lock().unwrap().new_label();
+    let window = match build_editor(app, &label) {
+        Ok(window) => window,
+        Err(error) => {
+            state.editors.lock().unwrap().remove(&label);
+            return Err(error);
+        }
+    };
+    let configure = || -> AppResult<()> {
+        window.set_size(PhysicalSize::new(size.0, size.1))?;
+        window.set_position(PhysicalPosition::new(position.0, position.1))?;
+        // 配置を確定してから割り当てる。初期化中のフロントエンドは editor_session でも取得できる。
+        state.editors.lock().unwrap().bind(label.clone(), id);
+        window.emit("editor-load", id)?;
+        Ok(())
+    };
+    if let Err(error) = configure() {
+        state.editors.lock().unwrap().remove(&label);
         window.destroy()?;
         return Err(error);
     }
@@ -354,6 +415,24 @@ mod tests {
             viewer_size((800, 600), &hidpi, ViewerLayout::Source),
             (804, 668)
         );
+    }
+
+    #[test]
+    fn editor_uses_a_large_fixed_window_and_shrinks_on_small_monitors() {
+        assert_eq!(editor_size(&MONITOR), (960, 720));
+        let small = MonitorGeometry {
+            width: 800,
+            height: 600,
+            ..MONITOR
+        };
+        assert_eq!(editor_size(&small), (720, 540));
+        let hidpi = MonitorGeometry {
+            scale: 2.0,
+            width: 3840,
+            height: 2160,
+            ..MONITOR
+        };
+        assert_eq!(editor_size(&hidpi), (1920, 1440));
     }
 
     #[test]
