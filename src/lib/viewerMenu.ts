@@ -60,7 +60,6 @@ export function viewerMenu({ saved, pinned, tools }: MenuState, actions: ViewerA
     { type: "separator", id: "sep-quick" },
     { type: "item", id: "save", label: t("viewer.save"), icon: Save, onSelect: actions.save, disabled: saved, hint: "Ctrl+S" },
     { type: "item", id: "save-as", label: t("viewer.saveAs"), icon: FilePen, onSelect: actions.saveAs, hint: "Ctrl+Shift+S" },
-    { type: "item", id: "edit", label: t("viewer.edit"), icon: SquarePen, onSelect: actions.openEditor },
     { type: "sub", id: "open-with", label: t("viewer.openWith"), icon: ExternalLink, entries: openWith },
     ...(saved
       ? [{ type: "item" as const, id: "reveal", label: t("viewer.reveal"), icon: FolderOpen, onSelect: actions.reveal }]
@@ -73,7 +72,15 @@ export function viewerMenu({ saved, pinned, tools }: MenuState, actions: ViewerA
 }
 
 /** 「外部ツールで開く」の一覧。右クリックのサブメニューとタイトルバーのボタンで共通。 */
-export function openWithEntries(tools: ExternalTool[], actions: Pick<ViewerActions, "openWith" | "openSettings">): MenuEntry[] {
+export function openWithEntries(tools: ExternalTool[], actions: Pick<ViewerActions, "openWith" | "openSettings" | "openEditor">): MenuEntry[] {
+  return [
+    ...externalToolEntries(tools, actions),
+    { type: "separator", id: "sep-editor" },
+    { type: "item", id: "edit", label: t("viewer.edit"), icon: SquarePen, onSelect: actions.openEditor },
+  ];
+}
+
+function externalToolEntries(tools: ExternalTool[], actions: Pick<ViewerActions, "openWith" | "openSettings">): MenuEntry[] {
   // 元の配列の添字を保ち、無効なツールを飛ばしても別のコマンドを起動しない。
   const enabledTools = tools.map((tool, index) => ({ tool, index })).filter(({ tool }) => tool.enabled !== false);
   if (enabledTools.length === 0) {

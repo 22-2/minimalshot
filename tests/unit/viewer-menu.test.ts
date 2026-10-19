@@ -35,7 +35,6 @@ describe("viewerMenu", () => {
       "sep-quick",
       "save",
       "save-as",
-      "edit",
       "open-with",
       "sep-view",
       "actual-size",
@@ -56,7 +55,6 @@ describe("viewerMenu", () => {
       "sep-quick",
       "save",
       "save-as",
-      "edit",
       "open-with",
       "reveal",
       "sep-view",
@@ -77,7 +75,7 @@ describe("viewerMenu", () => {
 
   it("opens the image in the annotation editor", () => {
     const handlers = actions();
-    const edit = viewerMenu({ saved: false, pinned: false, tools }, handlers).find((entry) => entry.id === "edit");
+    const edit = subEntries(viewerMenu({ saved: false, pinned: false, tools }, handlers)).find((entry) => entry.id === "edit");
     if (edit?.type === "item") edit.onSelect();
     expect(handlers.openEditor).toHaveBeenCalled();
   });
@@ -109,10 +107,10 @@ describe("viewerMenu", () => {
     const handlers = actions();
     const registered = [{ ...tools[0], enabled: false }, { ...tools[0], name: "GIMP" }];
     const entries = subEntries(viewerMenu({ saved: false, pinned: false, tools: registered }, handlers));
-    expect(entries).toHaveLength(1);
+    expect(entries.map((entry) => entry.id)).toEqual(["tool-1", "sep-editor", "edit"]);
     expect(entries[0]).toMatchObject({ id: "tool-1", label: "GIMP" });
     if (entries[0].type === "item") entries[0].onSelect();
     expect(handlers.openWith).toHaveBeenCalledWith(1);
-    expect(subEntries(viewerMenu({ saved: false, pinned: false, tools: [{ ...tools[0], enabled: false }] }, handlers))).toMatchObject([{ id: "no-tools" }]);
+    expect(subEntries(viewerMenu({ saved: false, pinned: false, tools: [{ ...tools[0], enabled: false }] }, handlers))).toMatchObject([{ id: "no-tools" }, { id: "sep-editor" }, { id: "edit" }]);
   });
 });

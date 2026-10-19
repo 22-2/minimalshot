@@ -3,7 +3,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
 
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import { ChevronDown, ExternalLink, SquarePen } from "lucide-react";
+import { ChevronDown, ExternalLink } from "lucide-react";
 
 import { ContextMenuArea, DropdownMenuButton } from "../components/Menu";
 import { TitleBar } from "../components/TitleBar";
@@ -180,16 +180,6 @@ export function Viewer() {
           onClose={close}
           actions={
             <>
-              <button
-                type="button"
-                className="titlebar-action"
-                aria-label={t("viewer.edit")}
-                title={t("viewer.edit")}
-                onClick={() => void viewer.openEditor()}
-              >
-                <SquarePen className="titlebar-action-compact" aria-hidden />
-                <span className="titlebar-action-label">{t("viewer.edit")}</span>
-              </button>
               <DropdownMenuButton
                 entries={openWithEntries(tools, actions)}
                 trigger={
