@@ -85,15 +85,36 @@ try {
     throw 'MinimalShot のダウンロードに失敗しました。gh auth status で認証状態を確認してください。'
   }
 
-  $processes = @(Get-Process -Name MinimalShot -ErrorAction SilentlyContinue)
-  if ($processes.Count -gt 0) {
-    # 停止直後に終了しても待機できるよう、取得済みのプロセスをそのまま渡す。
-    Stop-Process -InputObject $processes
-    Wait-Process -InputObject $processes -Timeout 15
+  # 名前ではなく差し替え先の exe のパスで対象を決め、止め損ねや再起動した個体も拾う。
+  $getRunning = {
+    @(Get-Process -ErrorAction SilentlyContinue | Where-Object {
+      try { $_.Path -eq $executablePath } catch { $false }
+    })
   }
-
-  # 同じフォルダ内の一時ファイルを上書き移動し、既存 exe を置き換える。
-  [System.IO.File]::Move($downloadPath, $executablePath, $true)
+  # 終了待ちだけでは、ハンドルの解放やウイルス対策の走査が済む前に置き換えて失敗する。
+  # 起動中の個体が残っていれば止め直しながら、置き換えに成功するまで再試行する。
+  $deadline = (Get-Date).AddSeconds(30)
+  while ($true) {
+    $remaining = & $getRunning
+    if ($remaining.Count -gt 0) {
+      Stop-Process -InputObject $remaining -Force -ErrorAction SilentlyContinue
+      Start-Sleep -Milliseconds 300
+    } else {
+      try {
+        # 同じフォルダ内の一時ファイルを上書き移動し、既存 exe を置き換える。
+        [System.IO.File]::Move($downloadPath, $executablePath, $true)
+        break
+      } catch [System.UnauthorizedAccessException], [System.IO.IOException] {
+        if ((Get-Date) -ge $deadline) {
+          throw "MinimalShot.exe を置き換えられませんでした。他のプロセスが使用中の可能性があります: $($_.Exception.Message)"
+        }
+        Start-Sleep -Milliseconds 500
+      }
+    }
+    if ((Get-Date) -ge $deadline) {
+      throw 'MinimalShot を終了できませんでした。更新を中止します。'
+    }
+  }
 
   Start-Process -FilePath $executablePath
 } finally {
