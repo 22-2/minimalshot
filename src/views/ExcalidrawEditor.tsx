@@ -20,6 +20,7 @@ type AppState = ReturnType<ExcalidrawImperativeAPI["getAppState"]>;
 // Excalidraw 本体の MIN_ZOOM(0.1)/MAX_ZOOM(30) と揃える
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 30;
+const INITIAL_ZOOM = 0.65;
 // ダークテーマの Excalidraw は canvas 全体に CSS の invert をかけ、ラスター画像だけは
 // 描画時に逆向きのフィルタを先にかけて打ち消す。そのため背景は白のままにしておき、
 // ダークテーマの暗い背景はこの反転で作る。
@@ -74,7 +75,7 @@ function initialScene(session: EditorSession, dataURL: string): ExcalidrawInitia
   return {
     elements,
     files: { [fileId]: file },
-    appState: { theme: "dark", viewBackgroundColor: CANVAS_COLOR },
+    appState: { theme: "dark", viewBackgroundColor: CANVAS_COLOR, gridModeEnabled: true },
   };
 }
 
@@ -166,8 +167,19 @@ export function ExcalidrawEditor() {
     // onChange は初期シーンの復元後にも呼ばれるので、画像が届いてから一度だけフィットする。
     if (!needFitRef.current || !elements.some((element) => element.type === "image")) return;
     needFitRef.current = false;
-    // fitToContent は 100% を超えて拡大しないため、fitToViewport で余白込みの最大倍率にする。
-    apiRef.current?.scrollToContent(elements, { fitToViewport: true, viewportZoomFactor: 0.9, animate: false });
+    // 画像の大きさに依らず初期倍率を揃え、画像を表示領域の中央に置く。
+    const api = apiRef.current;
+    if (!api) return;
+    const image = elements.find((element) => element.type === "image");
+    if (!image) return;
+    const { width, height } = api.getAppState();
+    api.updateScene({
+      appState: {
+        zoom: { value: INITIAL_ZOOM } as AppState["zoom"],
+        scrollX: width / (2 * INITIAL_ZOOM) - (image.x + image.width / 2),
+        scrollY: height / (2 * INITIAL_ZOOM) - (image.y + image.height / 2),
+      },
+    });
     setMounted(true);
   }, []);
 

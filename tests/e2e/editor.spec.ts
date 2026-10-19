@@ -16,7 +16,7 @@ test("editor loads the capture into Excalidraw", async ({ page }) => {
   await expect(page.locator(".editor-placeholder")).toHaveCount(0);
   await expect.poll(() => commandNames(page)).toEqual(expect.arrayContaining(["editor_session", "editor_png"]));
 
-  // ダークテーマでも、モック画像の青が表示上ほぼ元の色で、余白を残してフィット表示されている。
+  // ダークテーマでも、モック画像の青が表示上ほぼ元の色で、初期倍率 65% で余白を残して表示されている。
   // Excalidraw は画像を描画時に反転して canvas に書き込み、CSS の反転で打ち消すので、
   // バッファ上の色は元の色ではない。同じフィルタを通した色を期待値にする。
   await expect.poll(() => page.evaluate(() => {
@@ -55,12 +55,13 @@ test("editor loads the capture into Excalidraw", async ({ page }) => {
       maxX = Math.max(maxX, x);
       maxY = Math.max(maxY, y);
     }
-    return maxX - minX > 600 && minX > 0 && minY > 0 && maxX < canvas.width - 1 && maxY < canvas.height - 1;
+    return maxX - minX > 380 && maxX - minX < 450 && minX > 0 && minY > 0 && maxX < canvas.width - 1 && maxY < canvas.height - 1;
   })).toBe(true);
 
   // 素のホイールはスクロールではなくカーソル中心のズームになる。
   const zoomPercent = async () => Number.parseInt(await page.locator(".zoom-actions").innerText(), 10);
   const before = await zoomPercent();
+  expect(before).toBe(65);
   await page.mouse.move(480, 360);
   await page.mouse.wheel(0, -120);
   await expect.poll(zoomPercent).toBeGreaterThan(before);
