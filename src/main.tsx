@@ -9,6 +9,7 @@ import "./styles/app.css";
 const views = {
   viewer: lazy(() => import("./views/Viewer").then((module) => ({ default: module.Viewer }))),
   editor: lazy(() => import("./views/ExcalidrawEditor").then((module) => ({ default: module.ExcalidrawEditor }))),
+  "context-menu": lazy(() => import("./views/ViewerMenu").then((module) => ({ default: module.ViewerMenu }))),
   region: lazy(() => import("./views/RegionSelect").then((module) => ({ default: module.RegionSelect }))),
   settings: lazy(() => import("./views/Settings").then((module) => ({ default: module.Settings }))),
   about: lazy(() => import("./views/About").then((module) => ({ default: module.About }))),

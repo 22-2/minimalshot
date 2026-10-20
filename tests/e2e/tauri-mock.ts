@@ -1,4 +1,6 @@
 import type { Page } from "@playwright/test";
+
+import type { ViewerMenuRequest } from "../../src/lib/api";
 import { defaultConfig } from "../unit/fixtures";
 
 type MockOptions = {
@@ -9,6 +11,10 @@ type MockOptions = {
   delays?: Record<string, number>;
   holdFirst?: string[];
   viewerSession?: number | null;
+  /** true にすると、右クリックメニューを別ウィンドウへ出す経路を再現する。 */
+  viewerMenu?: boolean;
+  /** メニュー窓が起動時に取りに行く内容。 */
+  viewerMenuState?: ViewerMenuRequest | null;
   editorSession?: { id: number; width: number; height: number } | null;
   regionSession?: number | null;
   regionImageSize?: { width: number; height: number };
@@ -87,6 +93,14 @@ export async function installTauriMock(page: Page, options: MockOptions) {
       export_config: () => opts.exportPath === undefined ? "D:/backup/MinimalShot-settings.toml" : opts.exportPath,
       import_config: () => opts.importConfig ?? null,
       viewer_session: () => viewerSession,
+      viewer_menu_available: () => opts.viewerMenu ?? false,
+      open_viewer_menu: () => true,
+      viewer_menu_state: () => opts.viewerMenuState ?? null,
+      show_viewer_menu: () => undefined,
+      hide_viewer_menu: () => undefined,
+      select_viewer_menu_item: (args) => {
+        emit("viewer-menu-action", { id: args.id, checked: args.checked ?? undefined });
+      },
       open_editor: () => undefined,
       editor_session: () => opts.editorSession === undefined ? { id: 1, width: 640, height: 360 } : opts.editorSession,
       editor_png: () => png(640, 360),

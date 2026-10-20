@@ -8,13 +8,17 @@ use crate::capture::{MonitorGeometry, ScreenBounds};
 use crate::config::ViewerLayout;
 use crate::error::AppResult;
 use crate::i18n::t;
-use crate::state::AppState;
+use crate::state::{
+    AppState, ViewerMenuAction, ViewerMenuLoad, ViewerMenuRequest, ViewerMenuState,
+};
 
 pub const REGION_LABEL: &str = "region";
 pub const SETTINGS_LABEL: &str = "settings";
 pub const ABOUT_LABEL: &str = "about";
 pub const VIEWER_PREFIX: &str = "viewer-";
 pub const EDITOR_PREFIX: &str = "editor-";
+/// `viewer-` で始めない。ビューアの予備窓を探す処理とラベルが衝突する。
+pub const VIEWER_MENU_LABEL: &str = "context-menu";
 // src/styles/tokens.css の --color-canvas。WebView の最初のフレームも白くしない。
 const BACKGROUND: Color = Color(22, 23, 26, 255);
 /// wry の既定値に CalculateNativeWinOcclusion を加える。WebView2 は cloak した窓を
@@ -42,6 +46,9 @@ const CHROME_HEIGHT: f64 = 32.0;
 const FRAME_BORDER: f64 = 2.0;
 const MIN_WIDTH: f64 = 240.0;
 const MIN_HEIGHT: f64 = 160.0;
+/// メニュー窓の内側に空ける余白（論理ピクセル）。CSS の .context-menu-anchor と揃える。
+/// `--shadow-menu` のぼかしが窓の縁で切れない大きさにする。
+const MENU_PADDING: f64 = 28.0;
 
 const EDITOR_WIDTH: f64 = 960.0;
 const EDITOR_HEIGHT: f64 = 720.0;
@@ -75,6 +82,67 @@ fn build_editor(app: &AppHandle, label: &str) -> AppResult<WebviewWindow> {
         .build()?)
 }
 
+fn build_viewer_menu(app: &AppHandle) -> AppResult<WebviewWindow> {
+    let builder = window_builder(app, VIEWER_MENU_LABEL)
+        .title(t("app.name"))
+        .decorations(false)
+        .shadow(false)
+        .resizable(false)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .visible(false)
+        .focused(false)
+        .inner_size(1.0, 1.0);
+    // メニューの角丸と影をそのまま見せる。中身の大きさは表示直前にフロントエンドが決める。
+    #[cfg(windows)]
+    let builder = builder
+        .transparent(true)
+        .background_color(Color(0, 0, 0, 0));
+    #[cfg(not(windows))]
+    let builder = builder.background_color(BACKGROUND);
+    Ok(builder.build()?)
+}
+
+pub fn prepare_viewer_menu(app: &AppHandle) -> AppResult<()> {
+    if app.get_webview_window(VIEWER_MENU_LABEL).is_some() {
+        return Ok(());
+    }
+    build_viewer_menu(app)?;
+    Ok(())
+}
+
+/// カーソル位置にメニューの左上を合わせる。右・下に入り切らないときは
+/// メニューの右下がカーソルに重なるよう反転し、最後にモニター内へ収める。
+pub fn menu_window_rect(
+    cursor: (f64, f64),
+    menu: (f64, f64),
+    monitor: &MonitorGeometry,
+    scale: f64,
+) -> (i32, i32, u32, u32) {
+    let padding = MENU_PADDING * scale;
+    let width = (menu.0 * scale + padding * 2.0).round().max(1.0);
+    let height = (menu.1 * scale + padding * 2.0).round().max(1.0);
+    let right = f64::from(monitor.x) + f64::from(monitor.width);
+    let bottom = f64::from(monitor.y) + f64::from(monitor.height);
+    let mut x = cursor.0 - padding;
+    let mut y = cursor.1 - padding;
+    if x + width > right {
+        x = cursor.0 - width + padding;
+    }
+    if y + height > bottom {
+        y = cursor.1 - height + padding;
+    }
+    x = x
+        .min(right - width)
+        .max(f64::from(monitor.x))
+        .round();
+    y = y
+        .min(bottom - height)
+        .max(f64::from(monitor.y))
+        .round();
+    (x as i32, y as i32, width as u32, height as u32)
+}
+
 /// build は UI スレッドとの往復を伴うので、pool のロックを保持せず実行する。
 pub fn prepare_viewer(app: &AppHandle) -> AppResult<()> {
     let state = app.state::<AppState>();
@@ -87,6 +155,110 @@ pub fn prepare_viewer(app: &AppHandle) -> AppResult<()> {
             state.viewers.lock().unwrap().remove(&label);
             return Err(error);
         }
+    }
+    Ok(())
+}
+
+/// ビューアのカーソル位置を控え、メニュー窓へ内容を送る。窓がまだ無ければ false を返し、
+/// 呼び出し側は WebView 内のメニューへフォールバックする。
+pub fn open_viewer_menu(
+    app: &AppHandle,
+    parent: &WebviewWindow,
+    state: ViewerMenuState,
+) -> AppResult<bool> {
+    let Some(menu) = app.get_webview_window(VIEWER_MENU_LABEL) else {
+        return Ok(false);
+    };
+    let anchor = parent.cursor_position()?;
+    let app_state = app.state::<AppState>();
+    let load = ViewerMenuLoad {
+        request_id: app_state.next_viewer_menu_id(),
+        state,
+    };
+    *app_state.viewer_menu.lock().unwrap() = Some(ViewerMenuRequest {
+        parent: parent.label().to_owned(),
+        anchor,
+        load: load.clone(),
+    });
+    menu.emit("viewer-menu-load", load)?;
+    Ok(true)
+}
+
+pub fn show_viewer_menu(
+    app: &AppHandle,
+    window: &WebviewWindow,
+    width: f64,
+    height: f64,
+) -> AppResult<()> {
+    if window.label() != VIEWER_MENU_LABEL {
+        return Ok(());
+    }
+    let Some(anchor) = app
+        .state::<AppState>()
+        .viewer_menu
+        .lock()
+        .unwrap()
+        .as_ref()
+        .map(|request| request.anchor)
+    else {
+        return Ok(());
+    };
+    let Some(monitor) = window
+        .monitor_from_point(anchor.x, anchor.y)?
+        .or(window.current_monitor()?)
+        .or(app.primary_monitor()?)
+    else {
+        return Ok(());
+    };
+    let geometry = MonitorGeometry {
+        x: monitor.position().x,
+        y: monitor.position().y,
+        width: monitor.size().width,
+        height: monitor.size().height,
+        scale: monitor.scale_factor(),
+    };
+    let (x, y, width, height) = menu_window_rect(
+        (anchor.x, anchor.y),
+        (width, height),
+        &geometry,
+        window.scale_factor()?,
+    );
+    window.set_size(PhysicalSize::new(width, height))?;
+    window.set_position(PhysicalPosition::new(x, y))?;
+    window.show()?;
+    window.set_focus()?;
+    Ok(())
+}
+
+pub fn hide_viewer_menu(
+    app: &AppHandle,
+    window: &WebviewWindow,
+    focus_parent: bool,
+) -> AppResult<()> {
+    let request = app.state::<AppState>().viewer_menu.lock().unwrap().take();
+    window.hide()?;
+    if focus_parent {
+        if let Some(parent) = request.and_then(|request| app.get_webview_window(&request.parent)) {
+            parent.set_focus()?;
+        }
+    }
+    Ok(())
+}
+
+pub fn select_viewer_menu_item(
+    app: &AppHandle,
+    window: &WebviewWindow,
+    id: String,
+    checked: Option<bool>,
+) -> AppResult<()> {
+    let request = app.state::<AppState>().viewer_menu.lock().unwrap().take();
+    window.hide()?;
+    let Some(request) = request else {
+        return Ok(());
+    };
+    if let Some(parent) = app.get_webview_window(&request.parent) {
+        parent.emit("viewer-menu-action", ViewerMenuAction { id, checked })?;
+        parent.set_focus()?;
     }
     Ok(())
 }
@@ -438,5 +610,33 @@ mod tests {
     #[test]
     fn position_is_pulled_inside_monitor() {
         assert_eq!(clamp_position((1800, -50), (400, 300), &MONITOR), (1520, 0));
+    }
+
+    #[test]
+    fn menu_opens_toward_the_cursor_with_padding_for_its_shadow() {
+        let (x, y, width, height) = menu_window_rect((100.0, 100.0), (276.0, 252.0), &MONITOR, 1.0);
+        assert_eq!((x, y), (72, 72));
+        assert_eq!((width, height), (332, 308));
+    }
+
+    #[test]
+    fn menu_flips_when_it_would_leave_the_monitor() {
+        let (x, y, _, _) = menu_window_rect((1900.0, 1070.0), (276.0, 252.0), &MONITOR, 1.0);
+        // 右下がカーソルに重なる位置へ反転し、影の余白ごと画面内へ収める
+        assert_eq!((x, y), (1588, 772));
+    }
+
+    #[test]
+    fn menu_position_follows_the_dpi_scale() {
+        let hidpi = MonitorGeometry {
+            scale: 2.0,
+            width: 3840,
+            height: 2160,
+            ..MONITOR
+        };
+        assert_eq!(
+            menu_window_rect((200.0, 200.0), (276.0, 252.0), &hidpi, 2.0),
+            (144, 144, 664, 616)
+        );
     }
 }

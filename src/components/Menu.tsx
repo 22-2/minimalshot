@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import * as ContextMenu from "@radix-ui/react-context-menu";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Check, ChevronRight } from "lucide-react";
@@ -11,7 +11,17 @@ type Kit = Pick<
   "Item" | "CheckboxItem" | "ItemIndicator" | "Separator" | "Sub" | "SubTrigger" | "SubContent" | "Portal"
 >;
 
-function Entries({ entries, kit: M }: { entries: MenuEntry[]; kit: Kit }) {
+type SubContentProps = ComponentPropsWithoutRef<typeof DropdownMenu.SubContent>;
+
+function Entries({
+  entries,
+  kit: M,
+  subContentProps,
+}: {
+  entries: MenuEntry[];
+  kit: Kit;
+  subContentProps?: SubContentProps;
+}) {
   return entries.map((entry) => {
     switch (entry.type) {
       case "separator":
@@ -44,8 +54,8 @@ function Entries({ entries, kit: M }: { entries: MenuEntry[]; kit: Kit }) {
               <ChevronRight aria-hidden className="menu-trailing" />
             </M.SubTrigger>
             <M.Portal>
-              <M.SubContent className="menu" sideOffset={2}>
-                <Entries entries={entry.entries} kit={M} />
+              <M.SubContent className="menu" sideOffset={2} {...subContentProps}>
+                <Entries entries={entry.entries} kit={M} subContentProps={subContentProps} />
               </M.SubContent>
             </M.Portal>
           </M.Sub>
@@ -82,6 +92,23 @@ function Entries({ entries, kit: M }: { entries: MenuEntry[]; kit: Kit }) {
         );
     }
   });
+}
+
+/** 別ウィンドウのメニューのように、Content だけを自前で配置する場合に使う。 */
+export function MenuPanel({
+  entries,
+  subContentProps,
+}: {
+  entries: MenuEntry[];
+  subContentProps?: SubContentProps;
+}) {
+  return (
+    <Entries
+      entries={entries}
+      kit={DropdownMenu as unknown as Kit}
+      subContentProps={subContentProps}
+    />
+  );
 }
 
 export function ContextMenuArea({ entries, children }: { entries: MenuEntry[]; children: ReactNode }) {

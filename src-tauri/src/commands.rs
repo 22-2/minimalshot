@@ -9,7 +9,7 @@ use crate::config::Config;
 use crate::error::{AppError, AppResult};
 use crate::hotkeys;
 use crate::imaging;
-use crate::state::{AppState, CaptureKind};
+use crate::state::{AppState, CaptureKind, ViewerMenuLoad, ViewerMenuState};
 use crate::windows::{REGION_LABEL, VIEWER_PREFIX};
 
 #[derive(Serialize)]
@@ -35,6 +35,58 @@ fn shot_id(window: &WebviewWindow) -> AppResult<u32> {
 #[tauri::command]
 pub fn viewer_session(window: WebviewWindow, state: State<'_, AppState>) -> Option<u32> {
     state.viewers.lock().unwrap().shot_id(window.label())
+}
+
+/// 別ウィンドウのメニューが作られる前は false。ビューアは WebView 内のメニューを使う。
+#[tauri::command]
+pub fn viewer_menu_available(app: AppHandle) -> bool {
+    app.get_webview_window(crate::windows::VIEWER_MENU_LABEL)
+        .is_some()
+}
+
+#[tauri::command]
+pub fn open_viewer_menu(
+    app: AppHandle,
+    window: WebviewWindow,
+    state: ViewerMenuState,
+) -> AppResult<bool> {
+    crate::windows::open_viewer_menu(&app, &window, state)
+}
+
+/// メニュー窓の読み込みが右クリックより遅れた場合に、開く内容を取り直す。
+#[tauri::command]
+pub fn viewer_menu_state(state: State<'_, AppState>) -> Option<ViewerMenuLoad> {
+    state
+        .viewer_menu
+        .lock()
+        .unwrap()
+        .as_ref()
+        .map(|request| request.load.clone())
+}
+
+#[tauri::command]
+pub fn show_viewer_menu(
+    app: AppHandle,
+    window: WebviewWindow,
+    width: f64,
+    height: f64,
+) -> AppResult<()> {
+    crate::windows::show_viewer_menu(&app, &window, width, height)
+}
+
+#[tauri::command]
+pub fn hide_viewer_menu(app: AppHandle, window: WebviewWindow) -> AppResult<()> {
+    crate::windows::hide_viewer_menu(&app, &window, true)
+}
+
+#[tauri::command]
+pub fn select_viewer_menu_item(
+    app: AppHandle,
+    window: WebviewWindow,
+    id: String,
+    checked: Option<bool>,
+) -> AppResult<()> {
+    crate::windows::select_viewer_menu_item(&app, &window, id, checked)
 }
 
 #[derive(Serialize)]

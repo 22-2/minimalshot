@@ -45,6 +45,11 @@ export type EditorSession = {
 
 export type Rect = { x: number; y: number; width: number; height: number };
 
+export type ViewerMenuState = { saved: boolean; pinned: boolean; tools: ExternalTool[] };
+/** メニュー窓が読み込み直後に内容を取り直すための、リクエスト番号付きの状態。 */
+export type ViewerMenuRequest = ViewerMenuState & { requestId: number };
+export type ViewerMenuAction = { id: string; checked?: boolean };
+
 export const api = {
   getConfig: () => invoke<Config>("get_config"),
   getDefaultConfig: () => invoke<Config>("get_default_config"),
@@ -57,6 +62,13 @@ export const api = {
 
   shotInfo: () => invoke<ShotInfo>("shot_info"),
   viewerSession: () => invoke<number | null>("viewer_session"),
+  viewerMenuAvailable: () => invoke<boolean>("viewer_menu_available"),
+  openViewerMenu: (state: ViewerMenuState) => invoke<boolean>("open_viewer_menu", { state }),
+  viewerMenuState: () => invoke<ViewerMenuRequest | null>("viewer_menu_state"),
+  showViewerMenu: (width: number, height: number) => invoke<void>("show_viewer_menu", { width, height }),
+  hideViewerMenu: () => invoke<void>("hide_viewer_menu"),
+  selectViewerMenuItem: (id: string, checked?: boolean) =>
+    invoke<void>("select_viewer_menu_item", { id, checked: checked ?? null }),
   openEditor: () => invoke<void>("open_editor"),
   editorSession: () => invoke<EditorSession | null>("editor_session"),
   editorPng: () => invoke<BinaryPayload>("editor_png").then(toBytes),

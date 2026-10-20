@@ -156,11 +156,31 @@ pub fn run() {
             let app = app.handle().clone();
             tauri::async_runtime::spawn_blocking(move || {
                 report(windows::prepare_region(&app));
+                report(windows::prepare_viewer_menu(&app));
                 report(windows::prepare_viewer(&app));
             });
             Ok(())
         })
         .on_window_event(|window, event| {
+            // メニューは閉じずに隠す。フォーカスを失ったら、選ばずに元のビューアへ戻る。
+            if window.label() == windows::VIEWER_MENU_LABEL {
+                let hide = || {
+                    if let Some(menu) = window
+                        .app_handle()
+                        .get_webview_window(windows::VIEWER_MENU_LABEL)
+                    {
+                        report(windows::hide_viewer_menu(window.app_handle(), &menu, false));
+                    }
+                };
+                match event {
+                    WindowEvent::Focused(false) if window.is_visible().unwrap_or(false) => hide(),
+                    WindowEvent::CloseRequested { api, .. } => {
+                        api.prevent_close();
+                        hide();
+                    }
+                    _ => {}
+                }
+            }
             // 再表示のたびに WebView2 を起動し直さない。設定の未保存編集は次回 open で再読込する。
             if let WindowEvent::CloseRequested { api, .. } = event {
                 if window.label() == windows::SETTINGS_LABEL {
@@ -195,6 +215,23 @@ pub fn run() {
                     .take();
             }
             let state = window.state::<AppState>();
+            if window.label().starts_with(windows::VIEWER_PREFIX) {
+                // 親が消えたら、そのビューア向けに出していたメニューも一緒に隠す。
+                let owned = state
+                    .viewer_menu
+                    .lock()
+                    .unwrap()
+                    .as_ref()
+                    .is_some_and(|request| request.parent == window.label());
+                if owned {
+                    state.viewer_menu.lock().unwrap().take();
+                    if let Some(menu) =
+                        window.app_handle().get_webview_window(windows::VIEWER_MENU_LABEL)
+                    {
+                        report(menu.hide().map_err(Into::into));
+                    }
+                }
+            }
             let id = state.viewers.lock().unwrap().remove(window.label());
             if let Some(id) = id {
                 state.pending_captures.lock().unwrap().remove(&id);
@@ -218,6 +255,12 @@ pub fn run() {
             commands::capture,
             commands::shot_info,
             commands::viewer_session,
+            commands::viewer_menu_available,
+            commands::open_viewer_menu,
+            commands::viewer_menu_state,
+            commands::show_viewer_menu,
+            commands::hide_viewer_menu,
+            commands::select_viewer_menu_item,
             commands::editor_session,
             commands::open_editor,
             commands::shot_png,

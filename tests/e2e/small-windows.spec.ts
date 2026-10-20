@@ -99,6 +99,18 @@ for (const size of sizes) {
   });
 }
 
+test("small viewer sends the context menu to its own window", async ({ page }) => {
+  await page.setViewportSize({ width: 240, height: 160 });
+  await installTauriMock(page, { label: "viewer-1", viewerMenu: true });
+  await page.goto("/");
+  await expect(page.locator(".viewer-stage")).toHaveAttribute("data-context-menu", "window");
+
+  await page.locator(".viewer-stage").click({ button: "right", position: { x: 20, y: 20 } });
+  await expect.poll(async () => (await calls(page)).some((call) => call.cmd === "open_viewer_menu")).toBe(true);
+  // 窓の外へ出せるメニューなので、ビューア内には重ねて描かない
+  await expect(page.getByRole("menu")).toHaveCount(0);
+});
+
 test("window controls stay inside the viewer after repeatedly resizing", async ({ page }) => {
   await page.setViewportSize({ width: 800, height: 600 });
   await installTauriMock(page, { label: "viewer-1" });

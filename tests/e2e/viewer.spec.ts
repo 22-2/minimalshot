@@ -55,6 +55,27 @@ test.describe("viewer", () => {
     await expect(menu).toHaveCSS("font-size", "12px");
   });
 
+  test("opens the context menu in a separate window when available", async ({ page }) => {
+    await openViewer(page, { label: "viewer-1", viewerMenu: true });
+    await expect(page.locator(".viewer-stage")).toHaveAttribute("data-context-menu", "window");
+
+    await page.locator(".viewer-stage").click({ button: "right", position: { x: 40, y: 40 } });
+    // ビューア自身にはメニューを描かず、別ウィンドウへ内容を渡す
+    await expect(page.getByRole("menu")).toHaveCount(0);
+    await expect.poll(async () => (await calls(page)).some((call) => call.cmd === "open_viewer_menu")).toBe(true);
+    const open = (await calls(page)).find((call) => call.cmd === "open_viewer_menu");
+    expect(open?.args).toMatchObject({ state: { saved: false, pinned: false } });
+
+    // 別ウィンドウで選んだ項目は、ビューアへイベントで戻ってくる
+    await page.evaluate(() => {
+      (window as unknown as { __emit: (event: string, payload: unknown) => void }).__emit("viewer-menu-action", {
+        id: "copy-image",
+      });
+    });
+    await expect(toast(page)).toHaveText("画像をコピーしました");
+    expect(await commandNames(page)).toContain("copy_shot_image");
+  });
+
   test("copies the image and the path once saved", async ({ page }) => {
     await openViewer(page);
 

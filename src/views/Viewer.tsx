@@ -9,7 +9,13 @@ import { ContextMenuArea, DropdownMenuButton } from "../components/Menu";
 import { TitleBar } from "../components/TitleBar";
 import { useZoom } from "../lib/useZoom";
 import { useWindowReady } from "../lib/useWindowReady";
-import { api, errorMessage, type CompletedActions, type ExternalTool } from "../lib/api";
+import {
+  api,
+  errorMessage,
+  type CompletedActions,
+  type ExternalTool,
+  type ViewerMenuAction,
+} from "../lib/api";
 import { isDevelopmentBuild } from "../lib/build";
 import { playCaptureSound } from "../lib/captureSound";
 import { openWithEntries, viewerMenu } from "../lib/viewerMenu";
@@ -32,6 +38,8 @@ export function Viewer() {
   const [imageReady, setImageReady] = useState(false);
   const [session, setSession] = useState<number | null>(null);
   const [autoActions, setAutoActions] = useState<CompletedActions | null>(null);
+  // 小さい窓でもメニューが切れないよう、メニュー用の別ウィンドウが使えるならそちらで出す。
+  const [windowMenu, setWindowMenu] = useState(false);
   // getCurrentWindow() は呼ぶたびに別オブジェクトを返す。effect の依存に入れると毎回の描画で
   // 読み込みが走り、PNG の再取得が止まらなくなる（WebView のメモリが尽きて真っ黒になる）
   const appWindow = useMemo(() => getCurrentWindow(), []);
@@ -39,9 +47,24 @@ export function Viewer() {
   const imageRef = useRef<HTMLImageElement>(null);
   const panFrom = useRef<{ x: number; y: number } | null>(null);
   const sounded = useRef(false);
+  // 別ウィンドウのメニューから届く操作。listener を登録し直さず最新の状態で処理する。
+  const menuAction = useRef<(action: ViewerMenuAction) => void>(() => {});
   const imageSize = useMemo(() => (info ? { width: info.width, height: info.height } : null), [info?.width, info?.height]);
   const zoom = useZoom(stageRef, imageRef, imageSize, layout);
   useWindowReady(session !== null && (imageReady || status?.tone === "error"));
+
+  useEffect(() => {
+    let disposed = false;
+    void api
+      .viewerMenuAvailable()
+      .then((available) => {
+        if (!disposed) setWindowMenu(available);
+      })
+      .catch(() => undefined);
+    return () => {
+      disposed = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!imageReady || sounded.current) return;
@@ -75,6 +98,9 @@ export function Viewer() {
       listen<string>("shot-error", ({ payload }) => reportError(payload)),
       listen<CompletedActions>("capture-actions", ({ payload }) => {
         if (!disposed) setAutoActions(payload);
+      }),
+      listen<ViewerMenuAction>("viewer-menu-action", ({ payload }) => {
+        if (!disposed) menuAction.current(payload);
       }),
     ];
     // listener が登録される前に割り当てられた画像も取得する。予備の間は表示しない。
@@ -167,10 +193,103 @@ export function Viewer() {
     setPinned: (next: boolean) => void changePinned(next),
     actualSize: () => zoom.actualSize(),
   };
+  menuAction.current = (action) => {
+    switch (action.id) {
+      case "copy-image":
+        void viewer.copyImage();
+        break;
+      case "copy-path":
+        void viewer.copyPath();
+        break;
+      case "save":
+        void viewer.save();
+        break;
+      case "save-as":
+        void viewer.saveAs();
+        break;
+      case "delete":
+        void viewer.deleteSaved();
+        break;
+      case "edit":
+        void viewer.openEditor();
+        break;
+      case "reveal":
+        void viewer.reveal();
+        break;
+      case "settings":
+        void viewer.openSettings();
+        break;
+      case "actual-size":
+        zoom.actualSize();
+        break;
+      case "pin":
+        void changePinned(action.checked ?? !pinned);
+        break;
+      default:
+        if (action.id.startsWith("tool-")) {
+          const tool = Number(action.id.slice("tool-".length));
+          if (Number.isInteger(tool)) void viewer.openWith(tool);
+        }
+    }
+  };
+
   const menu = viewerMenu({ saved, pinned, tools }, actions);
   const title = info
     ? `${t("app.name")} (${info.width} × ${info.height}, ${Math.round(zoom.scale * 100)}%)`
     : t("app.name");
+
+  const stage = (
+    <main
+      ref={stageRef}
+      className="viewer-stage"
+      // e2e から、どちらのメニュー経路で動いているかを確認できるようにする。
+      data-context-menu={windowMenu ? "window" : "inline"}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={() => (panFrom.current = null)}
+      onDoubleClick={() => zoom.fit()}
+      onContextMenuCapture={(event) => {
+        // 開発版では Shift+右クリックで WebView 既定のメニューを出し、「検証」から devtools を開けるようにする
+        if (isDevelopmentBuild && event.shiftKey) event.stopPropagation();
+      }}
+      onContextMenu={(event) => {
+        if (!windowMenu) return;
+        if (isDevelopmentBuild && event.shiftKey) return;
+        event.preventDefault();
+        void api
+          .openViewerMenu({ saved, pinned, tools })
+          .then((opened) => {
+            // メニュー窓が消えていたら、次回からは WebView 内のメニューに戻す。
+            if (!opened) setWindowMenu(false);
+          })
+          .catch(() => undefined);
+      }}
+    >
+      {imageUrl ? (
+        <img
+          ref={imageRef}
+          className="viewer-image"
+          src={imageUrl}
+          alt=""
+          draggable={false}
+          onLoad={() => setImageReady(true)}
+          onError={() => useViewer.setState({ status: { tone: "error", text: t("viewer.loadFailed") } })}
+        />
+      ) : (
+        <span className="viewer-placeholder">{t("viewer.loading")}</span>
+      )}
+      {status && (
+        <output className="viewer-toast" data-tone={status.tone}>
+          {status.text}
+        </output>
+      )}
+      {autoActions && (
+        <output className="viewer-toast viewer-action-toast">
+          {t("viewer.autoActions")}: {completedActionLabels(autoActions).join("・")}
+        </output>
+      )}
+    </main>
+  );
 
   return (
     <>
@@ -198,44 +317,7 @@ export function Viewer() {
             </>
           }
         />
-        <ContextMenuArea entries={menu}>
-          <main
-            ref={stageRef}
-            className="viewer-stage"
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={() => (panFrom.current = null)}
-            onDoubleClick={() => zoom.fit()}
-            onContextMenuCapture={(event) => {
-              // 開発版では Shift+右クリックで WebView 既定のメニューを出し、「検証」から devtools を開けるようにする
-              if (isDevelopmentBuild && event.shiftKey) event.stopPropagation();
-            }}
-          >
-            {imageUrl ? (
-              <img
-                ref={imageRef}
-                className="viewer-image"
-                src={imageUrl}
-                alt=""
-                draggable={false}
-                onLoad={() => setImageReady(true)}
-                onError={() => useViewer.setState({ status: { tone: "error", text: t("viewer.loadFailed") } })}
-              />
-            ) : (
-              <span className="viewer-placeholder">{t("viewer.loading")}</span>
-            )}
-            {status && (
-              <output className="viewer-toast" data-tone={status.tone}>
-                {status.text}
-              </output>
-            )}
-            {autoActions && (
-              <output className="viewer-toast viewer-action-toast">
-                {t("viewer.autoActions")}: {completedActionLabels(autoActions).join("・")}
-              </output>
-            )}
-          </main>
-        </ContextMenuArea>
+        {windowMenu ? stage : <ContextMenuArea entries={menu}>{stage}</ContextMenuArea>}
       </div>
       <ConfirmDialog
         open={confirming}

@@ -345,6 +345,37 @@ button {
   padding-inline: 0;
 }
 
+/* ---- 右クリックメニュー専用ウィンドウ ---- */
+
+/* ビューアの窓に収まらないメニューを、影ごと外へ出せるようにする。 */
+html[data-view="context-menu"],
+html[data-view="context-menu"] body,
+html[data-view="context-menu"] #root {
+  background: transparent;
+  color-scheme: normal;
+}
+
+/* Rust の MENU_PADDING と同じ値。メニューの影が窓の縁で切れない余白。 */
+.context-menu-anchor {
+  position: fixed;
+  top: 28px;
+  left: 28px;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+/* 窓自体を内容に合わせて広げるので、ビューポート基準の制限を外す。 */
+html[data-view="context-menu"] .menu {
+  max-width: none;
+  max-height: none;
+  min-width: var(--size-menu-min-width);
+}
+
+html[data-view="context-menu"] .menu-context {
+  width: var(--size-context-menu-width);
+}
+
 /* ---- メニュー（右クリック・ドロップダウン共通） ---- */
 
 .menu {

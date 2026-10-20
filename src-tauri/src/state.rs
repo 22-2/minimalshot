@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use tauri_plugin_global_shortcut::Shortcut;
 
 use crate::capture::{Captured, ScreenBounds};
-use crate::config::Config;
+use crate::config::{Config, ExternalTool};
 use crate::editor_pool::EditorPool;
 use crate::store::{Shot, ShotStore};
 use crate::viewer_pool::ViewerPool;
@@ -34,6 +34,37 @@ pub struct PendingCapture {
     pub shot: Arc<Mutex<Shot>>,
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ViewerMenuState {
+    pub saved: bool,
+    pub pinned: bool,
+    pub tools: Vec<ExternalTool>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ViewerMenuLoad {
+    pub request_id: u32,
+    #[serde(flatten)]
+    pub state: ViewerMenuState,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ViewerMenuAction {
+    pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub checked: Option<bool>,
+}
+
+/// 右クリックされたビューアと、メニューを出したカーソル位置（物理ピクセル）。
+pub struct ViewerMenuRequest {
+    pub parent: String,
+    pub anchor: tauri::PhysicalPosition<f64>,
+    pub load: ViewerMenuLoad,
+}
+
 pub struct AppState {
     pub capture_lock: Mutex<()>,
     pub config: Mutex<Config>,
@@ -52,6 +83,9 @@ pub struct AppState {
     pub pending_region: Mutex<Option<PendingRegion>>,
     next_region_id: AtomicU32,
     pub hotkeys: Mutex<Vec<(Shortcut, CaptureKind)>>,
+    /// 別ウィンドウで表示中の右クリックメニュー。ウィンドウは1枚を使い回す。
+    pub viewer_menu: Mutex<Option<ViewerMenuRequest>>,
+    next_viewer_menu_id: AtomicU32,
 }
 
 impl AppState {
@@ -73,6 +107,8 @@ impl AppState {
             pending_region: Mutex::new(None),
             next_region_id: AtomicU32::new(0),
             hotkeys: Mutex::new(Vec::new()),
+            viewer_menu: Mutex::new(None),
+            next_viewer_menu_id: AtomicU32::new(0),
         }
     }
 
@@ -82,5 +118,9 @@ impl AppState {
 
     pub fn next_region_id(&self) -> u32 {
         self.next_region_id.fetch_add(1, Ordering::Relaxed) + 1
+    }
+
+    pub fn next_viewer_menu_id(&self) -> u32 {
+        self.next_viewer_menu_id.fetch_add(1, Ordering::Relaxed) + 1
     }
 }
