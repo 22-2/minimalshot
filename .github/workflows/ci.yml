@@ -23,9 +23,9 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
@@ -38,7 +38,7 @@ jobs:
         shell: bash
         run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
       - id: playwright-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ runner.os == 'Windows' && '~\AppData\Local\ms-playwright' || '~/.cache/ms-playwright' }}
           key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
@@ -49,7 +49,7 @@ jobs:
         run: pnpm exec playwright install-deps chromium
       - run: pnpm test:e2e
       - run: pnpm readme:shots
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-report-${{ matrix.os }}
@@ -66,7 +66,7 @@ jobs:
       run:
         working-directory: src-tauri
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
