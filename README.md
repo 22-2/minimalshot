@@ -70,7 +70,11 @@ directory = "{pictures}/{appname}"
 format = "%Y-%m/%Y-%m-%d_%H-%M-%S.png" # strftime 形式
 
 [viewer]
-layout = "source" # source: 撮影元に重ねる / framed: 16:9 の窓に余白付きで表示
+layout = "source" # source: 撮影元に重ねる / framed: 16:9 の窓に余白付き / remember: 前回の大きさ
+# remember で最後に使った大きさ（論理ピクセル）。ビューアを閉じるときに自動更新される
+# [viewer.remembered_size]
+# width = 720
+# height = 480
 always_on_top = false
 confirm_on_close = false
 

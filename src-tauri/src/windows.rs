@@ -5,7 +5,7 @@ use tauri::{
 };
 
 use crate::capture::{MonitorGeometry, ScreenBounds};
-use crate::config::ViewerLayout;
+use crate::config::{Viewer, ViewerLayout, ViewerSize};
 use crate::error::AppResult;
 use crate::i18n::t;
 use crate::state::{
@@ -132,14 +132,8 @@ pub fn menu_window_rect(
     if y + height > bottom {
         y = cursor.1 - height + padding;
     }
-    x = x
-        .min(right - width)
-        .max(f64::from(monitor.x))
-        .round();
-    y = y
-        .min(bottom - height)
-        .max(f64::from(monitor.y))
-        .round();
+    x = x.min(right - width).max(f64::from(monitor.x)).round();
+    y = y.min(bottom - height).max(f64::from(monitor.y)).round();
     (x as i32, y as i32, width as u32, height as u32)
 }
 
@@ -312,13 +306,25 @@ pub fn prepare_region(app: &AppHandle) -> AppResult<()> {
     Ok(())
 }
 
-/// 撮影元に重なる既定の窓と、余白付きの16:9の窓を切り替える。
+/// 撮影元に重なる既定の窓と、余白付きの16:9の窓、前回の大きさを切り替える。
 pub fn viewer_size(
     image: (u32, u32),
     monitor: &MonitorGeometry,
     layout: ViewerLayout,
+    remembered: Option<ViewerSize>,
 ) -> (u32, u32) {
-    if layout == ViewerLayout::Source {
+    // 記憶した大きさは、最小サイズとモニターの9割に収めてから使う。
+    if let (ViewerLayout::Remember, Some(size)) = (layout, remembered) {
+        let width = (f64::from(size.width) * monitor.scale)
+            .max(MIN_WIDTH * monitor.scale)
+            .min(f64::from(monitor.width) * 0.9);
+        let height = (f64::from(size.height) * monitor.scale)
+            .max(MIN_HEIGHT * monitor.scale)
+            .min(f64::from(monitor.height) * 0.9);
+        return (width.round() as u32, height.round() as u32);
+    }
+    // 初回の「大きさを記憶する」は撮影元に合わせ、リサイズ後から大きさを引き継ぐ。
+    if matches!(layout, ViewerLayout::Source | ViewerLayout::Remember) {
         let chrome = (CHROME_HEIGHT + FRAME_BORDER) * monitor.scale;
         let width = (f64::from(image.0) + FRAME_BORDER * monitor.scale)
             .max(MIN_WIDTH * monitor.scale)
@@ -334,6 +340,43 @@ pub fn viewer_size(
         .min(f64::from(monitor.width) * 0.9 / width)
         .min(f64::from(monitor.height) * 0.9 / height);
     ((width * fit).round() as u32, (height * fit).round() as u32)
+}
+
+/// リサイズ後のビューアの大きさを覚える。バインディング前や最小化中の値は無視する。
+pub fn remember_viewer_size(app: &AppHandle, window: &tauri::Window, size: PhysicalSize<u32>) {
+    let state = app.state::<AppState>();
+    if state.config.lock().unwrap().viewer.layout != ViewerLayout::Remember {
+        return;
+    }
+    if state
+        .viewers
+        .lock()
+        .unwrap()
+        .shot_id(window.label())
+        .is_none()
+    {
+        return;
+    }
+    if window.is_minimized().unwrap_or(false) {
+        return;
+    }
+    let Some(scale) = window.scale_factor().ok().filter(|scale| *scale > 0.0) else {
+        return;
+    };
+    let logical = ViewerSize {
+        width: (f64::from(size.width) / scale).round() as u32,
+        height: (f64::from(size.height) / scale).round() as u32,
+    };
+    if f64::from(logical.width) < MIN_WIDTH || f64::from(logical.height) < MIN_HEIGHT {
+        return;
+    }
+    let mut config = state.config.lock().unwrap();
+    if config.viewer.remembered_size != Some(logical) {
+        config.viewer.remembered_size = Some(logical);
+        state
+            .viewer_size_dirty
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+    }
 }
 
 /// エディタは注釈を描く余地を優先し、撮影画像の大きさには合わせない。
@@ -366,21 +409,20 @@ pub fn open_viewer(
     image: (u32, u32),
     monitor: &MonitorGeometry,
     origin: Option<(i32, i32)>,
-    always_on_top: bool,
-    layout: ViewerLayout,
+    viewer: &Viewer,
 ) -> AppResult<()> {
-    let size = viewer_size(image, monitor, layout);
+    let size = viewer_size(image, monitor, viewer.layout, viewer.remembered_size);
     let centered = (
         monitor.x + (monitor.width as i32 - size.0 as i32) / 2,
         monitor.y + (monitor.height as i32 - size.1 as i32) / 2,
     );
-    let desired = match layout {
+    let desired = match viewer.layout {
         ViewerLayout::Source => origin.map_or(centered, |(x, y)| {
             // 領域キャプチャは、タイトルバーを撮影範囲の上に置いて元の場所に重ねる。
             (x, y - (CHROME_HEIGHT * monitor.scale).round() as i32)
         }),
-        ViewerLayout::Framed => origin.map_or(centered, |(x, y)| {
-            // 固定サイズの窓は選択範囲の中心付近に置く。
+        ViewerLayout::Framed | ViewerLayout::Remember => origin.map_or(centered, |(x, y)| {
+            // 決まった大きさの窓は選択範囲の中心付近に置く。
             (
                 x + image.0 as i32 / 2 - size.0 as i32 / 2,
                 y + image.1 as i32 / 2 - size.1 as i32 / 2,
@@ -404,7 +446,7 @@ pub fn open_viewer(
         build_viewer(app, &label)?
     };
     let configure = || -> AppResult<()> {
-        window.set_always_on_top(always_on_top)?;
+        window.set_always_on_top(viewer.always_on_top)?;
         window.set_size(PhysicalSize::new(size.0, size.1))?;
         window.set_position(PhysicalPosition::new(position.0, position.1))?;
         // 位置・サイズを確定してから割り当てる。初期化中のフロントエンドは
@@ -524,15 +566,15 @@ mod tests {
     #[test]
     fn source_viewer_follows_image_size() {
         assert_eq!(
-            viewer_size((400, 300), &MONITOR, ViewerLayout::Source),
+            viewer_size((400, 300), &MONITOR, ViewerLayout::Source, None),
             (402, 334)
         );
         assert_eq!(
-            viewer_size((10, 10), &MONITOR, ViewerLayout::Source),
+            viewer_size((10, 10), &MONITOR, ViewerLayout::Source, None),
             (240, 160)
         );
         assert_eq!(
-            viewer_size((4000, 3000), &MONITOR, ViewerLayout::Source),
+            viewer_size((4000, 3000), &MONITOR, ViewerLayout::Source, None),
             (1728, 972)
         );
     }
@@ -540,8 +582,53 @@ mod tests {
     #[test]
     fn framed_viewer_uses_fixed_sixteen_by_nine_size() {
         assert_eq!(
-            viewer_size((400, 300), &MONITOR, ViewerLayout::Framed),
+            viewer_size((400, 300), &MONITOR, ViewerLayout::Framed, None),
             (800, 450)
+        );
+    }
+
+    #[test]
+    fn remember_viewer_uses_the_last_size_and_clamps_it() {
+        let remembered = Some(ViewerSize {
+            width: 640,
+            height: 400,
+        });
+        assert_eq!(
+            viewer_size((400, 300), &MONITOR, ViewerLayout::Remember, remembered),
+            (640, 400)
+        );
+        // 小さすぎる記憶値は最小サイズまで、大きすぎる値はモニターの9割まで詰める
+        assert_eq!(
+            viewer_size(
+                (400, 300),
+                &MONITOR,
+                ViewerLayout::Remember,
+                Some(ViewerSize {
+                    width: 10,
+                    height: 10
+                })
+            ),
+            (240, 160)
+        );
+        assert_eq!(
+            viewer_size(
+                (400, 300),
+                &MONITOR,
+                ViewerLayout::Remember,
+                Some(ViewerSize {
+                    width: 4000,
+                    height: 3000
+                })
+            ),
+            (1728, 972)
+        );
+    }
+
+    #[test]
+    fn remember_viewer_without_a_size_falls_back_to_the_capture() {
+        assert_eq!(
+            viewer_size((400, 300), &MONITOR, ViewerLayout::Remember, None),
+            viewer_size((400, 300), &MONITOR, ViewerLayout::Source, None)
         );
     }
 
@@ -553,7 +640,7 @@ mod tests {
             ..MONITOR
         };
         assert_eq!(
-            viewer_size((400, 300), &small, ViewerLayout::Framed),
+            viewer_size((400, 300), &small, ViewerLayout::Framed, None),
             (720, 405)
         );
     }
@@ -566,7 +653,7 @@ mod tests {
             ..MONITOR
         };
         assert_eq!(
-            viewer_size((400, 300), &small, ViewerLayout::Framed),
+            viewer_size((400, 300), &small, ViewerLayout::Framed, None),
             (576, 324)
         );
     }
@@ -580,11 +667,11 @@ mod tests {
             ..MONITOR
         };
         assert_eq!(
-            viewer_size((800, 600), &hidpi, ViewerLayout::Framed),
+            viewer_size((800, 600), &hidpi, ViewerLayout::Framed, None),
             (1600, 900)
         );
         assert_eq!(
-            viewer_size((800, 600), &hidpi, ViewerLayout::Source),
+            viewer_size((800, 600), &hidpi, ViewerLayout::Source, None),
             (804, 668)
         );
     }

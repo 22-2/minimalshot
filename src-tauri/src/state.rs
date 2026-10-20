@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 
 use tauri_plugin_global_shortcut::Shortcut;
@@ -86,6 +86,8 @@ pub struct AppState {
     /// 別ウィンドウで表示中の右クリックメニュー。ウィンドウは1枚を使い回す。
     pub viewer_menu: Mutex<Option<ViewerMenuRequest>>,
     next_viewer_menu_id: AtomicU32,
+    /// ビューアの大きさを覚えたが、まだ config.toml へ書いていない。
+    pub viewer_size_dirty: AtomicBool,
 }
 
 impl AppState {
@@ -109,6 +111,7 @@ impl AppState {
             hotkeys: Mutex::new(Vec::new()),
             viewer_menu: Mutex::new(None),
             next_viewer_menu_id: AtomicU32::new(0),
+            viewer_size_dirty: AtomicBool::new(false),
         }
     }
 

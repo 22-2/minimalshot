@@ -54,6 +54,21 @@ fn capture_in_background(app: &AppHandle, kind: CaptureKind) {
     });
 }
 
+/// リサイズのたびにディスクへ書かず、ビューアを閉じるかアプリを終了するときにまとめて保存する。
+fn persist_remembered_viewer_size(app: &AppHandle) {
+    let state = app.state::<AppState>();
+    if !state
+        .viewer_size_dirty
+        .swap(false, std::sync::atomic::Ordering::Relaxed)
+    {
+        return;
+    }
+    let config = state.config.lock().unwrap().clone();
+    if let Err(error) = config.save(&state.config_path) {
+        eprintln!("[{}] {error}", paths::APP_NAME);
+    }
+}
+
 fn show_capture_error(app: &AppHandle, error: &error::AppError) {
     app.dialog()
         .message(error.to_string())
@@ -162,6 +177,11 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            if let WindowEvent::Resized(size) = event {
+                if window.label().starts_with(windows::VIEWER_PREFIX) {
+                    windows::remember_viewer_size(window.app_handle(), window, *size);
+                }
+            }
             // メニューは閉じずに隠す。フォーカスを失ったら、選ばずに元のビューアへ戻る。
             if window.label() == windows::VIEWER_MENU_LABEL {
                 let hide = || {
@@ -225,8 +245,9 @@ pub fn run() {
                     .is_some_and(|request| request.parent == window.label());
                 if owned {
                     state.viewer_menu.lock().unwrap().take();
-                    if let Some(menu) =
-                        window.app_handle().get_webview_window(windows::VIEWER_MENU_LABEL)
+                    if let Some(menu) = window
+                        .app_handle()
+                        .get_webview_window(windows::VIEWER_MENU_LABEL)
                     {
                         report(menu.hide().map_err(Into::into));
                     }
@@ -242,6 +263,7 @@ pub fn run() {
             if let Some(id) = editor_id {
                 state.shots.remove(id);
             }
+            persist_remembered_viewer_size(window.app_handle());
         })
         .invoke_handler(tauri::generate_handler![
             commands::get_config,
@@ -285,11 +307,14 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building MinimalShot");
 
-    app.run(|_app, event| {
+    app.run(|app, event| {
+        if matches!(&event, RunEvent::Exit) {
+            persist_remembered_viewer_size(app);
+        }
         // ウィンドウを全部閉じてもトレイ常駐を続ける（明示的な終了だけ code が入る）
         if let RunEvent::ExitRequested {
             api, code: None, ..
-        } = event
+        } = &event
         {
             api.prevent_exit();
         }

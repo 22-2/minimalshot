@@ -58,6 +58,7 @@ const autoCopyOptions: { value: AutoCopy; label: string }[] = [
 const viewerLayoutOptions: { value: ViewerLayout; label: string }[] = [
   { value: "source", label: t("settings.viewerLayoutSource") },
   { value: "framed", label: t("settings.viewerLayoutFramed") },
+  { value: "remember", label: t("settings.viewerLayoutRemember") },
 ];
 
 const tabId = (id: TabId) => `settings-tab-${id}`;

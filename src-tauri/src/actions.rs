@@ -113,8 +113,7 @@ pub fn finish_capture(
         dimensions,
         &captured.monitor,
         origin,
-        config.viewer.always_on_top,
-        config.viewer.layout,
+        &config.viewer,
     ) {
         state.pending_captures.lock().unwrap().remove(&id);
         state.shots.remove(id);

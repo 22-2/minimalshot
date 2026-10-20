@@ -163,6 +163,15 @@ pub struct Viewer {
     pub always_on_top: bool,
     pub confirm_on_close: bool,
     pub layout: ViewerLayout,
+    /// 「大きさを記憶する」で最後に使ったビューアの大きさ（論理ピクセル）。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remembered_size: Option<ViewerSize>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ViewerSize {
+    pub width: u32,
+    pub height: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -171,6 +180,7 @@ pub enum ViewerLayout {
     #[default]
     Source,
     Framed,
+    Remember,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -490,6 +500,27 @@ copy_stdout = false
     fn framed_viewer_layout_round_trips() {
         let config = Config::parse("[viewer]\nlayout = \"framed\"\n").unwrap();
         assert_eq!(config.viewer.layout, ViewerLayout::Framed);
+        assert_eq!(Config::parse(&config.to_toml().unwrap()).unwrap(), config);
+    }
+
+    #[test]
+    fn remembered_viewer_size_round_trips_and_is_optional() {
+        let config = Config::parse("[viewer]\nlayout = \"remember\"\n").unwrap();
+        assert_eq!(config.viewer.layout, ViewerLayout::Remember);
+        assert_eq!(config.viewer.remembered_size, None);
+        assert_eq!(Config::parse(&config.to_toml().unwrap()).unwrap(), config);
+
+        let config = Config::parse(
+            "[viewer]\nlayout = \"remember\"\n[viewer.remembered_size]\nwidth = 720\nheight = 480\n",
+        )
+        .unwrap();
+        assert_eq!(
+            config.viewer.remembered_size,
+            Some(ViewerSize {
+                width: 720,
+                height: 480
+            })
+        );
         assert_eq!(Config::parse(&config.to_toml().unwrap()).unwrap(), config);
     }
 

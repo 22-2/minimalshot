@@ -240,7 +240,17 @@ test.describe("settings", () => {
   });
 
   test("edits and saves the configuration", async ({ page }) => {
-    await installTauriMock(page, { label: "settings" });
+    await installTauriMock(page, {
+      label: "settings",
+      config: {
+        viewer: {
+          always_on_top: false,
+          confirm_on_close: false,
+          layout: "source",
+          remembered_size: { width: 700, height: 500 },
+        },
+      },
+    });
     await page.goto("/");
 
     await page.getByRole("tab", { name: "保存先" }).click();
@@ -249,7 +259,7 @@ test.describe("settings", () => {
     await page.getByRole("tab", { name: "ビューア" }).click();
     await page.getByRole("switch", { name: "常に最前面に表示" }).click();
     await page.getByRole("combobox", { name: "初期表示" }).click();
-    await page.getByRole("option", { name: "16:9 の窓に余白付きで開く" }).click();
+    await page.getByRole("option", { name: "前回の大きさで開く" }).click();
     await page.getByRole("tab", { name: "キャプチャ" }).click();
     await page.getByRole("button", { name: "アクティブなウィンドウをキャプチャ" }).click();
     await page.getByRole("region", { name: "アクティブなウィンドウをキャプチャ" }).getByRole("combobox", { name: "クリップボードへコピー" }).click();
@@ -259,7 +269,11 @@ test.describe("settings", () => {
     await expect(page.getByText("設定を保存しました")).toBeVisible();
     await expect.poll(async () => (await calls(page)).filter((c) => c.cmd === "save_config").at(-1)?.args.config).toMatchObject({
       storage: { format: "%Y/%m%d-%H%M%S.png" },
-      viewer: { always_on_top: true, layout: "framed" },
+      viewer: {
+        always_on_top: true,
+        layout: "remember",
+        remembered_size: { width: 700, height: 500 },
+      },
       capture: { auto_copy: "image", window: { auto_copy: "none" } },
     });
   });
