@@ -307,7 +307,9 @@ impl Config {
     /// 保存とインポートで同じ検証を行い、不正な内容を実行中の設定へ反映しない。
     pub fn validate(&self) -> AppResult<()> {
         if !(10..=200).contains(&self.viewer.zoom_sensitivity) {
-            return Err(AppError::msg("ホイールのズーム量は 10〜200 の範囲で指定してください"));
+            return Err(AppError::msg(
+                "ホイールのズーム量は 10〜200 の範囲で指定してください",
+            ));
         }
         crate::hotkeys::parse_hotkeys(&self.hotkeys)?;
         crate::paths::render_save_path(
