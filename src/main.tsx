@@ -7,6 +7,7 @@ import "./styles/app.css";
 
 // 起動する画面のモジュールだけを読み込み、領域選択でも設定 UI 一式を待たない。
 const views = {
+  "capture-preview": lazy(() => import("./views/CapturePreview").then((module) => ({ default: module.CapturePreview }))),
   viewer: lazy(() => import("./views/Viewer").then((module) => ({ default: module.Viewer }))),
   editor: lazy(() => import("./views/ExcalidrawEditor").then((module) => ({ default: module.ExcalidrawEditor }))),
   "context-menu": lazy(() => import("./views/ViewerMenu").then((module) => ({ default: module.ViewerMenu }))),

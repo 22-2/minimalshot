@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 
 use tauri_plugin_global_shortcut::Shortcut;
 
-use crate::capture::{Captured, ScreenBounds};
+use crate::capture::{Captured, MonitorGeometry, ScreenBounds};
 use crate::config::{Config, ExternalTool};
 use crate::editor_pool::EditorPool;
 use crate::store::{Shot, ShotStore};
@@ -65,6 +65,15 @@ pub struct ViewerMenuRequest {
     pub load: ViewerMenuLoad,
 }
 
+#[derive(Clone)]
+pub struct PreviewCapture {
+    pub id: u32,
+    pub monitor: MonitorGeometry,
+    pub origin: Option<(i32, i32)>,
+    pub ready: bool,
+    pub thumbnail: image::RgbaImage,
+}
+
 pub struct AppState {
     pub capture_lock: Mutex<()>,
     pub config: Mutex<Config>,
@@ -77,6 +86,8 @@ pub struct AppState {
     pub region_previous_foreground: std::sync::atomic::AtomicIsize,
     pub pending_captures: Mutex<HashMap<u32, PendingCapture>>,
     pub pending_capture_sounds: AtomicU32,
+    pub previews: Mutex<HashMap<String, PreviewCapture>>,
+    pub latest_preview_id: AtomicU32,
     pub save_lock: Mutex<()>,
     pub auto_copy_lock: Mutex<u32>,
     /// 領域選択中の全画面画像。選択が確定するまで保持する。
@@ -104,6 +115,8 @@ impl AppState {
             region_previous_foreground: std::sync::atomic::AtomicIsize::new(0),
             pending_captures: Mutex::new(HashMap::new()),
             pending_capture_sounds: AtomicU32::new(0),
+            previews: Mutex::new(HashMap::new()),
+            latest_preview_id: AtomicU32::new(0),
             save_lock: Mutex::new(()),
             auto_copy_lock: Mutex::new(0),
             pending_region: Mutex::new(None),

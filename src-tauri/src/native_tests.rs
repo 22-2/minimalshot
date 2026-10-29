@@ -230,6 +230,16 @@ fn prewarmed_windows_display_captures_before_auto_save() {
             crate::setup_tray(app.handle())?;
             Ok(())
         })
+        .on_window_event(|window, event| {
+            if matches!(event, tauri::WindowEvent::Destroyed) {
+                let state = window.state::<AppState>();
+                crate::release_capture_preview(&state, window.label());
+                let id = state.viewers.lock().unwrap().remove(window.label());
+                if let Some(id) = id {
+                    state.shots.remove(id);
+                }
+            }
+        })
         .manage(frontend.clone())
         .manage(AppState::new(config, directory.path().join("config.toml")))
         .invoke_handler(tauri::generate_handler![
@@ -241,6 +251,9 @@ fn prewarmed_windows_display_captures_before_auto_save() {
             commands::prepare_region,
             commands::shot_info,
             commands::shot_png,
+            commands::capture_preview_png,
+            commands::show_capture_preview,
+            commands::open_capture_preview,
             region_png,
             region_frame,
         ])
@@ -473,12 +486,58 @@ fn prewarmed_windows_display_captures_before_auto_save() {
             )
             .unwrap();
             assert_eq!(frontend.shown.lock().unwrap().len(), 3);
-            assert_eq!(handle.webview_windows().len(), windows_before);
-            assert_eq!(state.shots.len(), shots_before);
+            assert_eq!(handle.webview_windows().len(), windows_before + 1);
+            assert_eq!(state.shots.len(), shots_before + 1);
             assert!(state.pending_captures.lock().unwrap().is_empty());
+            let preview = handle
+                .get_webview_window(&format!("{}4", windows::PREVIEW_PREFIX))
+                .unwrap();
+            wait_for("capture preview is visible", || {
+                preview.is_visible().unwrap_or(false)
+            });
+            let work = handle.primary_monitor().unwrap().unwrap();
+            let work = work.work_area();
+            let position = preview.outer_position().unwrap();
+            let size = preview.outer_size().unwrap();
+            assert!(position.x >= work.position.x && position.y >= work.position.y);
+            assert!(
+                i64::from(position.x) + i64::from(size.width)
+                    <= i64::from(work.position.x) + i64::from(work.size.width)
+            );
+            assert!(
+                i64::from(position.y) + i64::from(size.height)
+                    <= i64::from(work.position.y) + i64::from(work.size.height)
+            );
+            preview
+                .eval("document.querySelector('.capture-preview').click()")
+                .unwrap();
+            wait_for("preview opens its image", || {
+                state.viewers.lock().unwrap().shot_id("viewer-4") == Some(4)
+                    || handle
+                        .webview_windows()
+                        .keys()
+                        .any(|label| state.viewers.lock().unwrap().shot_id(label) == Some(4))
+            });
+            let viewer = handle
+                .webview_windows()
+                .into_iter()
+                .find(|(label, _)| state.viewers.lock().unwrap().shot_id(label) == Some(4))
+                .unwrap()
+                .1;
+            wait_for("preview viewer is visible", || {
+                viewer.is_visible().unwrap_or(false)
+            });
+            assert!(state
+                .shots
+                .with(4, |shot| Ok(shot.saved_path.is_some()))
+                .unwrap());
+            viewer.destroy().unwrap();
+            wait_for("preview viewer releases its image", || {
+                state.shots.len() == shots_before
+            });
             let hidden_path = directory.path().join("shot_2.png");
             assert_eq!(image::open(&hidden_path).unwrap().into_rgba8(), imported);
-            // 保存失敗でも、表示されない画像を保持し続けない。
+            // 保存失敗時もプレビューは表示され、閉じたら画像を解放する。
             state.config.lock().unwrap().storage.directory = first.to_string_lossy().into_owned();
             assert!(actions::finish_capture(
                 &handle,
@@ -490,7 +549,13 @@ fn prewarmed_windows_display_captures_before_auto_save() {
                 crate::state::CaptureKind::Fullscreen,
             )
             .is_err());
-            assert_eq!(state.shots.len(), shots_before);
+            assert!(handle
+                .get_webview_window(&format!("{}5", windows::PREVIEW_PREFIX))
+                .is_some());
+            windows::dismiss_capture_previews(&handle);
+            wait_for("failed preview releases its image", || {
+                state.shots.len() == shots_before
+            });
             assert!(state.pending_captures.lock().unwrap().is_empty());
             for label in shown {
                 handle

@@ -294,6 +294,79 @@ pub async fn shot_png(window: WebviewWindow, state: State<'_, AppState>) -> AppR
 }
 
 #[tauri::command]
+pub async fn capture_preview_png(
+    window: WebviewWindow,
+    state: State<'_, AppState>,
+) -> AppResult<Response> {
+    let thumbnail = state
+        .previews
+        .lock()
+        .unwrap()
+        .get(window.label())
+        .map(|preview| preview.thumbnail.clone())
+        .ok_or_else(|| AppError::msg("プレビューが見つかりません"))?;
+    preview_png(thumbnail).await
+}
+
+#[tauri::command]
+pub async fn show_capture_preview(window: WebviewWindow) -> AppResult<()> {
+    for _ in 0..100 {
+        let ready = window
+            .state::<AppState>()
+            .previews
+            .lock()
+            .unwrap()
+            .get(window.label())
+            .map(|preview| preview.ready);
+        match ready {
+            Some(true) => {
+                window.show()?;
+                return Ok(());
+            }
+            None => return Ok(()),
+            Some(false) => tauri::async_runtime::spawn_blocking(|| {
+                std::thread::sleep(std::time::Duration::from_millis(10))
+            })
+            .await
+            .map_err(|e| AppError::msg(e.to_string()))?,
+        }
+    }
+    Err(AppError::msg("プレビューの表示準備ができませんでした"))
+}
+
+#[tauri::command]
+pub async fn open_capture_preview(app: AppHandle, window: WebviewWindow) -> AppResult<()> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let preview = state
+            .previews
+            .lock()
+            .unwrap()
+            .remove(window.label())
+            .ok_or_else(|| AppError::msg("プレビューが見つかりません"))?;
+        let dimensions = state
+            .shots
+            .with(preview.id, |shot| Ok(shot.image.dimensions()))?;
+        if let Err(error) = crate::windows::open_viewer(
+            &app,
+            preview.id,
+            dimensions,
+            &preview.monitor,
+            preview.origin,
+            &state.config().viewer,
+        ) {
+            state.shots.remove(preview.id);
+            let _ = window.destroy();
+            return Err(error);
+        }
+        window.destroy()?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| AppError::msg(e.to_string()))?
+}
+
+#[tauri::command]
 pub async fn editor_png(window: WebviewWindow, state: State<'_, AppState>) -> AppResult<Response> {
     let id = editor_shot_id(&window)?;
     let image = state.shots.with(id, |shot| Ok(shot.image.clone()))?;

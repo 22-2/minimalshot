@@ -18,6 +18,7 @@ use crate::windows;
 pub fn start_capture(app: &AppHandle, kind: CaptureKind) -> AppResult<()> {
     let state = app.state::<AppState>();
     let _capture = state.capture_lock.lock().unwrap();
+    windows::dismiss_capture_previews(app);
     match kind {
         CaptureKind::Window => finish_capture(app, capture::focused_window()?, None, kind),
         CaptureKind::Fullscreen => {
@@ -82,6 +83,8 @@ pub fn finish_capture(
     let state = app.state::<AppState>();
     let config = state.config();
     let dimensions = captured.image.dimensions();
+    let show_preview = !config.capture.actions_for(kind).open_viewer;
+    let thumbnail = show_preview.then(|| image::imageops::thumbnail(&captured.image, 528, 360));
     let id = state.shots.insert(captured.image);
 
     let pending = PendingCapture {
@@ -89,11 +92,18 @@ pub fn finish_capture(
         kind,
         shot: state.shots.get(id)?,
     };
-    if !config.capture.actions_for(kind).open_viewer {
+    if let Some(thumbnail) = thumbnail {
+        state
+            .latest_preview_id
+            .fetch_max(id, std::sync::atomic::Ordering::Relaxed);
+        // プレビューの表示と保存・コピーを並行させ、遅い保存先を待たせない。
+        let preview = windows::open_capture_preview(app, id, captured.monitor, origin, thumbnail);
         let result = complete_capture(app, None, id, pending);
-        // 成否に関わらず、窓に所有されない画像はここで解放する。
-        state.shots.remove(id);
+        if preview.is_err() {
+            state.shots.remove(id);
+        }
         result?;
+        preview?;
         state
             .pending_capture_sounds
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);

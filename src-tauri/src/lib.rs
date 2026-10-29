@@ -77,6 +77,12 @@ fn show_capture_error(app: &AppHandle, error: &error::AppError) {
         .show(|_| {});
 }
 
+fn release_capture_preview(state: &AppState, label: &str) {
+    if let Some(preview) = state.previews.lock().unwrap().remove(label) {
+        state.shots.remove(preview.id);
+    }
+}
+
 fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     let region = MenuItem::with_id(app, "region", t("tray.region"), true, None::<&str>)?;
     let window = MenuItem::with_id(app, "window", t("tray.window"), true, None::<&str>)?;
@@ -253,6 +259,7 @@ pub fn run() {
                     }
                 }
             }
+            release_capture_preview(&state, window.label());
             let id = state.viewers.lock().unwrap().remove(window.label());
             if let Some(id) = id {
                 state.pending_captures.lock().unwrap().remove(&id);
@@ -277,6 +284,9 @@ pub fn run() {
             commands::capture,
             commands::shot_info,
             commands::viewer_session,
+            commands::capture_preview_png,
+            commands::show_capture_preview,
+            commands::open_capture_preview,
             commands::viewer_menu_available,
             commands::open_viewer_menu,
             commands::viewer_menu_state,

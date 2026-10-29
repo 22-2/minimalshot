@@ -67,6 +67,9 @@ export const api = {
   importConfig: () => invoke<Config | null>("import_config"),
   capture: (kind: CaptureKind) => invoke<void>("capture", { kind }),
 
+  capturePreviewPng: () => invoke<BinaryPayload>("capture_preview_png").then(toBytes),
+  showCapturePreview: () => invoke<void>("show_capture_preview"),
+  openCapturePreview: () => invoke<void>("open_capture_preview"),
   shotInfo: () => invoke<ShotInfo>("shot_info"),
   viewerSession: () => invoke<number | null>("viewer_session"),
   viewerMenuAvailable: () => invoke<boolean>("viewer_menu_available"),

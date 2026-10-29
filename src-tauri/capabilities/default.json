@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Windows of MinimalShot: viewers, editors, context menu, region overlay, settings and about",
-  "windows": ["viewer-*", "editor-*", "context-menu", "region", "settings", "about"],
+  "windows": ["viewer-*", "editor-*", "capture-preview-*", "context-menu", "region", "settings", "about"],
   "permissions": [
     "core:default",
     "core:window:allow-close",

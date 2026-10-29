@@ -9,7 +9,7 @@ use crate::config::{Viewer, ViewerLayout, ViewerSize};
 use crate::error::AppResult;
 use crate::i18n::t;
 use crate::state::{
-    AppState, ViewerMenuAction, ViewerMenuLoad, ViewerMenuRequest, ViewerMenuState,
+    AppState, PreviewCapture, ViewerMenuAction, ViewerMenuLoad, ViewerMenuRequest, ViewerMenuState,
 };
 
 pub const REGION_LABEL: &str = "region";
@@ -17,6 +17,7 @@ pub const SETTINGS_LABEL: &str = "settings";
 pub const ABOUT_LABEL: &str = "about";
 pub const VIEWER_PREFIX: &str = "viewer-";
 pub const EDITOR_PREFIX: &str = "editor-";
+pub const PREVIEW_PREFIX: &str = "capture-preview-";
 /// `viewer-` で始めない。ビューアの予備窓を探す処理とラベルが衝突する。
 pub const VIEWER_MENU_LABEL: &str = "context-menu";
 // src/styles/tokens.css の --color-canvas。WebView の最初のフレームも白くしない。
@@ -401,6 +402,128 @@ pub fn clamp_position(
         desired.0.min(max_x).max(monitor.x),
         desired.1.min(max_y).max(monitor.y),
     )
+}
+
+/// 次の撮影にプレビュー自身が写り込まないよう、撮影前に閉じる。
+pub fn dismiss_capture_previews(app: &AppHandle) {
+    let state = app.state::<AppState>();
+    let previews: Vec<_> = state.previews.lock().unwrap().drain().collect();
+    for (label, preview) in previews {
+        state.shots.remove(preview.id);
+        if let Some(window) = app.get_webview_window(&label) {
+            let _ = window.destroy();
+        }
+    }
+}
+
+/// タスクバーを除く作業領域の右下に、撮影画像の一時プレビューを置く。
+pub fn open_capture_preview(
+    app: &AppHandle,
+    id: u32,
+    monitor: MonitorGeometry,
+    origin: Option<(i32, i32)>,
+    thumbnail: image::RgbaImage,
+) -> AppResult<()> {
+    let label = format!("{PREVIEW_PREFIX}{id}");
+    let state = app.state::<AppState>();
+    let old = {
+        let mut previews = state.previews.lock().unwrap();
+        if state
+            .latest_preview_id
+            .load(std::sync::atomic::Ordering::Relaxed)
+            != id
+        {
+            state.shots.remove(id);
+            return Ok(());
+        }
+        let old: Vec<(String, PreviewCapture)> = previews.drain().collect();
+        previews.insert(
+            label.clone(),
+            PreviewCapture {
+                id,
+                monitor,
+                origin,
+                ready: false,
+                thumbnail,
+            },
+        );
+        old
+    };
+    for (previous, preview) in old {
+        state.shots.remove(preview.id);
+        if let Some(window) = app.get_webview_window(&previous) {
+            let _ = window.destroy();
+        }
+    }
+    let result = (|| -> AppResult<()> {
+        let area = app
+            .available_monitors()?
+            .into_iter()
+            .find(|m| m.position().x == monitor.x && m.position().y == monitor.y)
+            .map(|m| *m.work_area());
+        let (x, y, width, height) = area.map_or(
+            (monitor.x, monitor.y, monitor.width, monitor.height),
+            |rect| {
+                (
+                    rect.position.x,
+                    rect.position.y,
+                    rect.size.width,
+                    rect.size.height,
+                )
+            },
+        );
+        let scale = monitor.scale.max(0.1);
+        let margin = (16.0 * scale).round() as u32;
+        let w = ((264.0 * scale).round() as u32)
+            .min(width.saturating_sub(margin * 2))
+            .max(1);
+        let h = ((180.0 * scale).round() as u32)
+            .min(height.saturating_sub(margin * 2))
+            .max(1);
+        let builder = window_builder(app, &label)
+            .title(t("app.name"))
+            .decorations(false)
+            .shadow(false)
+            .resizable(false)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .visible(false)
+            .focused(false);
+        #[cfg(windows)]
+        let builder = builder
+            .transparent(true)
+            .background_color(Color(0, 0, 0, 0));
+        #[cfg(not(windows))]
+        let builder = builder.background_color(BACKGROUND);
+        let window = builder.build()?;
+        window.set_size(PhysicalSize::new(w, h))?;
+        window.set_position(PhysicalPosition::new(
+            x + width.saturating_sub(w + margin) as i32,
+            y + height.saturating_sub(h + margin) as i32,
+        ))?;
+        let mut previews = state.previews.lock().unwrap();
+        if let Some(preview) = previews.get_mut(&label) {
+            preview.ready = true;
+        } else {
+            drop(previews);
+            let _ = window.destroy();
+            return Ok(());
+        }
+        drop(previews);
+        let handle = window.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            std::thread::sleep(std::time::Duration::from_secs(15));
+            let _ = handle.destroy();
+        });
+        Ok(())
+    })();
+    if result.is_err() {
+        state.previews.lock().unwrap().remove(&label);
+        if let Some(window) = app.get_webview_window(&label) {
+            let _ = window.destroy();
+        }
+    }
+    result
 }
 
 pub fn open_viewer(
