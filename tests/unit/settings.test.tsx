@@ -78,15 +78,51 @@ describe("Settings", () => {
     render(<Settings />);
     const region = await openMode(user, "領域をキャプチャ");
 
+    await user.click(within(region).getByRole("switch", { name: "自動で画像を保存する" }));
     await user.click(within(region).getByRole("combobox", { name: "クリップボードへコピー" }));
     await user.click(await screen.findByRole("option", { name: "パス（保存時のみ）" }));
-    await user.click(within(region).getByRole("switch", { name: "自動で画像を保存する" }));
 
     await expectSaved({ capture: { region: { auto_save: true, auto_copy: "path" } } });
     const config = saved.at(-1) as ReturnType<typeof defaultConfig>;
     expect(config.capture.region).toEqual({ auto_save: true, auto_copy: "path", open_viewer: true });
     expect(config.capture.window).toBeUndefined();
     expect(config.capture).toMatchObject({ auto_save: false, auto_copy: "image" });
+  });
+
+  it("only allows copying the path while auto-save is enabled", async () => {
+    const user = userEvent.setup();
+    render(<Settings />);
+    const region = await openMode(user, "領域をキャプチャ");
+    const copy = within(region).getByRole("combobox", { name: "クリップボードへコピー" });
+    const save = within(region).getByRole("switch", { name: "自動で画像を保存する" });
+
+    await user.click(copy);
+    expect(await screen.findByRole("option", { name: "パス（保存時のみ）" })).toHaveAttribute("aria-disabled", "true");
+    await user.keyboard("{Escape}");
+    await user.click(save);
+    await user.click(copy);
+    await user.click(await screen.findByRole("option", { name: "パス（保存時のみ）" }));
+    await user.click(save);
+    await expectSaved({ capture: { region: { auto_save: false, auto_copy: "none" } } });
+    expect(copy).toHaveTextContent("しない");
+    await user.click(save);
+    expect(copy).toHaveTextContent("しない");
+  });
+
+  it("treats a legacy path setting without auto-save as no copy", async () => {
+    const config = defaultConfig();
+    config.capture.auto_copy = "path";
+    mockIPC((cmd) => {
+      if (cmd === "get_config") return config;
+      if (cmd === "get_default_config") return defaultConfig();
+    });
+    const user = userEvent.setup();
+    render(<Settings />);
+    const region = await openMode(user, "領域をキャプチャ");
+    const copy = within(region).getByRole("combobox", { name: "クリップボードへコピー" });
+    expect(copy).toHaveTextContent("しない");
+    await user.click(copy);
+    expect(await screen.findByRole("option", { name: "パス（保存時のみ）" })).toHaveAttribute("aria-disabled", "true");
   });
 
   it("disables the viewer for one mode while preserving its output actions", async () => {

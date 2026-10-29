@@ -131,9 +131,11 @@ type ConfigPageProps = { draft: Config; defaults: Config; update: Update };
 /** モードごとの上書きが無ければ、共通の既定値で動く。 */
 function effectiveActions(draft: Config, kind: ScreenCaptureKind): CaptureActions {
   const override = draft.capture[kind];
+  const autoSave = override?.auto_save ?? draft.capture.auto_save;
+  const autoCopy = override?.auto_copy ?? draft.capture.auto_copy;
   return {
-    auto_save: override?.auto_save ?? draft.capture.auto_save,
-    auto_copy: override?.auto_copy ?? draft.capture.auto_copy,
+    auto_save: autoSave,
+    auto_copy: !autoSave && autoCopy === "path" ? "none" : autoCopy,
     open_viewer: override?.open_viewer ?? draft.capture.open_viewer,
   };
 }
@@ -175,10 +177,10 @@ function CaptureModeSettings(props: ConfigPageProps & { kind: ScreenCaptureKind;
     >
       <CaptureHotkeys {...props} />
       <SettingItem name={t("settings.autoCopy")} modified={actions.auto_copy !== defaultActions.auto_copy}>
-        {(ids) => <Dropdown {...ids} value={actions.auto_copy} options={autoCopyOptions} onChange={(v) => change("auto_copy", v)} />}
+        {(ids) => <Dropdown {...ids} value={actions.auto_copy} options={autoCopyOptions.map((option) => ({ ...option, disabled: option.value === "path" && !actions.auto_save }))} onChange={(v) => change("auto_copy", v)} />}
       </SettingItem>
       <SettingItem name={t("settings.autoSave")} modified={actions.auto_save !== defaultActions.auto_save}>
-        {(ids) => <Toggle {...ids} checked={actions.auto_save} onChange={(v) => change("auto_save", v)} />}
+        {(ids) => <Toggle {...ids} checked={actions.auto_save} onChange={(v) => props.update("capture", props.kind, { ...props.draft.capture[props.kind], ...actions, auto_save: v, auto_copy: !v && actions.auto_copy === "path" ? "none" : actions.auto_copy })} />}
       </SettingItem>
       <SettingItem name={t("settings.hideViewer")} description={t("settings.hideViewerNote")} modified={actions.open_viewer !== defaultActions.open_viewer}>
         {(ids) => <Toggle {...ids} checked={!actions.open_viewer} onChange={(v) => change("open_viewer", !v)} />}

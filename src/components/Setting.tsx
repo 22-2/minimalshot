@@ -86,7 +86,7 @@ export function TextInput(props: ControlIds & { value: string; placeholder?: str
 
 export function Dropdown<T extends string>(props: ControlIds & {
   value: T;
-  options: { value: T; label: string }[];
+  options: { value: T; label: string; disabled?: boolean }[];
   onChange: (value: T) => void;
 }) {
   return (
@@ -101,7 +101,7 @@ export function Dropdown<T extends string>(props: ControlIds & {
         <Select.Content className="menu select-content" position="popper" sideOffset={2} align="end">
           <Select.Viewport>
             {props.options.map((option) => (
-              <Select.Item key={option.value} value={option.value} className="menu-item">
+              <Select.Item key={option.value} value={option.value} disabled={option.disabled} className="menu-item">
                 <Select.ItemText>{option.label}</Select.ItemText>
                 <Select.ItemIndicator className="menu-trailing">
                   <Check aria-hidden />
