@@ -157,15 +157,28 @@ pub struct Storage {
     pub format: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Viewer {
     pub always_on_top: bool,
     pub confirm_on_close: bool,
     pub layout: ViewerLayout,
+    pub zoom_sensitivity: u32,
     /// 「大きさを記憶する」で最後に使ったビューアの大きさ（論理ピクセル）。
     #[serde(skip_serializing_if = "Option::is_none")]
     pub remembered_size: Option<ViewerSize>,
+}
+
+impl Default for Viewer {
+    fn default() -> Self {
+        Self {
+            always_on_top: false,
+            confirm_on_close: false,
+            layout: ViewerLayout::default(),
+            zoom_sensitivity: 100,
+            remembered_size: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -293,6 +306,9 @@ impl Default for External {
 impl Config {
     /// 保存とインポートで同じ検証を行い、不正な内容を実行中の設定へ反映しない。
     pub fn validate(&self) -> AppResult<()> {
+        if !(10..=200).contains(&self.viewer.zoom_sensitivity) {
+            return Err(AppError::msg("ホイールのズーム量は 10〜200 の範囲で指定してください"));
+        }
         crate::hotkeys::parse_hotkeys(&self.hotkeys)?;
         crate::paths::render_save_path(
             &self.storage.directory,
@@ -360,6 +376,17 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn zoom_sensitivity_defaults_and_round_trips() {
+        let old = Config::parse("[viewer]\nalways_on_top = true\n").unwrap();
+        assert_eq!(old.viewer.zoom_sensitivity, 100);
+        let mut config = Config::default();
+        config.viewer.zoom_sensitivity = 50;
+        assert_eq!(Config::parse(&config.to_toml().unwrap()).unwrap(), config);
+        config.viewer.zoom_sensitivity = 0;
+        assert!(config.validate().is_err());
+    }
 
     #[test]
     fn parses_reference_config() {

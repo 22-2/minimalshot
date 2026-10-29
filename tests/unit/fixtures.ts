@@ -5,7 +5,7 @@ export function defaultConfig(): Config {
     hotkeys: { region: ["Ctrl+PrintScreen"], window: ["Shift+PrintScreen"], fullscreen: ["Alt+PrintScreen"], desktop: [], clipboard: [] },
     capture: { auto_save: false, auto_copy: "image", open_viewer: true, clipboard: { auto_save: false } },
     storage: { directory: "{pictures}/{appname}", format: "%Y-%m/%Y-%m-%d_%H-%M-%S.png" },
-    viewer: { always_on_top: false, confirm_on_close: false, layout: "source" },
+    viewer: { always_on_top: false, confirm_on_close: false, layout: "source", zoom_sensitivity: 100 },
     external: {
       tools: [
         { name: "ペイント", command: "mspaint.exe", args: '"${file}"', hide_console: false, copy_stdout: false },

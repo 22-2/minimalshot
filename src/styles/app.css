@@ -1082,3 +1082,6 @@ html[data-view="region"] #root {
     padding: var(--space-3);
   }
 }
+
+.zoom-sensitivity-control { display: flex; align-items: center; gap: 8px; }
+.zoom-sensitivity-control input { width: 5.5rem; }

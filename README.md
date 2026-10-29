@@ -75,6 +75,7 @@ layout = "source" # source: 撮影元に重ねる / framed: 16:9 の窓に余白
 # [viewer.remembered_size]
 # width = 720
 # height = 480
+zoom_sensitivity = 100 # ホイールのズーム量（10〜200%、100が標準）
 always_on_top = false
 confirm_on_close = false
 

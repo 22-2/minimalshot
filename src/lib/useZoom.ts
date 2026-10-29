@@ -9,7 +9,7 @@ const reducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce
  * ホイールで目標の表示を更新し、描画は requestAnimationFrame で目標へ追従させる。
  * React の再描画を介さず DOM の transform を直接書き換えるので、連続したホイールでも引っかからない。
  */
-export function useZoom(stageRef: RefObject<HTMLElement | null>, imageRef: RefObject<HTMLElement | null>, image: Size | null, layout: ViewerLayout) {
+export function useZoom(stageRef: RefObject<HTMLElement | null>, imageRef: RefObject<HTMLElement | null>, image: Size | null, layout: ViewerLayout, sensitivity: number) {
   const current = useRef<View | null>(null);
   const target = useRef<View | null>(null);
   const mode = useRef<"initial" | "fit" | "manual">("initial");
@@ -99,14 +99,14 @@ export function useZoom(stageRef: RefObject<HTMLElement | null>, imageRef: RefOb
       event.preventDefault();
       const base = target.current ?? defaultView(image, stageSize());
       const rect = stage.getBoundingClientRect();
-      const zoomed = zoomAt(base, wheelFactor(event.deltaY), { x: event.clientX - rect.left, y: event.clientY - rect.top });
+      const zoomed = zoomAt(base, wheelFactor(event.deltaY, sensitivity), { x: event.clientX - rect.left, y: event.clientY - rect.top });
       mode.current = "manual";
       setTarget(clampView(zoomed, image, stageSize()));
     };
     // React の onWheel は passive なので preventDefault できない。直接登録する
     stage.addEventListener("wheel", onWheel, { passive: false });
     return () => stage.removeEventListener("wheel", onWheel);
-  }, [defaultView, image, setTarget, stageRef, stageSize]);
+  }, [defaultView, image, sensitivity, setTarget, stageRef, stageSize]);
 
   const panBy = (dx: number, dy: number) => {
     if (!target.current || !image) return;

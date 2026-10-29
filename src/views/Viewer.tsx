@@ -32,7 +32,7 @@ function completedActionLabels(actions: CompletedActions): string[] {
 
 export function Viewer() {
   const viewer = useViewer();
-  const { info, imageUrl, status, tools, confirmOnClose, layout, load } = viewer;
+  const { info, imageUrl, status, tools, confirmOnClose, layout, zoomSensitivity, load } = viewer;
   const [pinned, setPinned] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [imageReady, setImageReady] = useState(false);
@@ -50,7 +50,7 @@ export function Viewer() {
   // 別ウィンドウのメニューから届く操作。listener を登録し直さず最新の状態で処理する。
   const menuAction = useRef<(action: ViewerMenuAction) => void>(() => {});
   const imageSize = useMemo(() => (info ? { width: info.width, height: info.height } : null), [info?.width, info?.height]);
-  const zoom = useZoom(stageRef, imageRef, imageSize, layout);
+  const zoom = useZoom(stageRef, imageRef, imageSize, layout, zoomSensitivity);
   useWindowReady(session !== null && (imageReady || status?.tone === "error"));
 
   useEffect(() => {

@@ -341,7 +341,7 @@ test.describe("viewer", () => {
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.wheel(0, -600);
     await expect(title).not.toContainText(" 100%");
-    await expect.poll(async () => (await page.locator(".viewer-image").boundingBox())!.width).toBeGreaterThan(1800);
+    await expect.poll(async () => (await page.locator(".viewer-image").boundingBox())!.width).toBeGreaterThan(1150);
 
     const before = (await page.locator(".viewer-image").boundingBox())!.x;
     await page.mouse.down();

@@ -11,6 +11,7 @@ type ViewerState = {
   tools: ExternalTool[];
   confirmOnClose: boolean;
   layout: ViewerLayout;
+  zoomSensitivity: number;
   status: Status;
   load: () => Promise<void>;
   setSavedPath: (path: string | null) => void;
@@ -48,6 +49,7 @@ export const useViewer = create<ViewerState>((set, get) => {
     tools: [],
     confirmOnClose: false,
     layout: "source",
+    zoomSensitivity: 100,
     status: null,
     setSavedPath,
 
@@ -63,6 +65,7 @@ export const useViewer = create<ViewerState>((set, get) => {
           tools: config.external.tools,
           confirmOnClose: config.viewer.confirm_on_close,
           layout: config.viewer.layout,
+          zoomSensitivity: config.viewer.zoom_sensitivity,
         });
       } catch (error) {
         set({ status: { tone: "error", text: errorMessage(error) } });

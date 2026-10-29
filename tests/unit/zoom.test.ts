@@ -43,6 +43,9 @@ describe("zoomAt", () => {
   it("zooms in and out symmetrically", () => {
     expect(wheelFactor(-100) * wheelFactor(100)).toBeCloseTo(1);
     expect(wheelFactor(-100)).toBeGreaterThan(1);
+    expect(wheelFactor(-100, 50)).toBeLessThan(wheelFactor(-100, 100));
+    expect(wheelFactor(-100, 100)).toBeLessThan(wheelFactor(-100, 200));
+    expect(wheelFactor(-100, 100)).toBeCloseTo(Math.exp(0.1));
   });
 });
 
@@ -76,5 +79,28 @@ describe("approach", () => {
     const slow = approach(approach(start, goal, 120), goal, 120);
     expect(fast.scale).toBeCloseTo(slow.scale, 5);
     expect(isSettled(approach(start, goal, 1000), goal)).toBe(true);
+  });
+});
+
+
+describe("zoom interpolation", () => {
+  it("keeps the point under the cursor fixed throughout the animation", () => {
+    const start = { scale: 2, x: -1200, y: -800 };
+    const pivot = { x: 900, y: 700 };
+    const goal = zoomAt(start, 3, pivot);
+    const anchor = { x: (pivot.x - start.x) / start.scale, y: (pivot.y - start.y) / start.scale };
+    let view = start;
+    for (let i = 0; i < 30; i++) {
+      view = approach(view, goal, 16);
+      expect(view.x + anchor.x * view.scale).toBeCloseTo(pivot.x, 6);
+      expect(view.y + anchor.y * view.scale).toBeCloseTo(pivot.y, 6);
+    }
+  });
+
+  it("does not move backwards for nonpositive elapsed time and interpolates a pan", () => {
+    const start = { scale: 1, x: 0, y: 0 };
+    const goal = { scale: 1, x: 100, y: -50 };
+    expect(approach(start, goal, -1)).toEqual(start);
+    expect(approach(start, goal, 45).x).toBeCloseTo(100 * (1 - Math.exp(-1)));
   });
 });

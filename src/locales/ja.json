@@ -117,6 +117,8 @@
     "format": "ファイル名",
     "formatNote": "strftime 形式。例: %Y-%m/%Y-%m-%d_%H-%M-%S.png",
     "viewer": "ビューア",
+    "zoomSensitivity": "ホイールのズーム量",
+    "zoomSensitivityNote": "10〜200% で指定します。100% が標準です。",
     "viewerLayout": "初期表示",
     "viewerLayoutSource": "撮影元の位置に等倍で開く",
     "viewerLayoutFramed": "16:9 の窓に余白付きで開く",

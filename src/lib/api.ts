@@ -17,6 +17,7 @@ export type Config = {
     always_on_top: boolean;
     confirm_on_close: boolean;
     layout: ViewerLayout;
+    zoom_sensitivity: number;
     remembered_size?: ViewerSize;
   };
   external: { tools: ExternalTool[] };

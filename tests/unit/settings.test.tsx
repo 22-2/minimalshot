@@ -151,6 +151,17 @@ describe("Settings", () => {
     await expectSaved({ external: { tools: [defaultConfig().external.tools[1]] } });
   });
 
+  it("saves the wheel zoom sensitivity", async () => {
+    const user = userEvent.setup();
+    render(<Settings />);
+    await openTab(user, "ビューア");
+    const input = screen.getByRole("spinbutton", { name: "ホイールのズーム量" });
+    await user.clear(input);
+    await user.type(input, "50{Tab}");
+    expect(input).toHaveValue(50);
+    await expectSaved({ viewer: { zoom_sensitivity: 50 } });
+  });
+
   it("writes pending changes before the window closes", async () => {
     const user = userEvent.setup();
     render(<Settings />);

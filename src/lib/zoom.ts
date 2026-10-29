@@ -7,8 +7,7 @@ export const MIN_SCALE = 0.05;
 export const MAX_SCALE = 32;
 export const INITIAL_SCALE = 0.66;
 const INITIAL_STAGE_FILL = 0.9;
-/** ホイール1ノッチ（deltaY=100）で約1.2倍。指数にしておくと拡大と縮小が対称になる。 */
-const WHEEL_SENSITIVITY = 0.0018;
+const WHEEL_SENSITIVITY = 0.001;
 
 function centeredView(image: Size, stage: Size, scale: number): View {
   return {
@@ -37,8 +36,8 @@ export function actualSizeView(image: Size, stage: Size): View {
   return centeredView(image, stage, 1);
 }
 
-export function wheelFactor(deltaY: number): number {
-  return Math.exp(-deltaY * WHEEL_SENSITIVITY);
+export function wheelFactor(deltaY: number, sensitivity = 100): number {
+  return Math.exp(-deltaY * WHEEL_SENSITIVITY * sensitivity / 100);
 }
 
 /** カーソル下の画素が動かないように倍率を変える。 */
@@ -79,13 +78,20 @@ export function clampView(view: View, image: Size, stage: Size): View {
  * フレームレートに関係なく同じ速さで収束する（時定数 `tau` ミリ秒）。
  */
 export function approach(current: View, target: View, elapsedMs: number, tau = 45): View {
+  if (elapsedMs <= 0) return current;
   const t = 1 - Math.exp(-elapsedMs / tau);
   // 倍率は対数空間で補間すると、拡大と縮小で同じ手触りになる
   const scale = Math.exp(Math.log(current.scale) + (Math.log(target.scale) - Math.log(current.scale)) * t);
+  const span = target.scale - current.scale;
+  if (Math.abs(span) < 1e-6 * target.scale) {
+    return { scale: target.scale, x: current.x + (target.x - current.x) * t, y: current.y + (target.y - current.y) * t };
+  }
+  // 位置を倍率の進みに合わせ、拡縮中も中心の画素を固定する。
+  const scaleProgress = (scale - current.scale) / span;
   return {
     scale,
-    x: current.x + (target.x - current.x) * t,
-    y: current.y + (target.y - current.y) * t,
+    x: current.x + (target.x - current.x) * scaleProgress,
+    y: current.y + (target.y - current.y) * scaleProgress,
   };
 }
 

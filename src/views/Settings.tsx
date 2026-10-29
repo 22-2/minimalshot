@@ -238,6 +238,34 @@ function StoragePage({ draft, defaults, update, onOpenSaveFolder }: ConfigPagePr
   );
 }
 
+function ZoomSensitivityInput({ id, descriptionId, value, onChange }: { id: string; descriptionId?: string; value: number; onChange: (value: number) => void }) {
+  const [text, setText] = useState(String(value));
+  useEffect(() => setText(String(value)), [value]);
+  const commit = () => {
+    const number = Number(text);
+    if (text.trim() && Number.isInteger(number) && number >= 10 && number <= 200) onChange(number);
+    else setText(String(value));
+  };
+  return (
+    <div className="zoom-sensitivity-control">
+      <input
+        id={id}
+        aria-describedby={descriptionId}
+        className="text-input"
+        type="number"
+        min={10}
+        max={200}
+        step={1}
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}
+      />
+      <span>%</span>
+    </div>
+  );
+}
+
 function ViewerPage({ draft, defaults, update }: ConfigPageProps) {
   return (
     <SettingPage title={t("settings.viewer")}>
@@ -246,6 +274,9 @@ function ViewerPage({ draft, defaults, update }: ConfigPageProps) {
           {(ids) => (
             <Dropdown {...ids} value={draft.viewer.layout} options={viewerLayoutOptions} onChange={(v) => update("viewer", "layout", v)} />
           )}
+        </SettingItem>
+        <SettingItem name={t("settings.zoomSensitivity")} description={t("settings.zoomSensitivityNote")} modified={draft.viewer.zoom_sensitivity !== defaults.viewer.zoom_sensitivity}>
+          {(ids) => <ZoomSensitivityInput {...ids} value={draft.viewer.zoom_sensitivity} onChange={(value) => update("viewer", "zoom_sensitivity", value)} />}
         </SettingItem>
         <SettingItem name={t("settings.alwaysOnTop")} modified={draft.viewer.always_on_top !== defaults.viewer.always_on_top}>
           {(ids) => <Toggle {...ids} checked={draft.viewer.always_on_top} onChange={(v) => update("viewer", "always_on_top", v)} />}
