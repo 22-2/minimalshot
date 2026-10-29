@@ -7,14 +7,13 @@ import "./SettingEditor.css";
 export function SettingEditor(props: {
   title: string;
   description?: string;
-  modified?: boolean;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const titleId = useId();
   const panelId = useId();
   return (
-    <section className="setting-disclosure" data-modified={props.modified || undefined}>
+    <section className="setting-disclosure">
       <div className="setting-row">
         <h3 className="setting-row-heading">
           <button type="button" className="setting-row-trigger" aria-expanded={open} aria-controls={open ? panelId : undefined} onClick={() => setOpen(!open)}>

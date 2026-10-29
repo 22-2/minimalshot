@@ -172,7 +172,6 @@ function CaptureModeSettings(props: ConfigPageProps & { kind: ScreenCaptureKind;
   return (
     <SettingEditor
       title={props.title}
-      modified={shortcutsChanged(props.draft, props.defaults, props.kind) || JSON.stringify(actions) !== JSON.stringify(defaultActions)}
       description={t("settings.hotkeyNote")}
     >
       <CaptureHotkeys {...props} />
@@ -196,7 +195,6 @@ function ClipboardSettings(props: ConfigPageProps & { conflicts: Set<string> }) 
     <SettingEditor
       title={t("tray.clipboard")}
       description={t("settings.clipboardNote")}
-      modified={shortcutsChanged(props.draft, props.defaults, "clipboard") || autoSave !== defaultAutoSave}
     >
       <CaptureHotkeys {...props} kind="clipboard" title={t("tray.clipboard")} />
       <SettingItem name={t("settings.autoSave")} modified={autoSave !== defaultAutoSave}>
