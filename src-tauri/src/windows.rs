@@ -481,6 +481,7 @@ pub fn open_capture_preview(
     thumbnail: image::RgbaImage,
 ) -> AppResult<()> {
     let state = app.state::<AppState>();
+    let thumbnail_size = thumbnail.dimensions();
     let (label, spare, old) = {
         let mut previews = state.previews.lock().unwrap();
         if state
@@ -539,12 +540,20 @@ pub fn open_capture_preview(
         );
         let scale = monitor.scale.max(0.1);
         let margin = (16.0 * scale).round() as u32;
-        let w = ((264.0 * scale).round() as u32)
+        // 画像の縦横比を保ったまま、最大 264x180 に収まる大きさにする。
+        let max_w = ((264.0 * scale).round() as u32)
             .min(width.saturating_sub(margin * 2))
             .max(1);
-        let h = ((180.0 * scale).round() as u32)
+        let max_h = ((180.0 * scale).round() as u32)
             .min(height.saturating_sub(margin * 2))
             .max(1);
+        let (thumb_w, thumb_h) = (
+            thumbnail_size.0.max(1) as f64,
+            thumbnail_size.1.max(1) as f64,
+        );
+        let fit = (max_w as f64 / thumb_w).min(max_h as f64 / thumb_h);
+        let w = ((thumb_w * fit).round() as u32).clamp(1, max_w);
+        let h = ((thumb_h * fit).round() as u32).clamp(1, max_h);
         let window = if spare.is_some() {
             app.get_webview_window(&label)
                 .ok_or_else(|| crate::error::AppError::msg("予備のプレビューが見つかりません"))?
