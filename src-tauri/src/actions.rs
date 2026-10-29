@@ -84,7 +84,14 @@ pub fn finish_capture(
     let config = state.config();
     let dimensions = captured.image.dimensions();
     let show_preview = !config.capture.actions_for(kind).open_viewer;
-    let thumbnail = show_preview.then(|| image::imageops::thumbnail(&captured.image, 528, 360));
+    let thumbnail = show_preview.then(|| {
+        let size = crate::preview_size::fit_image(dimensions, (528, 360));
+        if size == dimensions {
+            captured.image.clone()
+        } else {
+            image::imageops::thumbnail(&captured.image, size.0, size.1)
+        }
+    });
     let id = state.shots.insert(captured.image);
 
     let pending = PendingCapture {

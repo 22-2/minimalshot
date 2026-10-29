@@ -9,6 +9,7 @@ mod hotkeys;
 mod i18n;
 mod imaging;
 mod paths;
+mod preview_size;
 mod region_window;
 mod state;
 mod store;

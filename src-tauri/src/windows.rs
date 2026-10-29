@@ -540,20 +540,18 @@ pub fn open_capture_preview(
         );
         let scale = monitor.scale.max(0.1);
         let margin = (16.0 * scale).round() as u32;
-        // 画像の縦横比を保ったまま、最大 264x180 に収まる大きさにする。
-        let max_w = ((264.0 * scale).round() as u32)
-            .min(width.saturating_sub(margin * 2))
-            .max(1);
+        // ステータスの高さは CapturePreview.css と揃える。
+        let status_height = (64.0 * scale).round() as u32;
+        let available_w = width.saturating_sub(margin * 2).max(1);
+        let available_h = height.saturating_sub(margin * 2).max(1);
+        // 画像は最大 264x180 に収め、元の物理ピクセル数より拡大しない。
+        let max_w = ((264.0 * scale).round() as u32).min(available_w).max(1);
         let max_h = ((180.0 * scale).round() as u32)
-            .min(height.saturating_sub(margin * 2))
+            .min(available_h.saturating_sub(status_height))
             .max(1);
-        let (thumb_w, thumb_h) = (
-            thumbnail_size.0.max(1) as f64,
-            thumbnail_size.1.max(1) as f64,
-        );
-        let fit = (max_w as f64 / thumb_w).min(max_h as f64 / thumb_h);
-        let w = ((thumb_w * fit).round() as u32).clamp(1, max_w);
-        let h = ((thumb_h * fit).round() as u32).clamp(1, max_h);
+        let (image_w, image_h) = crate::preview_size::fit_image(thumbnail_size, (max_w, max_h));
+        let w = image_w.max((200.0 * scale).round() as u32).min(available_w);
+        let h = image_h.saturating_add(status_height).min(available_h);
         let window = if spare.is_some() {
             app.get_webview_window(&label)
                 .ok_or_else(|| crate::error::AppError::msg("予備のプレビューが見つかりません"))?

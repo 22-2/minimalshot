@@ -69,9 +69,11 @@ export function CapturePreview() {
   return url && result ? (
     <button type="button" className="capture-preview" data-fading={fading || undefined}
       aria-label={t("viewer.openPreview")} onClick={open}>
+      <span className="capture-preview-image">
+        <img src={url} alt="" onLoad={() => void api.showCapturePreview().then(() => setShown(true)).catch(() => void getCurrentWindow().close())}
+          onError={() => void getCurrentWindow().close()} />
+      </span>
       <span className="capture-preview-status" aria-live="polite">{statusText(result)}</span>
-      <img src={url} alt="" onLoad={() => void api.showCapturePreview().then(() => setShown(true)).catch(() => void getCurrentWindow().close())}
-        onError={() => void getCurrentWindow().close()} />
     </button>
   ) : null;
 }

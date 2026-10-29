@@ -13,6 +13,7 @@ type MockOptions = {
   viewerSession?: number | null;
   playCaptureSound?: boolean;
   previewState?: { id: number; saved: boolean; copied: "none" | "image" | "path" | null; done: boolean; failed: boolean };
+  previewImageSize?: { width: number; height: number };
   /** true にすると、右クリックメニューを別ウィンドウへ出す経路を再現する。 */
   viewerMenu?: boolean;
   /** メニュー窓が起動時に取りに行く内容。 */
@@ -96,7 +97,7 @@ export async function installTauriMock(page: Page, options: MockOptions) {
       import_config: () => opts.importConfig ?? null,
       viewer_session: () => viewerSession,
       capture_preview_state: () => opts.previewState ?? { id: 1, saved: false, copied: "image", done: true, failed: false },
-      capture_preview_png: () => png(640, 360),
+      capture_preview_png: () => png(opts.previewImageSize?.width ?? 640, opts.previewImageSize?.height ?? 360),
       show_capture_preview: () => undefined,
       open_capture_preview: () => undefined,
       viewer_menu_available: () => opts.viewerMenu ?? false,
