@@ -404,6 +404,62 @@ pub fn clamp_position(
     )
 }
 
+fn preview_label(state: &AppState) -> String {
+    let number = state
+        .next_preview_label
+        .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        + 1;
+    format!("{PREVIEW_PREFIX}{number}")
+}
+
+fn build_capture_preview(app: &AppHandle, label: &str) -> AppResult<WebviewWindow> {
+    let builder = window_builder(app, label)
+        .title(t("app.name"))
+        .decorations(false)
+        .shadow(false)
+        .resizable(false)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .visible(false)
+        .focused(false);
+    #[cfg(windows)]
+    let builder = builder
+        .transparent(true)
+        .background_color(Color(0, 0, 0, 0));
+    #[cfg(not(windows))]
+    let builder = builder.background_color(BACKGROUND);
+    Ok(builder.build()?)
+}
+
+/// WebView の起動と画面読み込みを、撮影する前に済ませておく。
+pub fn prepare_capture_preview(app: &AppHandle) -> AppResult<()> {
+    let state = app.state::<AppState>();
+    let label = {
+        let mut spare = state.preview_spare.lock().unwrap();
+        if spare.is_some() {
+            return Ok(());
+        }
+        let label = preview_label(&state);
+        *spare = Some((label.clone(), false));
+        label
+    };
+    match build_capture_preview(app, &label) {
+        Ok(_) => {
+            let mut spare = state.preview_spare.lock().unwrap();
+            if let Some((reserved, ready)) = spare.as_mut() {
+                if *reserved == label {
+                    *ready = true;
+                }
+            }
+            Ok(())
+        }
+        Err(error) => {
+            *state.preview_spare.lock().unwrap() = None;
+            Err(error)
+        }
+    }
+}
+
 /// 次の撮影にプレビュー自身が写り込まないよう、撮影前に閉じる。
 pub fn dismiss_capture_previews(app: &AppHandle) {
     let state = app.state::<AppState>();
@@ -424,9 +480,8 @@ pub fn open_capture_preview(
     origin: Option<(i32, i32)>,
     thumbnail: image::RgbaImage,
 ) -> AppResult<()> {
-    let label = format!("{PREVIEW_PREFIX}{id}");
     let state = app.state::<AppState>();
-    let old = {
+    let (label, spare, old) = {
         let mut previews = state.previews.lock().unwrap();
         if state
             .latest_preview_id
@@ -436,6 +491,15 @@ pub fn open_capture_preview(
             state.shots.remove(id);
             return Ok(());
         }
+        let spare = {
+            let mut spare = state.preview_spare.lock().unwrap();
+            if spare.as_ref().is_some_and(|(_, ready)| *ready) {
+                spare.take().map(|(label, _)| label)
+            } else {
+                None
+            }
+        };
+        let label = spare.clone().unwrap_or_else(|| preview_label(&state));
         let old: Vec<(String, PreviewCapture)> = previews.drain().collect();
         previews.insert(
             label.clone(),
@@ -445,9 +509,10 @@ pub fn open_capture_preview(
                 origin,
                 ready: false,
                 thumbnail,
+                completed: Default::default(),
             },
         );
-        old
+        (label, spare, old)
     };
     for (previous, preview) in old {
         state.shots.remove(preview.id);
@@ -480,22 +545,12 @@ pub fn open_capture_preview(
         let h = ((180.0 * scale).round() as u32)
             .min(height.saturating_sub(margin * 2))
             .max(1);
-        let builder = window_builder(app, &label)
-            .title(t("app.name"))
-            .decorations(false)
-            .shadow(false)
-            .resizable(false)
-            .always_on_top(true)
-            .skip_taskbar(true)
-            .visible(false)
-            .focused(false);
-        #[cfg(windows)]
-        let builder = builder
-            .transparent(true)
-            .background_color(Color(0, 0, 0, 0));
-        #[cfg(not(windows))]
-        let builder = builder.background_color(BACKGROUND);
-        let window = builder.build()?;
+        let window = if spare.is_some() {
+            app.get_webview_window(&label)
+                .ok_or_else(|| crate::error::AppError::msg("予備のプレビューが見つかりません"))?
+        } else {
+            build_capture_preview(app, &label)?
+        };
         window.set_size(PhysicalSize::new(w, h))?;
         window.set_position(PhysicalPosition::new(
             x + width.saturating_sub(w + margin) as i32,
@@ -510,6 +565,11 @@ pub fn open_capture_preview(
             return Ok(());
         }
         drop(previews);
+        window.emit("capture-preview-load", id)?;
+        let app_for_spare = app.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            crate::report(prepare_capture_preview(&app_for_spare));
+        });
         let handle = window.clone();
         tauri::async_runtime::spawn_blocking(move || {
             std::thread::sleep(std::time::Duration::from_secs(15));

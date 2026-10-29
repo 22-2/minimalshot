@@ -67,10 +67,10 @@ export function Viewer() {
   }, []);
 
   useEffect(() => {
-    if (!imageReady || sounded.current) return;
+    if (!imageReady || !info || sounded.current) return;
     sounded.current = true;
-    playCaptureSound();
-  }, [imageReady]);
+    if (info.playCaptureSound) playCaptureSound();
+  }, [imageReady, info]);
 
   useEffect(() => {
     let disposed = false;

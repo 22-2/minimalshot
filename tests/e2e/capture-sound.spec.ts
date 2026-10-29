@@ -41,6 +41,14 @@ test("capture plays one common completion sound without a webview gesture", asyn
   expect((await notes(page)).notes).toBe(2);
 });
 
+test("opening a preview does not play the capture sound again", async ({ page }) => {
+  await observeAudio(page);
+  await installTauriMock(page, { label: "viewer-1", playCaptureSound: false });
+  await page.goto("/");
+  await expect.poll(() => commandNames(page)).toContain("show_window");
+  expect((await notes(page)).notes).toBe(0);
+});
+
 test("failed image loads do not play the completion sound", async ({ page }) => {
   await observeAudio(page);
   await installTauriMock(page, { label: "viewer-1", failures: { shot_png: "画像取得失敗" } });

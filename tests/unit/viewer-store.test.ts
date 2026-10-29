@@ -13,7 +13,7 @@ describe("viewer store", () => {
     mockIPC((cmd) => {
       if (cmd === "save_shot") return "C:/Pictures/MinimalShot/a.png";
     });
-    useViewer.setState({ info: { id: 1, width: 10, height: 10, savedPath: null } });
+    useViewer.setState({ info: { id: 1, width: 10, height: 10, savedPath: null, playCaptureSound: true } });
 
     await useViewer.getState().save();
 
@@ -47,7 +47,7 @@ describe("viewer store", () => {
 describe("viewer store save-as and delete", () => {
   beforeEach(() => {
     mockWindows("viewer-1");
-    useViewer.setState({ info: { id: 1, width: 10, height: 10, savedPath: null }, status: null });
+    useViewer.setState({ info: { id: 1, width: 10, height: 10, savedPath: null, playCaptureSound: true }, status: null });
   });
 
   it("keeps state unchanged when save-as is cancelled", async () => {
@@ -59,7 +59,7 @@ describe("viewer store save-as and delete", () => {
 
   it("forgets the saved path after deleting", async () => {
     mockIPC(() => undefined);
-    useViewer.setState({ info: { id: 1, width: 10, height: 10, savedPath: "C:/a.png" } });
+    useViewer.setState({ info: { id: 1, width: 10, height: 10, savedPath: "C:/a.png", playCaptureSound: true } });
     await useViewer.getState().deleteSaved();
     expect(useViewer.getState().info?.savedPath).toBeNull();
     expect(useViewer.getState().status).toEqual({ tone: "info", text: "ごみ箱に移動しました" });

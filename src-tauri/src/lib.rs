@@ -179,6 +179,7 @@ pub fn run() {
                 report(windows::prepare_region(&app));
                 report(windows::prepare_viewer_menu(&app));
                 report(windows::prepare_viewer(&app));
+                report(windows::prepare_capture_preview(&app));
             });
             Ok(())
         })
@@ -259,6 +260,16 @@ pub fn run() {
                     }
                 }
             }
+            if window.label().starts_with(windows::PREVIEW_PREFIX) {
+                let mut spare = state.preview_spare.lock().unwrap();
+                if spare
+                    .as_ref()
+                    .is_some_and(|(label, _)| label == window.label())
+                {
+                    *spare = None;
+                }
+                drop(spare);
+            }
             release_capture_preview(&state, window.label());
             let id = state.viewers.lock().unwrap().remove(window.label());
             if let Some(id) = id {
@@ -284,6 +295,7 @@ pub fn run() {
             commands::capture,
             commands::shot_info,
             commands::viewer_session,
+            commands::capture_preview_state,
             commands::capture_preview_png,
             commands::show_capture_preview,
             commands::open_capture_preview,

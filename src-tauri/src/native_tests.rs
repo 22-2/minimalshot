@@ -146,6 +146,20 @@ async fn region_png(
 }
 
 #[tauri::command]
+fn capture_preview_state(
+    window: WebviewWindow,
+    state: State<'_, AppState>,
+) -> Option<commands::CapturePreviewState> {
+    window
+        .state::<Arc<FrontendState>>()
+        .ready
+        .lock()
+        .unwrap()
+        .insert(window.label().to_owned());
+    commands::capture_preview_state(window, state)
+}
+
+#[tauri::command]
 fn viewer_session(window: WebviewWindow, state: State<'_, AppState>) -> Option<u32> {
     window
         .state::<Arc<FrontendState>>()
@@ -193,6 +207,14 @@ fn show_window(
             .insert(window.label().to_owned());
     }
     Ok(())
+}
+
+fn state_preview_ready(handle: &tauri::AppHandle, frontend: &FrontendState) -> bool {
+    let state = handle.state::<AppState>();
+    let spare = state.preview_spare.lock().unwrap();
+    spare
+        .as_ref()
+        .is_some_and(|(label, ready)| *ready && frontend.ready.lock().unwrap().contains(label))
 }
 
 fn wait_for(description: &str, condition: impl Fn() -> bool) {
@@ -251,6 +273,7 @@ fn prewarmed_windows_display_captures_before_auto_save() {
             commands::prepare_region,
             commands::shot_info,
             commands::shot_png,
+            capture_preview_state,
             commands::capture_preview_png,
             commands::show_capture_preview,
             commands::open_capture_preview,
@@ -266,6 +289,10 @@ fn prewarmed_windows_display_captures_before_auto_save() {
             let foreground = unsafe { GetForegroundWindow() };
             windows::prepare_region(&handle).unwrap();
             windows::prepare_viewer(&handle).unwrap();
+            windows::prepare_capture_preview(&handle).unwrap();
+            wait_for("prewarmed preview frontend", || {
+                state_preview_ready(&handle, &frontend)
+            });
             wait_for("prewarmed frontends", || {
                 frontend.ready.lock().unwrap().len() >= 2
             });
@@ -473,8 +500,16 @@ fn prewarmed_windows_display_captures_before_auto_save() {
                         && frontend.ready.lock().unwrap().contains(label)
                 })
             });
-            let windows_before = handle.webview_windows().len();
+            let spare_label = state
+                .preview_spare
+                .lock()
+                .unwrap()
+                .as_ref()
+                .unwrap()
+                .0
+                .clone();
             let shots_before = state.shots.len();
+            let preview_started = Instant::now();
             actions::finish_capture(
                 &handle,
                 Captured {
@@ -486,15 +521,26 @@ fn prewarmed_windows_display_captures_before_auto_save() {
             )
             .unwrap();
             assert_eq!(frontend.shown.lock().unwrap().len(), 3);
-            assert_eq!(handle.webview_windows().len(), windows_before + 1);
             assert_eq!(state.shots.len(), shots_before + 1);
             assert!(state.pending_captures.lock().unwrap().is_empty());
-            let preview = handle
-                .get_webview_window(&format!("{}4", windows::PREVIEW_PREFIX))
-                .unwrap();
+            let preview = handle.get_webview_window(&spare_label).unwrap();
             wait_for("capture preview is visible", || {
                 preview.is_visible().unwrap_or(false)
             });
+            eprintln!(
+                "prewarmed preview visible after {:?} (including save)",
+                preview_started.elapsed()
+            );
+            assert!(
+                state
+                    .previews
+                    .lock()
+                    .unwrap()
+                    .get(&spare_label)
+                    .unwrap()
+                    .completed
+                    .saved
+            );
             let work = handle.primary_monitor().unwrap().unwrap();
             let work = work.work_area();
             let position = preview.outer_position().unwrap();
@@ -527,10 +573,14 @@ fn prewarmed_windows_display_captures_before_auto_save() {
             wait_for("preview viewer is visible", || {
                 viewer.is_visible().unwrap_or(false)
             });
-            assert!(state
+            state
                 .shots
-                .with(4, |shot| Ok(shot.saved_path.is_some()))
-                .unwrap());
+                .with(4, |shot| {
+                    assert!(shot.saved_path.is_some());
+                    assert!(!shot.play_capture_sound);
+                    Ok(())
+                })
+                .unwrap();
             viewer.destroy().unwrap();
             wait_for("preview viewer releases its image", || {
                 state.shots.len() == shots_before
@@ -549,9 +599,12 @@ fn prewarmed_windows_display_captures_before_auto_save() {
                 crate::state::CaptureKind::Fullscreen,
             )
             .is_err());
-            assert!(handle
-                .get_webview_window(&format!("{}5", windows::PREVIEW_PREFIX))
-                .is_some());
+            assert!(state
+                .previews
+                .lock()
+                .unwrap()
+                .values()
+                .any(|preview| preview.id == 5));
             windows::dismiss_capture_previews(&handle);
             wait_for("failed preview releases its image", || {
                 state.shots.len() == shots_before

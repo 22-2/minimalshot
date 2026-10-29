@@ -19,6 +19,7 @@ pub struct ShotInfo {
     width: u32,
     height: u32,
     saved_path: Option<String>,
+    play_capture_sound: bool,
 }
 
 /// 予備の窓にもラベルがあるため、画像IDは割り当て表から取得する。
@@ -278,6 +279,7 @@ pub fn shot_info(window: WebviewWindow, state: State<'_, AppState>) -> AppResult
             id,
             width: shot.image.width(),
             height: shot.image.height(),
+            play_capture_sound: shot.play_capture_sound,
             saved_path: shot
                 .saved_path
                 .as_ref()
@@ -291,6 +293,31 @@ pub async fn shot_png(window: WebviewWindow, state: State<'_, AppState>) -> AppR
     let id = shot_id(&window)?;
     let image = state.shots.with(id, |shot| Ok(shot.image.clone()))?;
     preview_png(image).await
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CapturePreviewState {
+    id: u32,
+    #[serde(flatten)]
+    completed: crate::actions::CompletedActions,
+}
+
+#[tauri::command]
+pub fn capture_preview_state(
+    window: WebviewWindow,
+    state: State<'_, AppState>,
+) -> Option<CapturePreviewState> {
+    state
+        .previews
+        .lock()
+        .unwrap()
+        .get(window.label())
+        .filter(|preview| preview.ready)
+        .map(|preview| CapturePreviewState {
+            id: preview.id,
+            completed: preview.completed.clone(),
+        })
 }
 
 #[tauri::command]
@@ -344,9 +371,10 @@ pub async fn open_capture_preview(app: AppHandle, window: WebviewWindow) -> AppR
             .unwrap()
             .remove(window.label())
             .ok_or_else(|| AppError::msg("プレビューが見つかりません"))?;
-        let dimensions = state
-            .shots
-            .with(preview.id, |shot| Ok(shot.image.dimensions()))?;
+        let dimensions = state.shots.with(preview.id, |shot| {
+            shot.play_capture_sound = false;
+            Ok(shot.image.dimensions())
+        })?;
         if let Err(error) = crate::windows::open_viewer(
             &app,
             preview.id,

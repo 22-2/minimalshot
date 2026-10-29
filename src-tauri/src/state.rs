@@ -72,6 +72,7 @@ pub struct PreviewCapture {
     pub origin: Option<(i32, i32)>,
     pub ready: bool,
     pub thumbnail: image::RgbaImage,
+    pub completed: crate::actions::CompletedActions,
 }
 
 pub struct AppState {
@@ -88,6 +89,8 @@ pub struct AppState {
     pub pending_capture_sounds: AtomicU32,
     pub previews: Mutex<HashMap<String, PreviewCapture>>,
     pub latest_preview_id: AtomicU32,
+    pub preview_spare: Mutex<Option<(String, bool)>>,
+    pub next_preview_label: AtomicU32,
     pub save_lock: Mutex<()>,
     pub auto_copy_lock: Mutex<u32>,
     /// 領域選択中の全画面画像。選択が確定するまで保持する。
@@ -117,6 +120,8 @@ impl AppState {
             pending_capture_sounds: AtomicU32::new(0),
             previews: Mutex::new(HashMap::new()),
             latest_preview_id: AtomicU32::new(0),
+            preview_spare: Mutex::new(None),
+            next_preview_label: AtomicU32::new(0),
             save_lock: Mutex::new(()),
             auto_copy_lock: Mutex::new(0),
             pending_region: Mutex::new(None),

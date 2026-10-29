@@ -10,6 +10,7 @@ use crate::error::{AppError, AppResult};
 pub struct Shot {
     pub image: RgbaImage,
     pub saved_path: Option<PathBuf>,
+    pub play_capture_sound: bool,
 }
 
 /// ビューアウィンドウ1枚につき1件のキャプチャを保持する。
@@ -34,6 +35,7 @@ impl ShotStore {
             Arc::new(Mutex::new(Shot {
                 image,
                 saved_path: None,
+                play_capture_sound: true,
             })),
         );
         id

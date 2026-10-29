@@ -9,6 +9,7 @@ test("shows the image, opens it on click and cancels dismissal", async ({ page }
   await page.goto("/");
   const preview = page.getByRole("button", { name: "撮影した画像を開く" });
   await expect(preview.locator("img")).toBeVisible();
+  await expect(preview).toContainText("画像をコピーしました");
   await expect.poll(async () => (await calls(page)).some((call) => call.cmd === "show_capture_preview")).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("preview.png") });
   await preview.click();
@@ -27,4 +28,21 @@ test("fades and closes after a short preview", async ({ page }) => {
   await expect(preview).toHaveAttribute("data-fading", "true");
   await page.clock.fastForward(800);
   await expect.poll(async () => (await calls(page)).some((call) => call.cmd === "plugin:window|close")).toBe(true);
+});
+
+
+test("shows completed save and copy results, including after delayed updates", async ({ page }) => {
+  await installTauriMock(page, { label: "capture-preview-3", previewState: { id: 3, saved: false, copied: null, done: false, failed: false } });
+  await page.goto("/");
+  const preview = page.getByRole("button", { name: "撮影した画像を開く" });
+  await expect(preview).toContainText("自動処理中…");
+  await page.evaluate(() => (window as unknown as { __emit: (event: string, payload: unknown) => void }).__emit("capture-preview-actions", { id: 3, saved: true, copied: "path", done: true, failed: false }));
+  await expect(preview).toContainText("保存しました");
+  await expect(preview).toContainText("パスをコピーしました");
+});
+
+test("shows when neither action was performed", async ({ page }) => {
+  await installTauriMock(page, { label: "capture-preview-4", previewState: { id: 4, saved: false, copied: null, done: true, failed: false } });
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "撮影した画像を開く" })).toContainText("保存・コピーなし");
 });

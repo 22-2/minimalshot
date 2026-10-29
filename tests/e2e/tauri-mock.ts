@@ -11,6 +11,8 @@ type MockOptions = {
   delays?: Record<string, number>;
   holdFirst?: string[];
   viewerSession?: number | null;
+  playCaptureSound?: boolean;
+  previewState?: { id: number; saved: boolean; copied: "none" | "image" | "path" | null; done: boolean; failed: boolean };
   /** true にすると、右クリックメニューを別ウィンドウへ出す経路を再現する。 */
   viewerMenu?: boolean;
   /** メニュー窓が起動時に取りに行く内容。 */
@@ -93,6 +95,7 @@ export async function installTauriMock(page: Page, options: MockOptions) {
       export_config: () => opts.exportPath === undefined ? "D:/backup/MinimalShot-settings.toml" : opts.exportPath,
       import_config: () => opts.importConfig ?? null,
       viewer_session: () => viewerSession,
+      capture_preview_state: () => opts.previewState ?? { id: 1, saved: false, copied: "image", done: true, failed: false },
       capture_preview_png: () => png(640, 360),
       show_capture_preview: () => undefined,
       open_capture_preview: () => undefined,
@@ -107,7 +110,7 @@ export async function installTauriMock(page: Page, options: MockOptions) {
       open_editor: () => undefined,
       editor_session: () => opts.editorSession === undefined ? { id: 1, width: 640, height: 360 } : opts.editorSession,
       editor_png: () => png(640, 360),
-      shot_info: () => ({ id: viewerSession, width: 640, height: 360, savedPath }),
+      shot_info: () => ({ id: viewerSession, width: 640, height: 360, savedPath, playCaptureSound: opts.playCaptureSound ?? true }),
       shot_png: () => png(640, 360),
       save_shot: () => (savedPath = "C:\\Users\\me\\Pictures\\MinimalShot\\2026-10\\2026-10-09_12-00-00.png"),
       copy_shot_image: () => undefined,

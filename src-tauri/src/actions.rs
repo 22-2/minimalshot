@@ -98,22 +98,24 @@ pub fn finish_capture(
             .fetch_max(id, std::sync::atomic::Ordering::Relaxed);
         // プレビューの表示と保存・コピーを並行させ、遅い保存先を待たせない。
         let preview = windows::open_capture_preview(app, id, captured.monitor, origin, thumbnail);
+        if preview.is_ok() {
+            state
+                .pending_capture_sounds
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            // 保存待ちの後に音が遅れて鳴り、プレビューを開いた音に聞こえないようにする。
+            if let Err(error) = windows::prepare_region(app).and_then(|()| {
+                app.emit_to(windows::REGION_LABEL, "capture-completed", ())
+                    .map_err(Into::into)
+            }) {
+                eprintln!("[{APP_NAME}] {error}");
+            }
+        }
         let result = complete_capture(app, None, id, pending);
         if preview.is_err() {
             state.shots.remove(id);
         }
         result?;
         preview?;
-        state
-            .pending_capture_sounds
-            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        // 起動直後でも通知を失わないよう、音の件数はリスナー側で取り出す。
-        if let Err(error) = windows::prepare_region(app).and_then(|()| {
-            app.emit_to(windows::REGION_LABEL, "capture-completed", ())
-                .map_err(Into::into)
-        }) {
-            eprintln!("[{APP_NAME}] {error}");
-        }
         return Ok(());
     }
     state.pending_captures.lock().unwrap().insert(id, pending);
@@ -162,7 +164,7 @@ pub fn complete_capture(
                     }
                 }
                 completed.saved = true;
-                emit_completed_actions(app, label, &completed);
+                emit_completed_actions(app, label, id, &completed);
             }
             Err(error) => errors.push(error.to_string()),
         }
@@ -187,10 +189,15 @@ pub fn complete_capture(
     match copied {
         Ok(true) => {
             completed.copied = Some(actions.auto_copy);
-            emit_completed_actions(app, label, &completed);
+            emit_completed_actions(app, label, id, &completed);
         }
         Ok(false) => {}
         Err(error) => errors.push(error.to_string()),
+    }
+    completed.done = true;
+    completed.failed = !errors.is_empty();
+    if label.is_none() {
+        emit_completed_actions(app, label, id, &completed);
     }
     if errors.is_empty() {
         Ok(())
@@ -199,16 +206,42 @@ pub fn complete_capture(
     }
 }
 
-#[derive(Default, serde::Serialize)]
-struct CompletedActions {
-    saved: bool,
-    copied: Option<AutoCopy>,
+#[derive(Clone, Default, serde::Serialize)]
+pub struct CompletedActions {
+    pub saved: bool,
+    pub copied: Option<AutoCopy>,
+    pub done: bool,
+    pub failed: bool,
 }
 
-fn emit_completed_actions(app: &AppHandle, label: Option<&str>, completed: &CompletedActions) {
+fn emit_completed_actions(
+    app: &AppHandle,
+    label: Option<&str>,
+    id: u32,
+    completed: &CompletedActions,
+) {
     if let Some(label) = label {
         if let Err(error) = app.emit_to(label, "capture-actions", completed) {
             eprintln!("[{APP_NAME}] {error}");
+        }
+    } else {
+        let state = app.state::<AppState>();
+        let target = {
+            let mut previews = state.previews.lock().unwrap();
+            previews
+                .iter_mut()
+                .find(|(_, preview)| preview.id == id)
+                .map(|(label, preview)| {
+                    preview.completed = completed.clone();
+                    label.clone()
+                })
+        };
+        if let Some(label) = target {
+            if let Err(error) = app.emit_to(&label, "capture-preview-actions", serde_json::json!({
+                "id": id, "saved": completed.saved, "copied": completed.copied, "done": completed.done, "failed": completed.failed
+            })) {
+                eprintln!("[{APP_NAME}] {error}");
+            }
         }
     }
 }
@@ -485,10 +518,12 @@ mod tests {
         let payload = CompletedActions {
             saved: true,
             copied: Some(AutoCopy::Image),
+            done: true,
+            failed: false,
         };
         assert_eq!(
             serde_json::to_value(payload).unwrap(),
-            serde_json::json!({ "saved": true, "copied": "image" })
+            serde_json::json!({ "saved": true, "copied": "image", "done": true, "failed": false })
         );
     }
 }

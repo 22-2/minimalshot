@@ -36,12 +36,14 @@ export type ExternalTool = {
 export type ToolOutcome = "launched" | "copied";
 
 export type CompletedActions = { saved: boolean; copied: AutoCopy | null };
+export type PreviewState = CompletedActions & { id: number; done: boolean; failed: boolean };
 
 export type ShotInfo = {
   id: number;
   width: number;
   height: number;
   savedPath: string | null;
+  playCaptureSound: boolean;
 };
 
 export type EditorSession = {
@@ -67,6 +69,7 @@ export const api = {
   importConfig: () => invoke<Config | null>("import_config"),
   capture: (kind: CaptureKind) => invoke<void>("capture", { kind }),
 
+  capturePreviewState: () => invoke<PreviewState | null>("capture_preview_state"),
   capturePreviewPng: () => invoke<BinaryPayload>("capture_preview_png").then(toBytes),
   showCapturePreview: () => invoke<void>("show_capture_preview"),
   openCapturePreview: () => invoke<void>("open_capture_preview"),
