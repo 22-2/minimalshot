@@ -534,7 +534,13 @@ pub fn open_capture_preview(
                     primary.scale_factor(),
                 )
             }
-            None => (monitor.x, monitor.y, monitor.width, monitor.height, monitor.scale),
+            None => (
+                monitor.x,
+                monitor.y,
+                monitor.width,
+                monitor.height,
+                monitor.scale,
+            ),
         };
         let scale = scale.max(0.1);
         let margin = (16.0 * scale).round() as u32;
