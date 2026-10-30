@@ -47,8 +47,8 @@ test("shows when neither action was performed", async ({ page }) => {
   await expect(page.getByRole("button", { name: "撮影した画像を開く" })).toContainText("保存・コピーなし");
 });
 
-test("keeps a small image at its size and the status outside the image", async ({ page }) => {
-  await page.setViewportSize({ width: 200, height: 164 });
+test("keeps a small image at its size with the status overlaid inside the card", async ({ page }) => {
+  await page.setViewportSize({ width: 224, height: 144 });
   await installTauriMock(page, { label: "capture-preview-5", previewImageSize: { width: 100, height: 100 } });
   await page.goto("/");
 
@@ -59,12 +59,14 @@ test("keeps a small image at its size and the status outside the image", async (
   expect(status).not.toBeNull();
   expect(image!.width).toBe(100);
   expect(image!.height).toBe(100);
-  expect(status!.y).toBeGreaterThanOrEqual(image!.y + image!.height);
+  const card = await preview.locator(".capture-preview-image").boundingBox();
+  expect(status!.y + status!.height).toBeLessThanOrEqual(card!.y + card!.height + 0.5);
+  expect(status!.x).toBeGreaterThanOrEqual(card!.x);
   await expect(preview.locator(".capture-preview-status")).toContainText("画像をコピーしました");
 });
 
 test("fits a wide image without changing its aspect ratio", async ({ page }) => {
-  await page.setViewportSize({ width: 264, height: 213 });
+  await page.setViewportSize({ width: 288, height: 173 });
   await installTauriMock(page, { label: "capture-preview-6", previewImageSize: { width: 528, height: 297 } });
   await page.goto("/");
 

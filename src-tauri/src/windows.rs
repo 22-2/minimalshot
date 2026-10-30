@@ -522,36 +522,35 @@ pub fn open_capture_preview(
         }
     }
     let result = (|| -> AppResult<()> {
-        let area = app
-            .available_monitors()?
-            .into_iter()
-            .find(|m| m.position().x == monitor.x && m.position().y == monitor.y)
-            .map(|m| *m.work_area());
-        let (x, y, width, height) = area.map_or(
-            (monitor.x, monitor.y, monitor.width, monitor.height),
-            |rect| {
+        // 撮影した画面にかかわらず、プレビューはプライマリ画面にだけ出す。
+        let (x, y, width, height, scale) = match app.primary_monitor()? {
+            Some(primary) => {
+                let rect = primary.work_area();
                 (
                     rect.position.x,
                     rect.position.y,
                     rect.size.width,
                     rect.size.height,
+                    primary.scale_factor(),
                 )
-            },
-        );
-        let scale = monitor.scale.max(0.1);
+            }
+            None => (monitor.x, monitor.y, monitor.width, monitor.height, monitor.scale),
+        };
+        let scale = scale.max(0.1);
         let margin = (16.0 * scale).round() as u32;
-        // ステータスの高さは CapturePreview.css と揃える。
-        let status_height = (64.0 * scale).round() as u32;
+        // 影を描く余白。窓の外にはみ出せないため、カードの周りに確保する。値は CapturePreview.css と揃える。
+        let pad = (12.0 * scale).round() as u32;
         let available_w = width.saturating_sub(margin * 2).max(1);
         let available_h = height.saturating_sub(margin * 2).max(1);
         // 画像は最大 264x180 に収め、元の物理ピクセル数より拡大しない。
         let max_w = ((264.0 * scale).round() as u32).min(available_w).max(1);
-        let max_h = ((180.0 * scale).round() as u32)
-            .min(available_h.saturating_sub(status_height))
-            .max(1);
+        let max_h = ((180.0 * scale).round() as u32).min(available_h).max(1);
         let (image_w, image_h) = crate::preview_size::fit_image(thumbnail_size, (max_w, max_h));
-        let w = image_w.max((200.0 * scale).round() as u32).min(available_w);
-        let h = image_h.saturating_add(status_height).min(available_h);
+        // 小さい画像でも帯が収まるよう、カードには最小の大きさを持たせる。
+        let card_w = image_w.max((200.0 * scale).round() as u32).min(available_w);
+        let card_h = image_h.max((120.0 * scale).round() as u32).min(available_h);
+        let w = card_w + pad * 2;
+        let h = card_h + pad * 2;
         let window = if spare.is_some() {
             app.get_webview_window(&label)
                 .ok_or_else(|| crate::error::AppError::msg("予備のプレビューが見つかりません"))?
@@ -560,8 +559,8 @@ pub fn open_capture_preview(
         };
         window.set_size(PhysicalSize::new(w, h))?;
         window.set_position(PhysicalPosition::new(
-            x + width.saturating_sub(w + margin) as i32,
-            y + height.saturating_sub(h + margin) as i32,
+            x + width.saturating_sub(card_w + margin + pad) as i32,
+            y + height.saturating_sub(card_h + margin + pad) as i32,
         ))?;
         let mut previews = state.previews.lock().unwrap();
         if let Some(preview) = previews.get_mut(&label) {

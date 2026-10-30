@@ -72,8 +72,8 @@ export function CapturePreview() {
       <span className="capture-preview-image">
         <img src={url} alt="" onLoad={() => void api.showCapturePreview().then(() => setShown(true)).catch(() => void getCurrentWindow().close())}
           onError={() => void getCurrentWindow().close()} />
+        <span className="capture-preview-status" aria-live="polite">{statusText(result)}</span>
       </span>
-      <span className="capture-preview-status" aria-live="polite">{statusText(result)}</span>
     </button>
   ) : null;
 }
