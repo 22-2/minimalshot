@@ -30,6 +30,14 @@ test("fades and closes after a short preview", async ({ page }) => {
   await expect.poll(async () => (await calls(page)).some((call) => call.cmd === "plugin:window|close")).toBe(true);
 });
 
+test("closes the preview with Ctrl+W", async ({ page }) => {
+  await installTauriMock(page, { label: "capture-preview-ctrl-w" });
+  await page.goto("/");
+  await expect(page.locator(".capture-preview img")).toBeVisible();
+  await page.keyboard.press("Control+w");
+  await expect.poll(async () => (await calls(page)).some((call) => call.cmd === "plugin:window|close")).toBe(true);
+});
+
 
 test("shows completed save and copy results, including after delayed updates", async ({ page }) => {
   await installTauriMock(page, { label: "capture-preview-3", previewState: { id: 3, saved: false, copied: null, done: false, failed: false } });

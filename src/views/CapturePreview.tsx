@@ -23,6 +23,17 @@ export function CapturePreview() {
   const [shown, setShown] = useState(false);
 
   useEffect(() => {
+    const closeOnShortcut = (event: KeyboardEvent) => {
+      if (!event.ctrlKey || event.altKey || event.metaKey || event.shiftKey || event.key.toLowerCase() !== "w") return;
+      event.preventDefault();
+      event.stopPropagation();
+      void getCurrentWindow().close();
+    };
+    window.addEventListener("keydown", closeOnShortcut, true);
+    return () => window.removeEventListener("keydown", closeOnShortcut, true);
+  }, []);
+
+  useEffect(() => {
     let disposed = false;
     let imageUrl: string | null = null;
     let started = false;
